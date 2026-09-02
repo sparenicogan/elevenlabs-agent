@@ -391,7 +391,9 @@ rather than the build machine, so a macOS laptop and an Ubuntu runner produce th
 
 ## Failures encountered
 
-Four, all worth recording because three were silent and one was misleading.
+Six, all worth recording: three were silent, two were misleading, and one hung rather than
+failing. Every one of them was on the deploy path, which is the argument for exercising CI before
+there is anything at stake in it.
 
 ### 1. CloudWatch Logs could not use the KMS key
 
@@ -454,6 +456,40 @@ the immutable form.
 **Why the error message is misleading**: a subject mismatch and a missing permission produce the
 same text, so the natural first suspicion — an org SCP — was wrong and cost time.
 
+### 5. Terraform waited 28 minutes on an interactive prompt
+
+**Symptom**: the deploy workflow ran for 28 minutes with no output, then had to be cancelled. It
+held the state lock throughout, which blocks every other apply — including a local one.
+
+**Cause**: `terraform.tfvars` is untracked (T005a), so CI had no value for `var.aws_account_id`.
+Terraform asked for it on stdin and waited. In a non-interactive runner this looks exactly like a
+slow build.
+
+**Fix**: the value comes from a repository variable via `TF_VAR_aws_account_id`, and both workflows
+set `TF_INPUT=false` so a missing variable fails in seconds instead of hanging.
+
+**Why the hang is worse than the error**: an error is visible in the run list. A prompt is not — it
+consumed half an hour and left a lock that needed `force-unlock` to clear.
+
+**Cost of the account guard, honestly**: the guard from T005a is what created this. It remains
+worth keeping, but a variable with no default and an untracked value file needs a CI path, and that
+should have been provided when the guard was.
+
+### 6. The deploy role could not read the provider it authenticates through
+
+**Symptom**: `AccessDenied: not authorized to perform iam:GetOpenIDConnectProvider`.
+
+**Cause**: Terraform refreshes `aws_iam_openid_connect_provider` on every apply. PowerUserAccess
+grants no IAM at all, and the inline policy covered roles and policies but not the provider. So the
+role could authenticate through the provider and then not read it.
+
+**Fix**: read and adjust on that single provider ARN. Deliberately *not* create or delete —
+creating it is a bootstrap step, and deleting the provider CI authenticates through would be
+self-destructive.
+
+**Generalisation**: a least-privilege deploy role has to cover everything Terraform *refreshes*, not
+merely everything it changes. Refresh reads every managed resource on every run.
+
 ---
 
 ## Deviations register
@@ -475,8 +511,10 @@ same text, so the natural first suspicion — an org SCP — was wrong and cost 
 2 KMS keys with aliases, the transcripts bucket with its lifecycle, 3 empty secrets, 11 policy
 parameters, the HTTP API and stage, 2 log groups, the OIDC provider and deploy role.
 
-**Repository** — CI green on `pr.yml`. The deploy workflow now authenticates successfully; its
-first full run is still being settled.
+**Repository** — both workflows proven. `pr.yml` green on lint, tests, package build and Terraform
+validation. `main.yml` green: OIDC assume-role, build, `terraform apply` reporting *No changes.
+Your infrastructure matches the configuration* — meaning CI reads the same state a local apply
+does, and the local and CI paths have converged.
 
 **Verification** — `ruff format --check` and `ruff check` clean, `pytest` green, `terraform
 validate` passing for the root module and the Lambda module, `lambda.zip` building at 571 KB.
