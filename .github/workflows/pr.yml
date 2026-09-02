@@ -19,6 +19,10 @@ jobs:
 
   terraform:
     runs-on: ubuntu-latest
+    env:
+      # Validation needs no real account, but must never wait for one to be typed.
+      TF_VAR_aws_account_id: "000000000000"
+      TF_INPUT: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3

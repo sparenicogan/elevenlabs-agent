@@ -10,6 +10,13 @@ permissions:
   contents: read
   id-token: write
 
+env:
+  # terraform.tfvars is untracked, so CI has no file to read the account id from.
+  # Supplied here instead; it is a guard value, not a credential.
+  TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+  # A missing variable must fail immediately rather than block on an interactive prompt.
+  TF_INPUT: "false"
+
 concurrency:
   group: deploy
   cancel-in-progress: false
