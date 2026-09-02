@@ -25,6 +25,14 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: eu-central-1
 
+      - uses: astral-sh/setup-uv@v3
+      - run: uv python install
+      - run: uv sync --all-groups
+
+      # The package must exist before terraform apply: the Lambda module reads it with
+      # filebase64sha256, which fails at plan time if the artefact is absent.
+      - run: uv run python scripts/build.py
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.10.5
@@ -35,5 +43,4 @@ jobs:
       - run: terraform apply -auto-approve
         working-directory: infra/terraform
 
-      # Lambda packaging and deployment land in T031; the smoke test against the
-      # tool endpoints lands with the first endpoint in T038.
+      # The smoke test against the tool endpoints lands with the first endpoint in T038.

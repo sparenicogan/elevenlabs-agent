@@ -2,7 +2,9 @@
 name = "voice-billing-agent"
 version = "0.1.0"
 description = "Multilingual voice agent for inbound invoice, payment, credit and billing-dispute calls"
-requires-python = ">=3.12"
+# Pinned to the Lambda runtime, not merely a floor: the deployment package must be built
+# against the version that will execute it.
+requires-python = ">=3.12,<3.13"
 
 # boto3 is provided by the Lambda runtime and is deliberately not pinned here, so the
 # deployment package stays small. httpx is vendored because HubSpot is the only external

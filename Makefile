@@ -1,3 +1,8 @@
+# The AWS account for this project. Overridable, but defaulted so a fresh clone and any
+# shell hit the right account regardless of a global AWS_PROFILE set elsewhere.
+AWS_PROFILE ?= voice-agent-admin
+export AWS_PROFILE
+
 .PHONY: fmt lint test deploy seed bootstrap
 
 fmt:

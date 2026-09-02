@@ -51,31 +51,31 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Infrastructure
 
-- [ ] T010 [P] Define the customer-managed KMS key and alias in `infra/terraform/kms.tf`, with a key policy allowing only the identity-reading Lambda roles
-- [ ] T011 [P] Define the `customer_identity` table in `infra/terraform/dynamodb.tf` per data-model.md: PK `customer_id`, GSI `phone-index` projecting only `customer_id` and `preferred_language`, SSE with the CMK
-- [ ] T012 [P] Define the `ledger` table in `infra/terraform/dynamodb.tf`: PK `customer_id`, SK `entry_id`, GSI `status-index` on `customer_id` + `status`
-- [ ] T013 [P] Define the `conversations` and `customer_summaries` tables in `infra/terraform/dynamodb.tf`, with a `customer-index` GSI on `conversations` for risk-signal aggregation
-- [ ] T014 [P] Define the transcripts bucket in `infra/terraform/s3.tf`: SSE-KMS, public access blocked, lifecycle expiration driven by `var.transcript_retention_days`
-- [ ] T015 [P] Define Secrets Manager entries in `infra/terraform/secrets.tf` for the ElevenLabs webhook HMAC secret, the tool API key, and the HubSpot private-app token — values supplied out of band, never in the repo
-- [ ] T016 [P] Define the eleven SSM policy parameters from research.md D9 in `infra/terraform/ssm.tf`
-- [ ] T017 Define the HTTP API, routes, and stage in `infra/terraform/api_gateway.tf`, with a 5-second integration timeout
-- [ ] T018 Define the reusable Lambda module in `infra/terraform/lambda.tf`: Python 3.12, 4-second timeout, per-function least-privilege IAM role, and a log group with 10-year retention for the audit stream
-- [ ] T019 Define CloudWatch log groups in `infra/terraform/logs.tf`, including the dedicated `/voice-agent/audit` group
+- [x] T010 [P] Define the customer-managed KMS key and alias in `infra/terraform/kms.tf`, with a key policy allowing only the identity-reading Lambda roles
+- [x] T011 [P] Define the `customer_identity` table in `infra/terraform/dynamodb.tf` per data-model.md: PK `customer_id`, GSI `phone-index` projecting only `customer_id` and `preferred_language`, SSE with the CMK
+- [x] T012 [P] Define the `ledger` table in `infra/terraform/dynamodb.tf`: PK `customer_id`, SK `entry_id`, GSI `status-index` on `customer_id` + `status`
+- [x] T013 [P] Define the `conversations` and `customer_summaries` tables in `infra/terraform/dynamodb.tf`, with a `customer-index` GSI on `conversations` for risk-signal aggregation
+- [x] T014 [P] Define the transcripts bucket in `infra/terraform/s3.tf`: SSE-KMS, public access blocked, lifecycle expiration driven by `var.transcript_retention_days`
+- [x] T015 [P] Define Secrets Manager entries in `infra/terraform/secrets.tf` for the ElevenLabs webhook HMAC secret, the tool API key, and the HubSpot private-app token — values supplied out of band, never in the repo
+- [x] T016 [P] Define the eleven SSM policy parameters from research.md D9 in `infra/terraform/ssm.tf`
+- [~] T017 Define the HTTP API, routes, and stage in `infra/terraform/api_gateway.tf`, with a 5-second integration timeout — API, stage and access logging done; **routes deferred to Phase 3**, since a route needs an integration and an integration needs a handler
+- [x] T018 Define the reusable Lambda module in `infra/terraform/modules/lambda/`: Python 3.12, 4-second timeout, per-function least-privilege IAM role and log group. Written and validating standalone; **first instantiated in T038**. Audit log-group retention lives in `logs.tf` (T019), not the module — it is one group for the project, not one per function
+- [x] T019 Define CloudWatch log groups in `infra/terraform/logs.tf`, including the dedicated `/voice-agent/audit` group
 
 ### Cross-cutting code
 
-- [ ] T020 [P] Implement structured JSON logging in `src/common/logging.py`, correlated by `conversation_id` and `customer_id`, with a field allowlist that makes logging a raw identity field impossible rather than merely discouraged (FR-029)
-- [ ] T021 [P] Implement the audit event emitter in `src/common/audit.py`, writing `event_type: AUDIT` records carrying all eleven FR-041 fields
-- [ ] T022 [P] Implement API-key authentication and request validation in `src/common/auth.py` and `src/common/validation.py`, rejecting unauthenticated or malformed tool calls server-side (FR-046)
-- [ ] T023 [P] Implement the idempotency helper in `src/common/idempotency.py`: conditional-write wrapper on natural keys that returns the original result on a duplicate rather than an error (FR-022, research D6)
-- [ ] T024 [P] Implement error categorisation in `src/adapters/errors.py`, mapping every external failure to `TIMEOUT | DEPENDENCY_DOWN | VALIDATION | NOT_AUTHORIZED | INTERNAL` and producing the common error envelope from contracts/tools.md
-- [ ] T025 [P] Implement the DynamoDB adapter in `src/adapters/dynamo.py`: get, query, conditional put/update, with one bounded retry on reads only and none on writes (FR-023)
-- [ ] T026 [P] Implement the S3 adapter in `src/adapters/s3.py` for transcript put and key construction
-- [ ] T027 [P] Implement the SSM and Secrets adapters in `src/adapters/ssm.py` and `src/adapters/secrets.py`, caching at cold start (research D9)
-- [ ] T028 [P] Implement the HubSpot adapter in `src/adapters/hubspot.py`: contacts, companies, tickets, and engagements via REST v3, with a field allowlist that blocks date of birth, verification answers, and payment detail at the adapter boundary (FR-028)
-- [ ] T029 Implement the typed policy object in `src/domain/policy.py`, loaded from SSM, so no threshold literal appears in any handler or prompt (FR-045)
-- [ ] T030 Implement conversation state in `src/common/conversation_state.py`: create the `conversations` item on initiation and record verification status against it, so every tool can check verification server-side rather than trusting the prompt (FR-002)
-- [ ] T031 Write the Lambda packaging script in `scripts/build.py` and wire it into both workflows
+- [x] T020 [P] Implement structured JSON logging in `src/common/logging.py`, correlated by `conversation_id` and `customer_id`, with a field allowlist that makes logging a raw identity field impossible rather than merely discouraged (FR-029)
+- [x] T021 [P] Implement the audit event emitter in `src/common/audit.py`, writing `event_type: AUDIT` records carrying all eleven FR-041 fields
+- [x] T022 [P] Implement API-key authentication and request validation in `src/common/auth.py` and `src/common/validation.py`, rejecting unauthenticated or malformed tool calls server-side (FR-046)
+- [x] T023 [P] Implement the idempotency helper in `src/common/idempotency.py`: conditional-write wrapper on natural keys that returns the original result on a duplicate rather than an error (FR-022, research D6)
+- [x] T024 [P] Implement error categorisation in `src/adapters/errors.py`, mapping every external failure to `TIMEOUT | DEPENDENCY_DOWN | VALIDATION | NOT_AUTHORIZED | INTERNAL` and producing the common error envelope from contracts/tools.md
+- [x] T025 [P] Implement the DynamoDB adapter in `src/adapters/dynamo.py`: get, query, conditional put/update, with one bounded retry on reads only and none on writes (FR-023)
+- [x] T026 [P] Implement the S3 adapter in `src/adapters/s3.py` for transcript put and key construction
+- [x] T027 [P] Implement the SSM and Secrets adapters in `src/adapters/ssm.py` and `src/adapters/secrets.py`, caching at cold start (research D9)
+- [x] T028 [P] Implement the HubSpot adapter in `src/adapters/hubspot.py`: contacts, companies, tickets, and engagements via REST v3, with a field allowlist that blocks date of birth, verification answers, and payment detail at the adapter boundary (FR-028)
+- [x] T029 Implement the typed policy object in `src/domain/policy.py`, loaded from SSM, so no threshold literal appears in any handler or prompt (FR-045)
+- [x] T030 Implement conversation state in `src/common/conversation_state.py`: create the `conversations` item on initiation and record verification status against it, so every tool can check verification server-side rather than trusting the prompt (FR-002)
+- [x] T031 Write the Lambda packaging script in `scripts/build.py` and wire it into both workflows
 
 **Checkpoint**: Infrastructure deploys, one endpoint answers, nothing business-specific exists yet.
 

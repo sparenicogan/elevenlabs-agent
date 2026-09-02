@@ -26,3 +26,9 @@ variable "create_oidc_provider" {
   type        = bool
   default     = true
 }
+
+variable "transcript_retention_days" {
+  description = "Transcripts expire after this many days (FR-038a). The shortest-lived artefact."
+  type        = number
+  default     = 90
+}
