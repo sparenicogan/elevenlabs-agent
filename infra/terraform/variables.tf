@@ -21,6 +21,24 @@ variable "github_repo" {
   default     = "sparenicogan/elevenlabs-agent"
 }
 
+# This organisation has immutable OIDC subject claims enabled, so GitHub presents
+#   repo:<owner>@<owner_id>/<repo>@<repo_id>:ref:refs/heads/main
+# rather than the documented repo:<owner>/<repo>:ref:... . The numeric ids survive a
+# rename, which is the point: renaming a repository cannot transfer its AWS trust to
+# whoever claims the freed name. A trust policy written against the documented form
+# silently matches nothing.
+variable "github_owner_id" {
+  description = "Numeric GitHub id of the repository owner, from the OIDC sub claim."
+  type        = string
+  default     = "299617649"
+}
+
+variable "github_repository_id" {
+  description = "Numeric GitHub id of the repository, from the OIDC sub claim."
+  type        = string
+  default     = "1354831999"
+}
+
 variable "create_oidc_provider" {
   description = "False when the account already has a GitHub OIDC provider; an account may only have one."
   type        = bool

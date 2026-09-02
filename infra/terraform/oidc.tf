@@ -33,12 +33,15 @@ data "aws_iam_policy_document" "github_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Scoped to this repository. Without this condition any GitHub repository
-    # in the world could assume the role.
+    # Scoped to this repository, in the immutable form this organisation presents
+    # (see github_owner_id in variables.tf). Without this condition any GitHub
+    # repository in the world could assume the role.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:*"]
+      values = [
+        "repo:${split("/", var.github_repo)[0]}@${var.github_owner_id}/${split("/", var.github_repo)[1]}@${var.github_repository_id}:*"
+      ]
     }
   }
 }
