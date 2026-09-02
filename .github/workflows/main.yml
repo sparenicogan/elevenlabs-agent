@@ -1,0 +1,39 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Required for the OIDC token exchange. Without id-token: write there is no credential.
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+
+      - run: terraform init
+        working-directory: infra/terraform
+
+      - run: terraform apply -auto-approve
+        working-directory: infra/terraform
+
+      # Lambda packaging and deployment land in T031; the smoke test against the
+      # tool endpoints lands with the first endpoint in T038.
