@@ -1,0 +1,46 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Required for the OIDC token exchange. Without id-token: write there is no credential.
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - uses: astral-sh/setup-uv@v3
+      - run: uv python install
+      - run: uv sync --all-groups
+
+      # The package must exist before terraform apply: the Lambda module reads it with
+      # filebase64sha256, which fails at plan time if the artefact is absent.
+      - run: uv run python scripts/build.py
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+
+      - run: terraform init
+        working-directory: infra/terraform
+
+      - run: terraform apply -auto-approve
+        working-directory: infra/terraform
+
+      # The smoke test against the tool endpoints lands with the first endpoint in T038.
