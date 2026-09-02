@@ -84,6 +84,24 @@ data "aws_iam_policy_document" "github_deploy_iam" {
     resources = ["arn:aws:iam::${var.aws_account_id}:role/${var.project}-*"]
   }
 
+  # Terraform refreshes the OIDC provider on every apply, so the deploy role must be able
+  # to read it. Read and adjust only: creating it is a bootstrap step, and deleting the
+  # provider CI itself authenticates through would be self-destructive.
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:GetOpenIDConnectProvider",
+      "iam:TagOpenIDConnectProvider",
+      "iam:UntagOpenIDConnectProvider",
+      "iam:AddClientIDToOpenIDConnectProvider",
+      "iam:RemoveClientIDFromOpenIDConnectProvider",
+      "iam:UpdateOpenIDConnectProviderThumbprint",
+    ]
+    resources = [
+      "arn:aws:iam::${var.aws_account_id}:oidc-provider/token.actions.githubusercontent.com"
+    ]
+  }
+
   statement {
     effect = "Allow"
     actions = [
