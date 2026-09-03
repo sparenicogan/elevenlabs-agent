@@ -115,6 +115,16 @@ VERIFIED, PARTIALLY_VERIFIED, FAILED, and LOCKED produces its defined behavior.
 5. **Given** repeated failed attempts past the configured limit, **When** the caller tries again,
    **Then** the backend returns LOCKED, a risk signal is recorded, and the agent escalates rather
    than continuing to ask.
+5a. **Given** identity cannot be established, **When** the agent escalates, **Then** it first asks
+   what the caller is calling about, records their answer in their own words, and transfers with
+   that context so they do not repeat themselves to the human.
+5b. **Given** an unverified handoff, **When** the human receives it, **Then** it carries the stated
+   problem, any self-description marked as unverified, the verification outcome and attempt count,
+   and the language — and no invoice, payment, balance or account fact whatsoever.
+5c. **Given** an unverified escalation, **When** the ticket is created, **Then** it is associated
+   with no contact and no company, because no customer has been established.
+5d. **Given** the caller asks why they could not be verified, **When** the agent answers, **Then**
+   it says only that it cannot confirm their identity, never which detail was wrong.
 6. **Given** a caller confirms three factors that are all printed on the invoice they hold, **When**
    the backend evaluates them, **Then** verification does not succeed, because at least one
    non-document factor is required.
@@ -459,6 +469,23 @@ evidence on the escalation, promises human correction, and writes nothing to the
 - **FR-019a**: The transfer destination MUST be a single configured telephone number, changeable
   without redeploying, so that the failure path is exercised by repointing the configuration rather
   than by a demo-only code branch.
+- **FR-019b**: When identity cannot be established, the agent MUST record what the caller came
+  about, in the caller's own words, and transfer to a human with that context. The caller MUST NOT
+  be made to repeat their problem to the person who takes over merely because the system could not
+  confirm who they were.
+- **FR-019c**: An unverified handoff MUST carry: the caller's stated problem; anything they claimed
+  about themselves, explicitly labelled as unverified; the verification outcome and how many
+  attempts were made; the language of the call; and the conversation identifier. It MUST NOT carry
+  any invoice, payment, balance, credit, or account fact, because none was disclosed and none has
+  been established as theirs.
+- **FR-019d**: An unverified escalation MUST create a ticket that is not associated with any
+  contact or company, since no customer has been established. Associating it on the caller's claim
+  alone would write an unverified identity into the CRM.
+- **FR-019e**: Caller-supplied text in an unverified handoff MUST be treated as untrusted content:
+  recorded and shown to the human, never interpreted as an instruction by any downstream system.
+- **FR-019f**: The agent MUST NOT tell the caller which detail failed, or that their answers were
+  wrong. It says only that it cannot confirm their identity and that a colleague will take over
+  (FR-004).
 - **FR-020**: A failed transfer MUST NOT abandon the caller: the escalation MUST be persisted, a
   callback created, and the caller told on the call what happens next and within what timeframe.
 

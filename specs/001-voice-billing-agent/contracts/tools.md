@@ -131,9 +131,11 @@ tell you right now", never as an answer (FR-011).
 
 ```json
 // request
-{ "conversation_id": "conv_...", "reason": "PAYMENT_UNVERIFIABLE|CREDIT_ABOVE_AUTHORITY|...",
+{ "conversation_id": "conv_...", "reason": "PAYMENT_UNVERIFIABLE|CREDIT_ABOVE_AUTHORITY|IDENTITY_NOT_ESTABLISHED|...",
   "existing_ticket_id": null,
   "notes": "caller says the company moved in March",
+  "caller_stated_problem": "in the caller's own words, verbatim",
+  "caller_self_description": "what they said about who they are — unverified",
   "discrepancy": { "field": "payer_address", "caller_explanation": "MOVED|TYPO|UNKNOWN" } }
 
 // response
@@ -148,3 +150,11 @@ tell you right now", never as an answer (FR-011).
   research D2). The agent passes it as `agent_message` on transfer.
 - If HubSpot is unavailable, the escalation is persisted locally and `CRM_UNAVAILABLE_PERSISTED` is
   returned — the escalation is never lost to a CRM outage (FR-025).
+- **Works without a verified conversation.** `IDENTITY_NOT_ESTABLISHED` is the one reason accepted
+  from an unverified call, so a caller the system cannot identify still reaches a human with their
+  problem already written down (FR-019b).
+- On an unverified escalation the ticket is created with **no contact or company association**
+  (FR-019d), the handoff carries no account fact of any kind (FR-019c), and
+  `caller_self_description` is labelled unverified wherever it is shown.
+- `caller_stated_problem` and `caller_self_description` are untrusted caller text. They are recorded
+  and displayed, never interpreted as instructions (FR-019e).

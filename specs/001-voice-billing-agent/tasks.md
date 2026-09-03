@@ -91,20 +91,20 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Tests for User Story 1
 
-- [ ] T032 [P] [US1] Write unit tests for exact payment matching in `tests/unit/test_payment_match.py`: exact amount and exact execution date give MATCH; a one-day or one-franc difference gives NO_MATCH; a missing field or two candidate payments give INSUFFICIENT (FR-010a)
-- [ ] T033 [P] [US1] Write unit tests for allocation legality in `tests/unit/test_allocation.py`: `UNALLOCATED → UNDER_REVIEW` only, never straight to `ALLOCATED`, and a second proposal returns the first ticket (FR-012, FR-022)
+- [x] T032 [P] [US1] Write unit tests for exact payment matching in `tests/unit/test_payment_match.py`: exact amount and exact execution date give MATCH; a one-day or one-franc difference gives NO_MATCH; a missing field or two candidate payments give INSUFFICIENT (FR-010a)
+- [x] T033 [P] [US1] Write unit tests for allocation legality in `tests/unit/test_allocation.py`: `UNALLOCATED → UNDER_REVIEW` only, never straight to `ALLOCATED`, and a second proposal returns the first ticket (FR-012, FR-022)
 - [ ] T034 [P] [US1] Write contract tests in `tests/contract/test_tool_contracts.py` asserting every tool response matches contracts/tools.md, including that `match_payment` never returns a stored amount, date, reference, or address
 - [ ] T035 [P] [US1] Write the golden-path integration test in `tests/integration/test_golden_path.py` against deployed endpoints
 
 ### Implementation for User Story 1
 
 - [ ] T036 [P] [US1] Write the synthetic seed script in `scripts/seed/seed.py` and fixtures in `scripts/seed/fixtures.py` for the four customers in quickstart.md — Meier Bau AG carries the overdue CHF 4,200 invoice and the unallocated CHF 4,200 payment with no reference and a mismatched payer address
-- [ ] T037 [US1] Implement factor checking in `src/domain/verification.py`: compare supplied factors against stored values, count confirmed factors, and return the status enum without ever revealing which factor failed (FR-004)
-- [ ] T038 [US1] Implement `src/handlers/verify_identity.py` per contracts/tools.md, resolving the customer from the factors themselves and never from the caller-id candidate (research D3), and recording verification state via T030
+- [x] T037 [US1] Implement factor checking in `src/domain/verification.py`: compare supplied factors against stored values, count confirmed factors, and return the status enum without ever revealing which factor failed (FR-004)
+- [x] T038 [US1] Implement `src/handlers/verify_identity.py` per contracts/tools.md, resolving the customer from the factors themselves and never from the caller-id candidate (research D3), and recording verification state via T030
 - [ ] T039 [US1] Implement `src/handlers/get_account_context.py`: refuse unless the conversation is VERIFIED, then fetch open invoices from the `status-index`, open and past escalations, CRM data, and the bounded summary (FR-001, FR-039b)
-- [ ] T040 [US1] Implement exact matching in `src/domain/payment_match.py`, comparing against the payment's execution date and returning MATCH / NO_MATCH / INSUFFICIENT plus an `address_discrepancy` boolean (FR-010a, FR-010b)
+- [x] T040 [US1] Implement exact matching in `src/domain/payment_match.py`, comparing against the payment's execution date and returning MATCH / NO_MATCH / INSUFFICIENT plus an `address_discrepancy` boolean (FR-010a, FR-010b)
 - [ ] T041 [US1] Implement `src/handlers/match_payment.py`, returning only booleans and identifiers — never the stored values — and never MATCH on an unsettled payment record (FR-010, FR-010d)
-- [ ] T042 [US1] Implement state-transition rules in `src/domain/allocation.py`, including the authority check that sends every allocation to human review
+- [x] T042 [US1] Implement state-transition rules in `src/domain/allocation.py`, including the authority check that sends every allocation to human review
 - [ ] T043 [US1] Implement `src/handlers/propose_allocation.py`: conditional write on `status = UNALLOCATED`, audit event with previous and new state, HubSpot ticket, interaction log, and `ALREADY_UNDER_REVIEW` on a duplicate (FR-012, FR-022, FR-041, FR-044)
 - [ ] T044 [US1] Write the English system prompt in `agent/prompt/en.md`: the disclosure gate, asking for exact amount and exact transfer date, offering to wait while the caller checks their banking app, explaining that a person validates the allocation, and speaking a short acknowledgement before every tool call (FR-023a)
 - [ ] T045 [US1] Write the tool definitions in `agent/tools.json` matching contracts/tools.md exactly, and the agent configuration in `agent/agent.json` (voice, language detection, transfer)
@@ -132,6 +132,9 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 - [ ] T051 [US2] Implement risk-signal writing in `src/domain/risk.py` and record a signal on lockout and on a candidate-id mismatch (FR-016, research D3)
 - [ ] T052 [US2] Add `next_factor_hint` selection to `src/handlers/verify_identity.py`, naming a field to ask for and never carrying a value (FR-004)
 - [ ] T053 [US2] Extend `agent/prompt/en.md` with guidance for a caller who cannot find the information — naming which document carries it, without revealing the value (FR-005) — and with escalation on LOCKED
+- [ ] T053a [US2] Add the unverified-escalation branch to `agent/prompt/en.md`: when identity cannot be established, ask what the caller is calling about, record their answer verbatim, say only that identity cannot be confirmed, and transfer with that context (FR-019b, FR-019f)
+- [ ] T053b [US2] Accept `IDENTITY_NOT_ESTABLISHED` from an unverified conversation in `src/handlers/create_escalation.py`, creating a ticket with no contact or company association and a handoff carrying the stated problem, unverified self-description, verification outcome, attempt count and language — and no account fact (FR-019c, FR-019d)
+- [ ] T053c [P] [US2] Write tests in `tests/contract/test_unverified_escalation.py`: the escalation succeeds without verification, the ticket has no associations, the handoff contains no invoice, payment, balance or account field, and caller text is recorded rather than interpreted (FR-019e)
 
 ---
 
