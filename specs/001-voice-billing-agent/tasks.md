@@ -106,9 +106,9 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 - [ ] T041 [US1] Implement `src/handlers/match_payment.py`, returning only booleans and identifiers — never the stored values — and never MATCH on an unsettled payment record (FR-010, FR-010d)
 - [x] T042 [US1] Implement state-transition rules in `src/domain/allocation.py`, including the authority check that sends every allocation to human review
 - [ ] T043 [US1] Implement `src/handlers/propose_allocation.py`: conditional write on `status = UNALLOCATED`, audit event with previous and new state, HubSpot ticket, interaction log, and `ALREADY_UNDER_REVIEW` on a duplicate (FR-012, FR-022, FR-041, FR-044)
-- [ ] T044 [US1] Write the English system prompt in `agent/prompt/en.md`: the disclosure gate, asking for exact amount and exact transfer date, offering to wait while the caller checks their banking app, explaining that a person validates the allocation, and speaking a short acknowledgement before every tool call (FR-023a)
-- [ ] T045 [US1] Write the tool definitions in `agent/tools.json` matching contracts/tools.md exactly, and the agent configuration in `agent/agent.json` (voice, language detection, transfer)
-- [ ] T046 [US1] Wire the deployed endpoints, the tool API key secret, and the inbound number into the ElevenLabs agent using `agent/agent.json` and `agent/tools.json`, then run the golden path live
+- [x] T044 [US1] Write the English system prompt in `agent/prompt/en.md`: the disclosure gate, asking for exact amount and exact transfer date, offering to wait while the caller checks their banking app, explaining that a person validates the allocation, and speaking a short acknowledgement before every tool call (FR-023a)
+- [x] T045 [US1] Write the tool definitions in `agent/tools.json` matching contracts/tools.md exactly, and the agent configuration in `agent/agent.json` (voice, language detection, transfer)
+- [x] T046 [US1] Wire the deployed endpoints, the tool API key secret, and the inbound number into the ElevenLabs agent using `agent/agent.json` and `agent/tools.json`, then run the golden path live
 
 **Checkpoint**: The demo exists. Everything after this makes it safe, multilingual, and reviewable.
 

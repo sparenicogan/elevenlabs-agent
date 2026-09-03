@@ -41,6 +41,7 @@
     "temperature": "Low. This agent reads statuses back to callers and follows a policy; inventiveness is a defect here, not a feature.",
     "turn_timeout": "10s. Callers checking a banking app for a payment date need thinking time, and the agent explicitly offers to wait.",
     "system_tools": "language_detection for DE/FR/IT/EN, and transfer_to_number for the escalation handoff. Both are configured at the platform level rather than in this file.",
-    "asr": "scribe_realtime. The original 'elevenlabs' provider was removed and existing agents migrated; specifying it is now rejected."
+    "asr": "scribe_realtime. The original 'elevenlabs' provider was removed and existing agents migrated; specifying it is now rejected.",
+    "phone_number": "+1 656 223 0845 (phnum_5701m1k7hybefhvvh8j28rz577e2), imported from Twilio and assigned to this agent. A number routes to exactly one agent, which is why this project uses its own rather than sharing."
   }
 }
