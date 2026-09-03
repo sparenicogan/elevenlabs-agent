@@ -5,6 +5,15 @@ locals {
   policy_parameters = {
     required_factor_count     = "3"
     verification_max_attempts = "3"
+
+    # Backward-only tolerance in calendar days: the payer sees the date their transfer left,
+    # the record may hold the date it arrived. A Friday transfer posting on Monday is 3 days.
+    payment_date_tolerance_days = "3"
+
+    # Edit distance within which a payment reference counts as a mistyped invoice id —
+    # but only when the written reference resolves to no invoice at all (FR-010g).
+    reference_typo_max_distance = "2"
+
     credit_max_per_request    = "100"
     credit_max_rolling        = "500"
     credit_window_months      = "12"

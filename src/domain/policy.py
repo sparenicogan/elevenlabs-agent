@@ -18,6 +18,10 @@ class Policy:
 
     required_factor_count:     independent factors needed to verify (FR-003).
     verification_max_attempts: failures before the account locks (FR-006).
+    payment_date_tolerance_days: how many calendar days earlier than the record a caller's
+                               transfer date may be. Backward only (FR-010b).
+    reference_typo_max_distance: edit distance within which a payment reference counts as a
+                               mistyped invoice id, when it resolves to no invoice (FR-010f).
     credit_max_per_request:    inclusive ceiling on a single credit, in CHF (FR-013b).
     credit_max_rolling:        inclusive ceiling on the rolling-window total, in CHF.
     credit_window_months:      length of the rolling window (FR-014).
@@ -31,6 +35,8 @@ class Policy:
 
     required_factor_count: int
     verification_max_attempts: int
+    payment_date_tolerance_days: int
+    reference_typo_max_distance: int
     credit_max_per_request: Decimal
     credit_max_rolling: Decimal
     credit_window_months: int
@@ -53,6 +59,8 @@ def load() -> Policy:
     return Policy(
         required_factor_count=int(raw["required_factor_count"]),
         verification_max_attempts=int(raw["verification_max_attempts"]),
+        payment_date_tolerance_days=int(raw["payment_date_tolerance_days"]),
+        reference_typo_max_distance=int(raw["reference_typo_max_distance"]),
         credit_max_per_request=Decimal(raw["credit_max_per_request"]),
         credit_max_rolling=Decimal(raw["credit_max_rolling"]),
         credit_window_months=int(raw["credit_window_months"]),

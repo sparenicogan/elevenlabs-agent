@@ -46,7 +46,9 @@ One table for every financial entry (FR-017: balances are derived, never stored)
 | `amount` | N | Signed. Invoices positive, payments and credits negative |
 | `currency` | S | `CHF` |
 | `status` | S | See transitions below |
-| `reference` | S | Nullable — the golden-path payment has none |
+| `invoice_number` | S | Invoices only. `INV-2026-0412`, sequential from `-0001` each year. Spoken to the caller and printed on the document |
+| `payment_reference` | S | Invoices only. A random 7-digit key, e.g. `1467900`. What the customer is asked to quote on the transfer |
+| `reference` | S | Payments only. Whatever the payer actually wrote. Nullable — the golden-path payment has none |
 | `allocated_to` | L | Entry ids this entry settles |
 | `payer_name`, `payer_address` | M | Payment only. `payer_address` is the golden path's mismatch |
 | `reason` | S | Credits and adjustments |
@@ -56,6 +58,17 @@ One table for every financial entry (FR-017: balances are derived, never stored)
 
 **GSI `status-index`**: `customer_id` + `status`. Serves open-invoice and unallocated-payment lookups
 without a table scan.
+
+**GSI `reference-index`**: `payment_reference` → entry. Answers one question: does this string resolve
+to an existing invoice? That question is what separates a mistyped reference from a payment earmarked
+for a different invoice (FR-010f), and it must span customers — a payment referencing another
+customer's invoice belongs to them, not to the caller on the line.
+
+**Why two identifiers rather than one**: `invoice_number` is sequential, so consecutive invoices differ
+by a single character and fuzzy matching against it would propose allocating a payment to its
+neighbour. `payment_reference` is random over ten million values, so a mistyped key almost never
+resolves to a real invoice, and a near miss that resolves to nothing is safely a typo. The dense
+identifier is for humans to read; the sparse one is for machines to match.
 
 **State transitions**
 

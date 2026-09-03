@@ -60,6 +60,11 @@ resource "aws_dynamodb_table" "ledger" {
     type = "S"
   }
 
+  attribute {
+    name = "payment_reference"
+    type = "S"
+  }
+
   # Open invoices and unallocated payments are read by status on every call.
   # Without this index those reads become table scans.
   global_secondary_index {
@@ -67,6 +72,16 @@ resource "aws_dynamodb_table" "ledger" {
     hash_key        = "customer_id"
     range_key       = "status"
     projection_type = "ALL"
+  }
+
+  # Answers one question: does this string resolve to an existing invoice? That is what
+  # separates a mistyped reference from a payment earmarked for a different invoice
+  # (FR-010g), and it must span customers — a payment quoting another customer's reference
+  # belongs to them, not to the caller on the line.
+  global_secondary_index {
+    name            = "reference-index"
+    hash_key        = "payment_reference"
+    projection_type = "KEYS_ONLY"
   }
 
   server_side_encryption {

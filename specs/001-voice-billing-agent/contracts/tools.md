@@ -67,7 +67,7 @@ tell you right now", never as an answer (FR-011).
 ```json
 // request
 { "conversation_id": "conv_...", "invoice_entry_id": "inv_...",
-  "claimed_amount": 4200.00, "claimed_execution_date": "2026-07-02" }
+  "claimed_amount": 4200.00, "claimed_transfer_date": "2026-07-02" }
 
 // response
 { "status": "MATCH|NO_MATCH|INSUFFICIENT",
@@ -78,7 +78,8 @@ tell you right now", never as an answer (FR-011).
   "missing_fields": ["claimed_execution_date"] }  // INSUFFICIENT only
 ```
 
-- Exact amount and exact execution date, no tolerance (FR-010a).
+- Exact amount, no tolerance. Date within `payment_date_tolerance_days` (default 3) *before* the
+  recorded date, never after (FR-010a, FR-010b).
 - `NO_MATCH` when a supplied value differs; `INSUFFICIENT` when a field is absent or more than one
   candidate payment fits.
 - Never returns the stored amount, date, reference, or payer address (FR-010). `address_discrepancy`
