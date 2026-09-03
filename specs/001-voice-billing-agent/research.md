@@ -81,10 +81,29 @@ webhook is a backstop that reconciles cases where the call ended before recovery
 the post-call payload would satisfy the persistence half of the requirement and fail the human half:
 by then the caller has heard silence and hung up.
 
-**Risk to verify during implementation**: whether the ElevenLabs `transfer_to_number` system tool
-returns control to the agent on a failed dial, or terminates the call. If it terminates, the fallback
-degrades to post-call persistence plus callback, and the spec's promise of telling the caller cannot
-be met on that path — which must then be stated honestly in the demo rather than implied.
+**Resolved, 2026-09-03, and the answer changes the design rather than settling it.**
+
+The ElevenLabs documentation describes three transfer types and their configuration and says
+**nothing about failure**: no failure routing, no recovery path, no statement about whether the agent
+regains control. What can be inferred from the mechanisms:
+
+- **Conference** (the default) dials the destination, adds them to a room, and *then* removes the
+  agent. The agent plausibly survives a failed dial because it is not removed until the join
+  succeeds.
+- **Blind** and **SIP REFER** hand the call off at the protocol level. The agent is almost certainly
+  gone.
+
+The docs also note that audio is cut the moment a transfer triggers, with no native way to let the
+agent finish speaking first.
+
+**Decision**: do not depend on the unverified behaviour. The escalation and the callback are
+persisted *before* the transfer is attempted, so the caller is covered either way — if the agent
+survives it tells them, and if it does not, a human already has the context and a callback exists.
+Conference transfer is used because it is the only type where recovery is even possible.
+
+**Still worth confirming empirically** with one real call to an unroutable number. It determines
+whether the demo can *show* the recovery or only describe it, but it no longer determines whether
+the caller is protected.
 
 ## D5. Timeout budget
 

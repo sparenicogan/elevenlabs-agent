@@ -33,6 +33,7 @@ def stubs(mocker):
             side_effect=ToolError(ErrorCategory.NOT_AUTHORIZED, "not verified"),
         ),
         "signals": mocker.patch.object(module.conversation_state, "risk_signals", return_value=[]),
+        "callback": mocker.patch.object(module.conversation_state, "record_callback"),
         "ticket": mocker.patch.object(
             module.hubspot, "create_ticket", return_value="TICKET-ASSOCIATED"
         ),
@@ -195,3 +196,50 @@ class TestDegradation:
         assert event.action == "create_escalation"
         assert event.customer_id == "UNIDENTIFIED"
         assert event.human_approval_required is True
+
+
+class TestTheCallbackIsArrangedBeforeTheTransfer:
+    """A transfer that fails may take the agent with it.
+
+    ElevenLabs does not document whether an agent survives a failed dial, so a callback
+    arranged only in the recovery path might never be arranged at all. It is recorded before
+    the transfer is attempted, which makes the caller's protection independent of a behaviour
+    nobody has written down (FR-020, FR-020a).
+    """
+
+    def test_a_callback_is_recorded_for_every_escalation(self, stubs):
+        result = call(stubs, caller_stated_problem=STATED_PROBLEM)
+        stubs["callback"].assert_called_once()
+        assert result["callback_created"] is True
+
+    def test_it_is_recorded_even_when_the_caller_could_not_be_identified(self, stubs):
+        """They are owed a call back either way; the person taking it establishes who they
+        were."""
+        call(stubs, caller_stated_problem=STATED_PROBLEM)
+        assert stubs["callback"].call_args.kwargs["customer_id"] is None
+
+    def test_it_carries_the_ticket_so_whoever_rings_back_has_the_context(self, stubs):
+        call(stubs, caller_stated_problem=STATED_PROBLEM)
+        assert stubs["callback"].call_args.kwargs["ticket_id"] == "TICKET-QUEUE"
+
+    def test_the_agent_is_given_something_true_to_promise(self, stubs):
+        """Said before transferring, so the promise survives the transfer failing."""
+        result = call(stubs, caller_stated_problem=STATED_PROBLEM)
+        assert "call you back" in result["safe_to_promise"]
+
+    def test_a_failed_callback_does_not_lose_the_escalation(self, stubs):
+        """The ticket and the audit record still exist. Nobody is scheduled to ring, which is
+        why that failure is logged loudly rather than swallowed."""
+        stubs["callback"].side_effect = ToolError(ErrorCategory.DEPENDENCY_DOWN, "down")
+        result = call(stubs, caller_stated_problem=STATED_PROBLEM)
+        assert result["status"] == "CREATED"
+        assert result["callback_created"] is False
+        stubs["audit"].assert_called_once()
+
+    def test_a_crm_outage_still_leaves_a_callback(self, stubs):
+        """The worst case: no ticket, no CRM. The caller is still owed a call and the record
+        of that is in DynamoDB, which is the store that did not fail."""
+        stubs["unassociated"].side_effect = ToolError(ErrorCategory.DEPENDENCY_DOWN, "down")
+        result = call(stubs, caller_stated_problem=STATED_PROBLEM)
+        assert result["status"] == "CRM_UNAVAILABLE_PERSISTED"
+        assert result["callback_created"] is True

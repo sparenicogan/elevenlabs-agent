@@ -121,6 +121,12 @@ def _escalate(conversation_id: str, reason: str, body: dict) -> dict:
 
     ticket_id, ticket_status = _ticket(body, handoff, display, verified, reason)
 
+    # Recorded before the agent attempts the transfer, not after it fails. The platform does
+    # not document whether an agent survives a failed dial, and a caller's protection must
+    # not rest on undocumented behaviour (FR-020a). If the transfer works the callback is
+    # simply never acted on; if it does not, a person already has the context.
+    callback_created = _record_callback(conversation_id, customer_id, reason, ticket_id)
+
     audit.write(
         audit.AuditEvent(
             action="create_escalation",
@@ -148,8 +154,50 @@ def _escalate(conversation_id: str, reason: str, body: dict) -> dict:
         "status": ticket_status,
         "ticket_id": ticket_id,
         "handoff_summary": handoff,
-        "callback_created": False,
+        "callback_created": callback_created,
+        # Said to the caller before transferring, so the promise survives the transfer
+        # failing. It is true either way: a person has the context and will call back.
+        "safe_to_promise": (
+            "A colleague has the details and will call you back if we get cut off."
+        ),
     }
+
+
+def _record_callback(
+    conversation_id: str, customer_id: str | None, reason: str, ticket_id: str | None
+) -> bool:
+    """
+    Records that this caller is owed a call back, before any transfer is attempted.
+
+    conversation_id: the call.
+    customer_id:     the account, where one was established. A caller who could not be
+                     verified still gets a callback recorded against the conversation.
+    reason:          why the call is escalating.
+    ticket_id:       the ticket a person will work from, where the CRM was reachable.
+
+    Returns: True when the callback was recorded.
+
+    Written first deliberately. A transfer that fails may take the agent with it, and a
+    callback arranged only in the recovery path would then never be arranged at all (FR-020).
+    """
+    try:
+        conversation_state.record_callback(
+            conversation_id=conversation_id,
+            customer_id=customer_id,
+            reason=reason,
+            ticket_id=ticket_id,
+        )
+        return True
+    except ToolError as error:
+        # Logged loudly. The escalation still exists in the audit record, but nobody is
+        # scheduled to ring the caller, and that is worth someone noticing.
+        log.error(
+            "CALLBACK NOT RECORDED",
+            error_category=str(error.category),
+            error_detail=error.detail,
+            conversation_id=conversation_id,
+        )
+        return False
 
 
 def _identity(conversation_id: str) -> tuple[str | None, dict, bool]:

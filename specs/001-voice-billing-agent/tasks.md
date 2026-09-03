@@ -187,18 +187,18 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Tests for User Story 5
 
-- [ ] T065 [P] [US5] Write `tests/unit/test_failure_scenarios.py` covering all eight required scenarios with the adapter layer patched: identity store down, invoice store down, payment lookup down, CRM down, transfer failure, duplicate post-call webhook, partial failure after a mutation, and a slow dependency hitting the 4-second timeout (SC-005, research D8)
-- [ ] T066 [P] [US5] Write handoff composition tests in `tests/unit/test_handoff.py` asserting every FR-019 field is present
-- [ ] T067 [P] [US5] Write idempotency tests in `tests/unit/test_idempotency.py`: replaying an allocation, a credit, an escalation, and a post-call notification each create nothing twice (SC-007)
+- [x] T065 [P] [US5] Write `tests/unit/test_failure_scenarios.py` covering all eight required scenarios with the adapter layer patched: identity store down, invoice store down, payment lookup down, CRM down, transfer failure, duplicate post-call webhook, partial failure after a mutation, and a slow dependency hitting the 4-second timeout (SC-005, research D8)
+- [x] T066 [P] [US5] Write handoff composition tests in `tests/unit/test_handoff.py` asserting every FR-019 field is present
+- [x] T067 [P] [US5] Write idempotency tests in `tests/unit/test_idempotency.py`: replaying an allocation, a credit, an escalation, and a post-call notification each create nothing twice (SC-007)
 
 ### Implementation for User Story 5
 
-- [ ] T068 [US5] Implement `src/domain/handoff.py`, composing the structured handoff server-side from verified identity state, intent, facts gathered, actions attempted and their outcomes, and the escalation reason (FR-019, research D2)
-- [ ] T069 [US5] Implement `src/handlers/create_escalation.py`: create or append via `existing_ticket_id`, return the handoff summary, and return `CRM_UNAVAILABLE_PERSISTED` rather than losing the escalation when HubSpot is down (FR-025, FR-031b)
-- [ ] T070 [US5] Implement callback persistence in `src/handlers/create_escalation.py` for the transfer-failure path (FR-020)
-- [ ] T071 [US5] Verify whether the ElevenLabs transfer tool returns control to the agent on a failed dial (research D4), and record the finding in research.md; wire in-call recovery if it does, and state the limitation plainly in the README if it does not
-- [ ] T072 [US5] Extend `agent/prompt/en.md` with the degradation rules: distinguish "cannot tell you right now" from a factual negative, never speak UNKNOWN or SERVICE_UNAVAILABLE as an outcome, always close with a next step (FR-011, FR-026)
-- [ ] T073 [US5] Configure the transfer destination and the escalation triggers from FR-018 in `agent/agent.json`
+- [x] T068 (built during US2, when the unverified handoff needed it) [US5] Implement `src/domain/handoff.py`, composing the structured handoff server-side from verified identity state, intent, facts gathered, actions attempted and their outcomes, and the escalation reason (FR-019, research D2)
+- [x] T069 (built during US2) [US5] Implement `src/handlers/create_escalation.py`: create or append via `existing_ticket_id`, return the handoff summary, and return `CRM_UNAVAILABLE_PERSISTED` rather than losing the escalation when HubSpot is down (FR-025, FR-031b)
+- [x] T070 [US5] Implement callback persistence in `src/handlers/create_escalation.py` for the transfer-failure path (FR-020)
+- [x] T071 (undocumented by the platform; design made independent of it) [US5] Verify whether the ElevenLabs transfer tool returns control to the agent on a failed dial (research D4), and record the finding in research.md; wire in-call recovery if it does, and state the limitation plainly in the README if it does not
+- [x] T072 [US5] Extend `agent/prompt/en.md` with the degradation rules: distinguish "cannot tell you right now" from a factual negative, never speak UNKNOWN or SERVICE_UNAVAILABLE as an outcome, always close with a next step (FR-011, FR-026)
+- [x] T073 [US5] Configure the transfer destination and the escalation triggers from FR-018 in `agent/agent.json`
 
 ---
 

@@ -1212,3 +1212,67 @@ to add in production.
 
 Which contact verified is now recorded on the conversation, in the audit record and in the
 handoff. It does not prevent the impersonation; it means there is a trace of it.
+
+### 12.28 The callback is arranged before the transfer, not after it fails
+
+**Decision.** `create_escalation` records the callback and returns a line the agent can say
+*before* any transfer is attempted.
+
+**Cost.** A callback is recorded for every escalation, including the ones where the transfer
+works and nobody needs ringing back. That is a row nobody acts on.
+
+**Why.** T071 was flagged at planning as the project's biggest unknown: does the ElevenLabs
+transfer tool hand control back when a dial fails? **The platform does not document it.** The
+docs cover three transfer types and their configuration and say nothing about failure — no
+routing, no recovery, no statement either way.
+
+What can be inferred is that conference transfer dials the destination and removes the agent
+*after* the join succeeds, so it is the only type where surviving a failure is even possible.
+Blind and SIP REFER hand off at the protocol level. The docs also note that audio is cut the
+moment a transfer triggers.
+
+Rather than build on an inference, the design was changed so the answer does not matter.
+Persisting the callback first means the caller is covered whether or not the agent survives:
+if it does, it tells them; if it does not, a person already has the context and a callback
+exists. A promise that rests on undocumented behaviour is not a promise.
+
+**Still worth one real call** to see whether the recovery can be *shown* in the demo or only
+described. That is now a presentation question rather than a correctness one.
+
+### 12.29 The agent says the callback line before transferring
+
+**Decision.** The prompt tells the agent to say "a colleague will call you back if we get cut
+off" *before* putting the caller through, not in the recovery path.
+
+**Cost.** It sounds slightly pessimistic on a transfer that will work perfectly well.
+
+**Why.** The same reasoning one layer up. A transfer can drop the call without warning, and a
+reassurance offered only after a failure is one that sometimes never gets offered. Saying it
+while the caller is still listening costs a sentence and removes the dependency.
+
+### 12.30 Failure scenarios assert what is *not* said
+
+**Decision.** `assert_safe_failure` checks the response envelope *and* scans `message_hint`
+for phrases that would assert a financial fact — "paid", "unpaid", "no outstanding",
+"not received".
+
+**Cost.** A word-list test, which will need extending when new phrasing appears.
+
+**Why.** A safe failure is not just a correctly-shaped error. The specific danger is a
+failure that reads as an answer: "you have no outstanding invoices" during a database outage
+is well-formed, plausible, and false. Checking the shape alone would pass it.
+
+The same test asserts every tool fails identically, so a caller cannot tell which part of the
+system broke.
+
+### 12.31 Two tests read the source rather than the behaviour
+
+**Decision.** `test_an_audit_write_failure_never_undoes_the_action` inspects `audit.write` for
+an absent `raise`; `test_the_lambda_budget_sits_below_the_agents` reads the Terraform default.
+
+**Cost.** Both break on a harmless refactor, which is the usual argument against them.
+
+**Why.** Neither property is observable from behaviour at this level. That a failed audit
+write does not roll back a credit is a property of *not* doing something, and the timeout
+relationship lives in two files that must stay in step — a Lambda budget above the agent's
+would produce an opaque timeout instead of a speakable error, and nothing else would notice.

@@ -550,8 +550,13 @@ evidence on the escalation, promises human correction, and writes nothing to the
 - **FR-019f**: The agent MUST NOT tell the caller which detail failed, or that their answers were
   wrong. It says only that it cannot confirm their identity and that a colleague will take over
   (FR-004).
-- **FR-020**: A failed transfer MUST NOT abandon the caller: the escalation MUST be persisted, a
-  callback created, and the caller told on the call what happens next and within what timeframe.
+- **FR-020**: A failed transfer MUST NOT abandon the caller. The escalation and the callback MUST be
+  persisted **before** the transfer is attempted, so the caller is covered whether or not the agent
+  survives the failure. Where the agent does retain the call, it MUST tell them what happens next and
+  within what timeframe.
+- **FR-020a**: The design MUST NOT depend on the agent regaining control after a failed dial. The
+  platform does not document that behaviour, and a promise that rests on undocumented behaviour is
+  not a promise.
 
 ### Reliability
 

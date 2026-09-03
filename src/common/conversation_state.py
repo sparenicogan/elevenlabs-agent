@@ -308,3 +308,41 @@ def recent_conversations(customer_id: str, limit: int = 50) -> list[dict]:
         ScanIndexForward=False,
         Limit=limit,
     )
+
+
+def record_callback(
+    conversation_id: str, customer_id: str | None, reason: str, ticket_id: str | None
+) -> None:
+    """
+    Records that a caller is owed a call back.
+
+    conversation_id: the call.
+    customer_id:     the account, or None when the caller could not be identified — they are
+                     owed a callback either way, and the person taking it will establish who
+                     they were.
+    reason:          why the call escalated.
+    ticket_id:       the ticket carrying the context, where one was created.
+
+    Returns: nothing.
+
+    Kept on the conversation rather than in a queue of its own. A callback is a fact about a
+    call that did not finish, and the record that says so is the one that already holds the
+    transcript reference, the risk signals and the verification state — everything the person
+    ringing back would want.
+    """
+    dynamo.upsert(
+        _TABLE,
+        {"conversation_id": conversation_id},
+        UpdateExpression=(
+            "SET callback_required = :yes, callback_reason = :reason, "
+            "callback_ticket_id = :ticket, callback_customer_id = :customer, "
+            "started_at = if_not_exists(started_at, :now)"
+        ),
+        ExpressionAttributeValues={
+            ":yes": True,
+            ":reason": reason,
+            ":ticket": ticket_id or "",
+            ":customer": customer_id or "",
+            ":now": datetime.now(UTC).isoformat(),
+        },
+    )
