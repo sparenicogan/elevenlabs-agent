@@ -50,9 +50,13 @@ def stubs(mocker):
             module.conversation_state, "record_failed_attempt", return_value=1
         ),
         "attempts": mocker.patch.object(
-            module.conversation_state, "record_factor_attempts", return_value={}
+            module.conversation_state, "record_factor_attempts", return_value=({}, True)
         ),
         "signal": mocker.patch.object(module.conversation_state, "record_risk_signal"),
+        # Distinct wrong values seen so far in the call. Zero unless a test says otherwise.
+        "wrong": mocker.patch.object(
+            module.conversation_state, "record_wrong_values", return_value=0
+        ),
         "module": module,
     }
 
@@ -113,6 +117,7 @@ class TestVerification:
 
 class TestLockout:
     def test_a_wrong_answer_advances_the_customer_counter(self, stubs):
+        stubs["wrong"].return_value = 1
         call(
             stubs,
             [
@@ -122,14 +127,15 @@ class TestLockout:
         )
         assert stubs["update"].called
 
-    def test_a_wrong_answer_advances_the_session_counter_even_with_no_account_named(self, stubs):
+    def test_a_wrong_answer_is_counted_even_with_no_account_named(self, stubs):
         """The hole the per-customer counter leaves: a caller who never names an account has
         no counter to exhaust and could otherwise guess indefinitely (FR-006)."""
         call(stubs, [factor(Factor.EMAIL, "wrong@example.com")])
-        stubs["session_attempt"].assert_called_once()
+        stubs["wrong"].assert_called_once()
+        assert stubs["wrong"].call_args.args[1], "the wrong value should be fingerprinted"
 
-    def test_the_session_lock_engages_without_any_account_being_named(self, stubs):
-        stubs["session_attempt"].return_value = 3
+    def test_the_lock_engages_without_any_account_being_named(self, stubs):
+        stubs["wrong"].return_value = 3
         result = call(stubs, [factor(Factor.EMAIL, "wrong@example.com")])
         assert result["status"] == "LOCKED"
 
@@ -140,6 +146,7 @@ class TestLockout:
         stubs["update"].assert_not_called()
 
     def test_the_final_wrong_attempt_locks_the_account(self, stubs):
+        stubs["wrong"].return_value = 3
         stubs["get"].return_value = {**RECORD, "failed_verification_attempts": 2}
         call(
             stubs,
@@ -282,37 +289,37 @@ class TestGuessing:
     """Enumeration is stopped by the backend, not by the agent noticing (FR-006d)."""
 
     def test_a_third_distinct_value_for_one_field_locks_the_call(self, stubs):
-        stubs["attempts"].return_value = {"customer_id": 3}
+        stubs["attempts"].return_value = ({"customer_id": 3}, True)
         result = call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00003")])
         assert result["status"] == "LOCKED"
 
     def test_it_locks_before_the_answers_are_evaluated(self, stubs):
         """A caller working through values must not learn from the attempt that stops them
         whether that one was right."""
-        stubs["attempts"].return_value = {"customer_id": 3}
+        stubs["attempts"].return_value = ({"customer_id": 3}, True)
         result = call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00417")])
         assert result["status"] == "LOCKED"
         assert result["factors_confirmed"] == 0
 
     def test_a_risk_signal_is_raised(self, stubs):
-        stubs["attempts"].return_value = {"customer_id": 3}
+        stubs["attempts"].return_value = ({"customer_id": 3}, True)
         call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00003")])
         signal = stubs["signal"].call_args.args[0]
         assert signal.signal_type == "SUSPECTED_GUESSING"
 
     def test_the_signal_records_a_count_and_never_the_values_offered(self, stubs):
         """Recording the guesses would defeat the point of fingerprinting them."""
-        stubs["attempts"].return_value = {"customer_id": 3}
+        stubs["attempts"].return_value = ({"customer_id": 3}, True)
         call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-SECRET-GUESS")])
         assert "CUST-SECRET-GUESS" not in stubs["signal"].call_args.args[0].evidence
 
     def test_two_values_for_one_field_is_a_correction_not_enumeration(self, stubs):
-        stubs["attempts"].return_value = {"customer_id": 2}
+        stubs["attempts"].return_value = ({"customer_id": 2}, True)
         result = call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00417")])
         assert result["status"] != "LOCKED"
 
     def test_corrections_across_different_fields_do_not_accumulate(self, stubs):
-        stubs["attempts"].return_value = {"customer_id": 2, "email": 2, "phone": 2}
+        stubs["attempts"].return_value = ({"customer_id": 2, "email": 2, "phone": 2}, True)
         result = call(
             stubs,
             [
@@ -405,3 +412,73 @@ class TestResolvingTheCustomer:
         result = call(stubs, [factor(Factor.EMAIL, "nobody@example.invalid")])
         assert result["status"] == "FAILED"
         assert result["factors_confirmed"] == 0
+
+
+class TestResendingIsNotRetrying:
+    """A caller who mistypes one answer has it resent on every subsequent turn, because the
+    agent sends everything it has gathered. Counting failed *calls* locks them out three
+    turns after a single typo, however correct everything after it is.
+
+    Found by an adversarial walkthrough: one wrong email produced three failed attempts and
+    a lockout while the caller's next two answers were both right. The fix is to count
+    distinct wrong *values*.
+    """
+
+    def test_only_the_wrong_answers_are_fingerprinted(self, stubs):
+        """The correct ones are not counted against the caller, however often they arrive."""
+        call(
+            stubs,
+            [
+                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.EMAIL, "wrong@example.com"),
+            ],
+        )
+        assert len(stubs["wrong"].call_args.args[1]) == 1
+
+    def test_a_correct_attempt_fingerprints_nothing(self, stubs):
+        call(
+            stubs,
+            [
+                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.EMAIL, RECORD["email"]),
+                factor(Factor.PHONE, RECORD["phone"]),
+            ],
+        )
+        assert stubs["wrong"].call_args.args[1] == set()
+
+    def test_the_same_wrong_value_fingerprints_identically_every_turn(self, stubs):
+        """Which is what makes the set converge rather than grow. One typo is one strike,
+        however many turns carry it."""
+        seen = []
+        for _ in range(3):
+            call(stubs, [factor(Factor.EMAIL, "wrong@example.com")])
+            seen.append(stubs["wrong"].call_args.args[1])
+        assert seen[0] == seen[1] == seen[2]
+        assert len(seen[0]) == 1
+
+    def test_two_different_wrong_values_fingerprint_differently(self, stubs):
+        call(stubs, [factor(Factor.EMAIL, "first-wrong@example.com")])
+        first = stubs["wrong"].call_args.args[1]
+        call(stubs, [factor(Factor.EMAIL, "second-wrong@example.com")])
+        assert stubs["wrong"].call_args.args[1] != first
+
+    def test_the_lock_engages_on_the_third_distinct_wrong_value(self, stubs):
+        stubs["wrong"].return_value = 3
+        assert call(stubs, [factor(Factor.EMAIL, "c@example.com")])["status"] == "LOCKED"
+
+    def test_two_distinct_wrong_values_do_not_lock(self, stubs):
+        stubs["wrong"].return_value = 2
+        assert call(stubs, [factor(Factor.EMAIL, "b@example.com")])["status"] != "LOCKED"
+
+    def test_a_caller_who_corrects_a_typo_can_still_verify(self, stubs):
+        """The scenario from the walkthrough. One wrong email, then the right answers."""
+        stubs["wrong"].return_value = 1
+        result = call(
+            stubs,
+            [
+                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.EMAIL, RECORD["email"]),
+                factor(Factor.PHONE, RECORD["phone"]),
+            ],
+        )
+        assert result["status"] == "VERIFIED"

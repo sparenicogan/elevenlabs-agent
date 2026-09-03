@@ -145,7 +145,7 @@ def wired(mocker):
             mocker.patch.object(module.conversation_state, "set_verification")
             mocker.patch.object(module.conversation_state, "record_failed_attempt", return_value=1)
             mocker.patch.object(
-                module.conversation_state, "record_factor_attempts", return_value={}
+                module.conversation_state, "record_factor_attempts", return_value=({}, True)
             )
             mocker.patch.object(module.conversation_state, "record_risk_signal")
 

@@ -202,28 +202,36 @@ def risk_signals(conversation_id: str) -> list[RiskSignal]:
     ]
 
 
-def record_factor_attempts(conversation_id: str, fingerprints: dict[str, str]) -> dict[str, int]:
+def record_factor_attempts(
+    conversation_id: str, fingerprints: dict[str, str]
+) -> tuple[dict[str, int], bool]:
     """
-    Records which answers have been offered for which fields, and returns how many distinct
-    ones each field has now seen.
+    Records which answers have been offered for which fields.
 
     conversation_id: the call.
     fingerprints:    field name to fingerprint of the value offered, from
                      verification.fingerprint. Never the values themselves.
 
-    Returns: field name to distinct-attempt count.
+    Returns: (field name to distinct-attempt count, whether this call offered anything new).
 
     A set per field rather than a counter, because the agent resends every factor gathered so
     far on each call: counting increments would treat one caller repeating themselves as
     dozens of attempts, and lock out everyone.
+
+    The second return value exists for the same reason at a different layer. A caller who
+    mistyped one answer has it resent on every subsequent turn, and counting each resend as a
+    fresh failure locks them out three turns after a single typo — however correct everything
+    they say afterwards is.
     """
     record = dynamo.get(_TABLE, {"conversation_id": conversation_id}) or {}
     seen: dict[str, list[str]] = dict(record.get("factor_attempts") or {})
+    offered_something_new = False
 
     for field, value in fingerprints.items():
         existing = list(seen.get(field, []))
         if value not in existing:
             existing.append(value)
+            offered_something_new = True
         seen[field] = existing
 
     dynamo.upsert(
@@ -238,4 +246,42 @@ def record_factor_attempts(conversation_id: str, fingerprints: dict[str, str]) -
         },
     )
 
-    return {field: len(values) for field, values in seen.items()}
+    return {field: len(values) for field, values in seen.items()}, offered_something_new
+
+
+def record_wrong_values(conversation_id: str, fingerprints: set[str]) -> int:
+    """
+    Records the distinct wrong values a caller has offered, and returns how many there are.
+
+    conversation_id: the call.
+    fingerprints:    fingerprints of the values that did not match, from
+                     verification.fingerprint. Never the values themselves.
+
+    Returns: how many distinct wrong values this call has now seen.
+
+    Distinct values rather than failed calls, and this is the difference between a fair
+    lockout and a hostile one. The agent resends every factor it has gathered, so one
+    mistyped email arrives on every subsequent turn. Counting calls exhausts a three-strike
+    allowance three turns after a single typo, however correct everything the caller says
+    afterwards is.
+    """
+    if not fingerprints:
+        record = dynamo.get(_TABLE, {"conversation_id": conversation_id}) or {}
+        return len(record.get("wrong_values") or [])
+
+    record = dynamo.get(_TABLE, {"conversation_id": conversation_id}) or {}
+    seen = set(record.get("wrong_values") or [])
+    seen |= fingerprints
+
+    dynamo.upsert(
+        _TABLE,
+        {"conversation_id": conversation_id},
+        UpdateExpression=(
+            "SET wrong_values = :wrong, started_at = if_not_exists(started_at, :now)"
+        ),
+        ExpressionAttributeValues={
+            ":wrong": sorted(seen),
+            ":now": datetime.now(UTC).isoformat(),
+        },
+    )
+    return len(seen)

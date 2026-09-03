@@ -943,3 +943,56 @@ same call are indistinguishable, and the second is silently dropped.
 repeats themselves, or a dropped call redialled, must not be credited twice. A random id
 would make every retry a second credit. The rare legitimate case — someone wanting two
 identical credits on one charge in one call — is one a person should look at anyway.
+
+### 12.13 The lockout counts distinct wrong values, not failed calls
+
+**Decision.** A caller may offer three *different* wrong values before the call locks. The
+same wrong value resent counts once, however many turns carry it.
+
+**Cost.** More state per conversation, and the domain now reports internally which factors
+mismatched — a field that must never reach a response.
+
+**Why.** Found by an adversarial walkthrough. A caller gave one wrong email and then two
+*correct* answers, and was locked out. The agent resends every factor it has gathered on each
+turn, so the single wrong email arrived three times and burned all three strikes:
+
+```
+turn 1:  email(wrong)                          → strike 1
+turn 2:  email(wrong) + year(right)            → strike 2
+turn 3:  email(wrong) + year + id(both right)  → strike 3, locked
+```
+
+One typo, three strikes, and everything correct after it counted against them. That is a
+hostile system, and the lockout exists to stop guessing rather than to punish a mistake.
+
+**The first fix was wrong**, which is worth recording. It counted only turns that introduced
+*any* new value — but every turn did, because each added a new field. The replay locked at
+step three exactly as before. The rule had to be about distinct *wrong* values specifically,
+which meant the domain telling the handler which factors mismatched.
+
+**The disclosure boundary here is subtle.** `mismatched_factors` is exactly the information
+FR-004 forbids revealing. It is used in one place, to fingerprint the wrong answers, and the
+response body is built field by field so it cannot leak by accident. The rule is "never tell
+the caller", not "never know".
+
+**And it introduced a second bug immediately**, caught by an existing test: guarding the
+counter update on `wrong_count > 0` meant a *successful* verification no longer reset it, so
+a caller who eventually got in would carry their earlier mistakes into the next call. The
+update now runs on every attempt; only its effect differs.
+
+### 12.14 The agent says nothing at all about a failed answer
+
+**Decision.** On `FAILED`, the agent asks the next question and comments on nothing. The only
+time it mentions being unable to confirm anything is when it has stopped asking.
+
+**Cost.** A caller gets no acknowledgement that something went wrong, which can feel opaque.
+
+**Why.** The earlier rule — "say you have not been able to confirm the details" — produced
+this after a *correct* answer:
+
+> "I haven't been able to confirm those details. Let's try something else."
+
+`FAILED` refers to everything the caller has given, not to the thing they just said. Once one
+answer is wrong, every subsequent result is `FAILED` including the ones where the caller was
+right. So the sentence was both untrue and an oracle: it told a caller working through values
+that their last guess had not landed.

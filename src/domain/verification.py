@@ -72,6 +72,13 @@ class VerificationResult:
                             (FR-004).
     is_failed_attempt:      whether this attempt counts toward the lockout. Answering too
                             few questions does not; answering one wrongly does.
+    mismatched_factors:     which fields did not match.
+
+    The last field is internal. It exists so the handler can count *distinct wrong values*
+    rather than wrong calls — without it, a caller who mistypes one answer has it resent on
+    every turn and exhausts the lockout in three, however correct everything else is. It is
+    never serialised into a response; the tool body is built field by field, and telling a
+    caller which answer failed would turn verification into an oracle (FR-004).
     """
 
     status: VerificationStatus
@@ -80,6 +87,7 @@ class VerificationResult:
     non_document_satisfied: bool
     next_factor_hint: Factor | None
     is_failed_attempt: bool
+    mismatched_factors: frozenset[Factor] = frozenset()
 
 
 def _normalise_phone(value: str) -> str:
@@ -137,7 +145,7 @@ def check_factors(
              so a caller cannot guess freely by also supplying fields they do know.
     """
     confirmed: set[Factor] = set()
-    any_wrong = False
+    mismatched: set[Factor] = set()
 
     for factor, value in supplied.items():
         # An unknown customer has no stored values, so every answer is wrong — which is
@@ -146,12 +154,12 @@ def check_factors(
         if factor in stored and _matches(factor, value, stored[factor]):
             confirmed.add(factor)
         else:
-            any_wrong = True
+            mismatched.add(factor)
 
     non_document_satisfied = bool(confirmed & NON_DOCUMENT_FACTORS)
     enough = len(confirmed) >= required_count
 
-    if any_wrong:
+    if mismatched:
         status = VerificationStatus.FAILED
     elif enough and non_document_satisfied:
         status = VerificationStatus.VERIFIED
@@ -169,6 +177,7 @@ def check_factors(
             non_document_satisfied=False,
             next_factor_hint=_next_hint(set(), non_document_satisfied=False),
             is_failed_attempt=True,
+            mismatched_factors=frozenset(mismatched),
         )
 
     return VerificationResult(
@@ -183,6 +192,7 @@ def check_factors(
             else _next_hint(confirmed, non_document_satisfied)
         ),
         is_failed_attempt=False,
+        mismatched_factors=frozenset(),
     )
 
 

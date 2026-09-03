@@ -81,7 +81,9 @@ def _verify(conversation_id: str, body: dict) -> dict:
 
     # Checked before the answers are evaluated. A caller working through values must not be
     # able to learn which of them was right on the attempt that stops them.
-    enumerated = _check_for_enumeration(conversation_id, customer_id, supplied, settings)
+    enumerated, offered_new = _check_for_enumeration(
+        conversation_id, customer_id, supplied, settings
+    )
     if enumerated:
         return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, None, False)
 
@@ -101,16 +103,30 @@ def _verify(conversation_id: str, body: dict) -> dict:
         required_count=settings.required_factor_count,
     )
 
+    # Distinct wrong values, not failed calls. The agent resends every factor it has
+    # gathered, so one mistyped answer arrives on every subsequent turn; counting calls
+    # would exhaust a three-strike allowance three turns after a single typo, however
+    # correct everything the caller says afterwards is.
+    wrong_count = conversation_state.record_wrong_values(
+        conversation_id, _wrong_fingerprints(supplied, outcome)
+    )
+
+    # Called on every attempt, not only failing ones: a successful verification is what
+    # clears the counter, and guarding this on a failure would leave a caller who eventually
+    # got in still carrying their earlier mistakes into the next call.
     if record:
-        _record_attempt(record, outcome, settings.verification_max_attempts)
+        _record_attempt(record, outcome, settings.verification_max_attempts, wrong_count)
 
     # Counted against the call as well as the customer. Without this a caller who never
     # names an account has no counter to exhaust and can guess indefinitely (FR-006).
-    if outcome.is_failed_attempt:
-        attempts = conversation_state.record_failed_attempt(conversation_id)
-        if attempts >= settings.verification_max_attempts:
-            log.info("conversation locked", conversation_id=conversation_id, status="LOCKED")
-            return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, None, False)
+    if wrong_count >= settings.verification_max_attempts:
+        log.info(
+            "conversation locked",
+            conversation_id=conversation_id,
+            status="LOCKED",
+            attempt=wrong_count,
+        )
+        return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, None, False)
 
     candidate = body.get("candidate_customer_id")
     if candidate and customer_id and candidate.strip() and candidate.strip() != customer_id:
@@ -171,12 +187,36 @@ def _display_fields(record: dict) -> dict[str, str]:
     return {f: str(record[f]) for f in fields if record.get(f) is not None}
 
 
+def _wrong_fingerprints(supplied: dict[Factor, str], outcome) -> set[str]:
+    """
+    Fingerprints only the answers that did not match.
+
+    supplied: this attempt's answers.
+    outcome:  the rule's decision, which knows internally which factors mismatched.
+
+    Returns: fingerprints of the wrong values, so the lockout counts how many different
+             things a caller has tried rather than how many times they were told no.
+
+    The mismatched set is used here and nowhere else. It never reaches a response: telling a
+    caller which answer failed is precisely the oracle the gate exists to deny them (FR-004).
+    """
+    if not outcome.mismatched_factors:
+        return set()
+
+    salt = secrets.get("verification/attempt-salt")
+    return {
+        fingerprint(factor, supplied[factor], salt)
+        for factor in outcome.mismatched_factors
+        if factor in supplied
+    }
+
+
 def _check_for_enumeration(
     conversation_id: str,
     customer_id: str | None,
     supplied: dict[Factor, str],
     settings,
-) -> bool:
+) -> tuple[bool, bool]:
     """
     Records what has been offered for each field and decides whether the caller is guessing.
 
@@ -186,18 +226,19 @@ def _check_for_enumeration(
     supplied:        this attempt's answers.
     settings:        policy, for the allowance.
 
-    Returns: True when a field has seen more distinct values than the allowance, in which
-             case a risk signal has been raised and the call should escalate.
+    Returns: (whether a field exceeded the allowance, whether this call offered any value not
+             already seen). The second is what stops a resent wrong answer being counted as a
+             fresh failure.
 
     One correction is human. A third distinct value for the same field is someone working
     through possibilities, and the difference matters more than any single wrong answer does
     (FR-006a).
     """
     if not supplied:
-        return False
+        return False, False
 
     salt = secrets.get("verification/attempt-salt")
-    counts = conversation_state.record_factor_attempts(
+    counts, offered_new = conversation_state.record_factor_attempts(
         conversation_id,
         {factor.value: fingerprint(factor, value, salt) for factor, value in supplied.items()},
     )
@@ -207,7 +248,7 @@ def _check_for_enumeration(
         settings.guessing_max_distinct_values,
     )
     if not offending:
-        return False
+        return False, offered_new
 
     conversation_state.record_risk_signal(
         RiskSignal(
@@ -229,7 +270,7 @@ def _check_for_enumeration(
         status="LOCKED",
         attempt=counts[offending.value],
     )
-    return True
+    return True, offered_new
 
 
 def _parse_factors(factors: list) -> dict[Factor, str]:
@@ -323,16 +364,18 @@ def _is_locked(record: dict) -> bool:
     return datetime.fromisoformat(str(locked_until)) > datetime.now(UTC)
 
 
-def _record_attempt(record: dict, outcome, max_attempts: int) -> None:
+def _record_attempt(record: dict, outcome, max_attempts: int, wrong_count: int) -> None:
     """
     Moves the failure counter, and locks the account when it is exhausted.
 
     record:       the identity record just read.
     outcome:      the rule's decision.
     max_attempts: how many wrong attempts are tolerated, from policy.
+    wrong_count:  how many distinct wrong values this call has produced.
 
-    Returns: nothing. A successful verification resets the counter; only a wrong answer
-             advances it, so a caller who simply knows fewer facts is never locked out.
+    Returns: nothing. A successful verification resets the counter; only distinct wrong
+             values advance it, so a caller who knows fewer facts, or who has one wrong
+             answer resent on every turn, is never locked out for it.
     """
     customer_id = record["customer_id"]
 
@@ -349,7 +392,7 @@ def _record_attempt(record: dict, outcome, max_attempts: int) -> None:
     if not outcome.is_failed_attempt:
         return
 
-    attempts = int(record.get("failed_verification_attempts", 0)) + 1
+    attempts = wrong_count
 
     if attempts >= max_attempts:
         # Locking is what turns a guessing game into a bounded one. The window is
