@@ -369,3 +369,82 @@ resource "aws_lambda_permission" "create_escalation" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
 }
+
+# --- request_credit -------------------------------------------------------------------
+# The only handler that can give something away without a person confirming it. It writes
+# to the ledger, but only ever a new credit note: put_if_absent creates, and there is no
+# update or delete permission here, so it cannot alter an invoice or a payment.
+
+data "aws_iam_policy_document" "request_credit" {
+  statement {
+    effect    = "Allow"
+    actions   = ["dynamodb:Query", "dynamodb:PutItem"]
+    resources = [aws_dynamodb_table.ledger.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["dynamodb:GetItem"]
+    resources = [aws_dynamodb_table.conversations.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
+    resources = [aws_kms_key.data.arn]
+  }
+
+  statement {
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      aws_secretsmanager_secret.tool_api_key.arn,
+      aws_secretsmanager_secret.hubspot_token.arn,
+    ]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["ssm:GetParametersByPath"]
+    resources = ["arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.project}/policy"]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.audit.arn}:*"]
+  }
+}
+
+module "request_credit" {
+  source = "./modules/lambda"
+
+  name         = "request-credit"
+  project      = var.project
+  handler      = "src.handlers.request_credit.handler"
+  package_path = local.lambda_package
+  environment  = local.common_environment
+  policy_json  = data.aws_iam_policy_document.request_credit.json
+}
+
+resource "aws_apigatewayv2_integration" "request_credit" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.request_credit.invoke_arn
+  payload_format_version = "2.0"
+  timeout_milliseconds   = 5000
+}
+
+resource "aws_apigatewayv2_route" "request_credit" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /tools/request-credit"
+  target    = "integrations/${aws_apigatewayv2_integration.request_credit.id}"
+}
+
+resource "aws_lambda_permission" "request_credit" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.request_credit.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
+}

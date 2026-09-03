@@ -148,15 +148,15 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Tests for User Story 3
 
-- [ ] T054 [P] [US3] Write unit tests in `tests/unit/test_credit.py` covering every boundary: CHF 100 with CHF 400 of history granted at exactly CHF 500; CHF 100 with CHF 401 refused; CHF 101 always refused; CHF 100 against a CHF 20 charge refused as `DENIED_EXCEEDS_ENTRY` (FR-013b, FR-013d)
-- [ ] T055 [P] [US3] Write eligibility tests in `tests/unit/test_credit_eligibility.py`: inactive account, missing entry, and open dispute each refuse (FR-013)
+- [x] T054 [P] [US3] Write unit tests in `tests/unit/test_credit.py` covering every boundary: CHF 100 with CHF 400 of history granted at exactly CHF 500; CHF 100 with CHF 401 refused; CHF 101 always refused; CHF 100 against a CHF 20 charge refused as `DENIED_EXCEEDS_ENTRY` (FR-013b, FR-013d)
+- [x] T055 [P] [US3] Write eligibility tests in `tests/unit/test_credit_eligibility.py`: inactive account, missing entry, and open dispute each refuse (FR-013)
 
 ### Implementation for User Story 3
 
-- [ ] T056 [US3] Implement `src/domain/credit.py`: eligibility checks, then the entry-amount cap, then the two inclusive ceilings — in that order, so the most specific denial reason is the one reported (FR-013, FR-013b, FR-013d)
-- [ ] T057 [US3] Implement the rolling 12-month total in `src/domain/credit.py`, summing credit entries from the `ledger` inside the window
-- [ ] T058 [US3] Implement `src/handlers/request_credit.py`: evaluate and issue in one operation so evaluation cannot be skipped, write the credit entry linked to the named charge, emit the audit event, log to the CRM, idempotent on `conversation_id + entry_id + amount` (research D1, FR-013a)
-- [ ] T059 [US3] Extend `agent/prompt/en.md` with the credit flow: identify the specific charge first, state the amount and effect on grant, and escalate rather than negotiate on any refusal
+- [x] T056 [US3] Implement `src/domain/credit.py`: eligibility checks, then the entry-amount cap, then the two inclusive ceilings — in that order, so the most specific denial reason is the one reported (FR-013, FR-013b, FR-013d)
+- [x] T057 [US3] Implement the rolling 12-month total in `src/domain/credit.py`, summing credit entries from the `ledger` inside the window
+- [x] T058 [US3] Implement `src/handlers/request_credit.py`: evaluate and issue in one operation so evaluation cannot be skipped, write the credit entry linked to the named charge, emit the audit event, log to the CRM, idempotent on `conversation_id + entry_id + amount` (research D1, FR-013a)
+- [x] T059 [US3] Extend `agent/prompt/en.md` with the credit flow: identify the specific charge first, state the amount and effect on grant, and escalate rather than negotiate on any refusal
 
 ---
 

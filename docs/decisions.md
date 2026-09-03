@@ -878,3 +878,68 @@ payment may not.
 **What this does not fix.** A determined caller could still learn the invoice amount another
 way — from the invoice itself, most obviously. The protection that survives is the *transfer
 date*, which appears on no document the company sends. That is why matching requires both.
+
+### 12.8 Evaluation and issuance are one operation, not two
+
+**Decision.** `request_credit` decides and issues in a single call. There is no endpoint that
+issues a credit without deciding whether it may.
+
+**Cost.** The agent cannot check eligibility before quoting an amount to the caller, so it
+has to ask and then find out.
+
+**Why.** Two tools leave a window in which the model calls the second without the first — and
+the model is precisely the component that must not be trusted to sequence a financial
+decision. The window would be small and would almost never be hit, which is what makes it
+the kind of bug that appears once, in production, on a call nobody recorded.
+
+### 12.9 Only an invoice can be credited
+
+**Decision.** `CREDITABLE_TYPES` is `{INVOICE}`. Payments, credit notes and adjustments are
+refused.
+
+**Cost.** A legitimate credit against an adjustment needs a person.
+
+**Why.** Payments and credit notes are self-evidently not charges. An adjustment is excluded
+because it may be signed either way, so "credit this adjustment" has no unambiguous meaning —
+and a rule whose meaning depends on the sign of the thing it is applied to is a rule waiting
+to be got wrong.
+
+Worth noting how this was settled: the test asserted adjustments were not creditable and the
+implementation allowed them. The test was the more considered version, so the code changed.
+
+### 12.10 A credit awaiting approval counts against the window; a rejected one does not
+
+**Decision.** `PENDING_APPROVAL` credits are included in the rolling total. `REJECTED` ones
+are not.
+
+**Cost.** A customer whose credit is later rejected has had their window consumed in the
+meantime.
+
+**Why.** A credit that was asked for and refused was never given, so counting it would punish
+someone for a decision that went against them. But one awaiting approval is committed, and
+excluding it would let a caller stack requests faster than a human can approve them — which
+is the same threshold-splitting the rolling window exists to stop, just faster.
+
+### 12.11 Refusals tell the agent to escalate; incoherent requests do not
+
+**Decision.** The response carries `should_escalate`. It is true for limit, risk and
+entry-cap refusals, false when the named charge does not exist or the account is not active.
+
+**Cost.** A caller whose request was incoherent gets no human, and may feel dismissed.
+
+**Why.** A customer told only "no" has been given nothing, and somebody with more authority
+may still say yes — so a policy refusal should reach a person. But a charge that does not
+exist is a conversation problem, not a policy one: the agent named the wrong thing, and
+sending that to a human wastes their time on something the next question would resolve.
+
+### 12.12 The credit id is derived from the request, not generated
+
+**Decision.** `cn_<hash of conversation, charge, amount>`, written with `put_if_absent`.
+
+**Cost.** Two genuinely separate credits for the same amount against the same charge in the
+same call are indistinguishable, and the second is silently dropped.
+
+**Why.** That collision is the behaviour we want far more often than not: a caller who
+repeats themselves, or a dropped call redialled, must not be credited twice. A random id
+would make every retry a second credit. The rare legitimate case — someone wanting two
+identical credits on one charge in one call — is one a person should look at anyway.
