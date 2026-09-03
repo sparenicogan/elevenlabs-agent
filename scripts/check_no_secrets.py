@@ -16,7 +16,9 @@ PATTERNS = [
     ("AWS account id", re.compile(r"\b\d{12}\b")),
     ("AWS access key", re.compile(r"\b(AKIA|ASIA)[A-Z0-9]{16}\b")),
     ("private key block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    # Legacy private-app tokens (pat-) and the Service Keys that replaced them in 2026.
     ("HubSpot token", re.compile(r"\bpat-(na|eu)\d-[0-9a-f-]{20,}")),
+    ("HubSpot service key", re.compile(r"\b(sk|svc)-[a-z]{2}\d-[0-9a-f-]{20,}")),
     ("Slack token", re.compile(r"\bxox[baprs]-[0-9A-Za-z-]{10,}")),
     ("E.164 phone number", re.compile(r"\+\d{7,15}\b")),
 ]
