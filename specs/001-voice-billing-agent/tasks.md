@@ -168,14 +168,14 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Tests for User Story 4
 
-- [ ] T060 [P] [US4] Write unit tests in `tests/unit/test_risk.py`: the cumulative rule triggers at CHF 540; a high-risk result overrides passing eligibility (FR-014, FR-015)
-- [ ] T061 [P] [US4] Write a wording test in `tests/unit/test_refusal_language.py` asserting the refusal carries a neutral reason and no accusation of fraud
+- [x] T060 [P] [US4] Write unit tests in `tests/unit/test_risk.py`: the cumulative rule triggers at CHF 540; a high-risk result overrides passing eligibility (FR-014, FR-015)
+- [x] T061 [P] [US4] Write a wording test in `tests/unit/test_refusal_language.py` asserting the refusal carries a neutral reason and no accusation of fraud
 
 ### Implementation for User Story 4
 
-- [ ] T062 [US4] Extend `src/domain/risk.py` with the remaining signals from FR-016: high contact frequency, repeated disputes, repeated failed verification, conflicting identity data, unusual payment behaviour — each aggregated from `conversations` via the `customer-index`
-- [ ] T063 [US4] Implement the risk override in `src/domain/credit.py` so any high-risk result forces `DENIED_RISK` and escalation regardless of eligibility (FR-015)
-- [ ] T064 [US4] Extend `agent/prompt/en.md` so a refusal on risk grounds says the request needs review, gives a neutral reason, and makes no accusation
+- [x] T062 [US4] Extend `src/domain/risk.py` with the remaining signals from FR-016: high contact frequency, repeated disputes, repeated failed verification, conflicting identity data, unusual payment behaviour — each aggregated from `conversations` via the `customer-index`
+- [x] T063 (done in US3; the override was built with the credit rules) [US4] Implement the risk override in `src/domain/credit.py` so any high-risk result forces `DENIED_RISK` and escalation regardless of eligibility (FR-015)
+- [x] T064 [US4] Extend `agent/prompt/en.md` so a refusal on risk grounds says the request needs review, gives a neutral reason, and makes no accusation
 
 ---
 

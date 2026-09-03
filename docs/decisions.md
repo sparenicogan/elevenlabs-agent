@@ -1073,3 +1073,73 @@ as reducing a balance. Internal identifiers are never spoken.
 zero and the invoice paid — a small untruth the person reconciling it would notice. It also
 recited `CN-701CE28C14CE62D1807A`, which is a database key reformatted to look like a
 reference number. Nothing downstream accepts it, so reading it out only sounds official.
+
+### 12.20 A pattern is detected from history, not from hitting a ceiling
+
+**Decision.** Reaching the rolling ceiling raises no risk signal. What raises one is the
+*shape* — three or more credits at or above 80% of the per-request limit inside twelve
+months.
+
+**Cost.** A customer with several large-but-legitimate credits is flagged, and a determined
+person could stay under 80% to avoid it.
+
+**Why.** A ceiling being reached is a limit doing its job, not evidence about anyone. Apex
+Capital's credits are 90, 95, 100, 85, 90 — none individually remarkable, and each one a
+plausible response to a real problem. Together they are the shape of someone sitting under a
+CHF 100 approval threshold, which is precisely what the cumulative rule exists to catch and
+precisely what a person reading one call cannot see.
+
+80% because someone taking CHF 5 repeatedly is not working around a CHF 100 ceiling, and
+three because two is a coincidence — a company can have two bad deliveries in a year, and
+flagging that would put a note on ordinary accounts.
+
+### 12.21 Thresholds for what a pattern looks like are constants, not policy
+
+**Decision.** The detection thresholds live in `domain/risk.py` as named constants. The
+credit ceilings remain in SSM.
+
+**Cost.** Tuning them needs a deploy, which breaks the pattern set by Principle VIII.
+
+**Why.** They are different kinds of number. `credit_max_rolling` is what the company
+*permits* — a business decision someone may reasonably change on a Tuesday. "Three credits
+near the limit is a pattern" is a claim about what unusual behaviour looks like. If that
+needs tuning per deployment, the detection is wrong rather than the number, and making it
+easy to adjust would hide that.
+
+### 12.22 Nothing the backend emits may accuse anyone
+
+**Decision.** Rule names, signal names and evidence strings are tested against a list of
+accusatory words. `SUSPECTED_THRESHOLD_SPLITTING` names a shape and marks it as suspected;
+evidence is a count and a window.
+
+**Cost.** A linguistic test over machine-readable strings, which is unusual enough to look
+like overreach.
+
+**Why.** Everything the backend emits is read by somebody. Rule names reach the agent and
+shape how it speaks to the caller; evidence reaches the human picking up the escalation; both
+land in the audit record that would be produced if the decision were ever challenged.
+
+A customer refused a credit may be entirely honest — a company genuinely having a bad year
+produces the same history as one testing the limits, and the system cannot tell them apart. A
+field called `abuse_detected` would be the system asserting something it has no basis for, in
+writing, permanently.
+
+The prompt carries the other half: never name a threshold, a limit, or a count to a caller.
+"You've reached your annual limit" sounds harmless and is the worst thing to say — it tells
+someone exactly what the ceiling is and how to sit under it.
+
+### 12.23 Seeding clears conversation history
+
+**Decision.** `make seed` deletes every conversation record as well as restoring the ledger.
+
+**Cost.** Any real conversation history is destroyed by a reseed, so it cannot be used
+between demos.
+
+**Why.** Found by testing US4. Conversation history feeds the contact-frequency signal, and
+rehearsing generates exactly that history: Apex Capital showed *11 calls in the last 30 days*,
+every one of them mine. Worse, at five calls in thirty days the clean customer used for the
+US3 demo would start being refused the credit that story depends on — a demo breaking because
+of how often it had been rehearsed.
+
+A seed is meant to restore a known state. Leaving one table's history behind made it restore
+most of one.

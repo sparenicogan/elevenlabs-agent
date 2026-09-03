@@ -53,6 +53,11 @@ def stubs(mocker):
             return_value=("CUST-00982", dict(DISPLAY)),
         ),
         "signals": mocker.patch.object(module.conversation_state, "risk_signals", return_value=[]),
+        # Read for the history patterns. Empty unless a test seeds a shape.
+        "history": mocker.patch.object(
+            module.conversation_state, "recent_conversations", return_value=[]
+        ),
+        "record_signal": mocker.patch.object(module.conversation_state, "record_risk_signal"),
         "query": mocker.patch.object(module.dynamo, "query", return_value=[dict(INVOICE)]),
         "put": mocker.patch.object(module.dynamo, "put_if_absent", return_value=True),
         "interaction": mocker.patch.object(module.hubspot, "log_interaction"),
@@ -210,3 +215,52 @@ class TestDegradation:
         result = call(stubs)
         assert result["status"] == "SERVICE_UNAVAILABLE"
         assert result["retryable"] is True
+
+
+class TestThresholdSplitting:
+    """US4. Five credits, none of them individually over the limit, adding to more than the
+    year allows. The refusal comes from the ceiling; the signal explains the shape to whoever
+    picks it up."""
+
+    def _near_limit_credits(self, count: int) -> list[dict]:
+        from datetime import date, timedelta
+
+        today = date.today()
+        return [
+            {
+                "type": "CREDIT_NOTE",
+                "amount": Decimal("-90.00"),
+                "entry_date": (today - timedelta(days=30 * (n + 1))).isoformat(),
+                "status": "APPROVED",
+            }
+            for n in range(count)
+        ]
+
+    def test_a_history_of_near_limit_credits_raises_a_signal(self, stubs):
+        stubs["query"].return_value = [dict(INVOICE), *self._near_limit_credits(5)]
+        call(stubs, amount=80.00)
+        raised = [c.args[0].signal_type for c in stubs["record_signal"].call_args_list]
+        assert "SUSPECTED_THRESHOLD_SPLITTING" in raised
+
+    def test_the_pattern_refuses_a_request_the_ceilings_would_allow(self, stubs):
+        """Three near-limit credits total CHF 270, well inside the CHF 500 window. The
+        ceilings would grant this; the pattern is what stops it."""
+        stubs["query"].return_value = [dict(INVOICE), *self._near_limit_credits(3)]
+        result = call(stubs, amount=40.00)
+        assert result["status"] == "DENIED_RISK"
+        assert result["should_escalate"] is True
+
+    def test_a_clean_history_raises_nothing(self, stubs):
+        call(stubs)
+        stubs["record_signal"].assert_not_called()
+
+    def test_two_near_limit_credits_are_not_yet_a_pattern(self, stubs):
+        stubs["query"].return_value = [dict(INVOICE), *self._near_limit_credits(2)]
+        assert call(stubs)["status"] == "GRANTED"
+
+    def test_the_signal_is_recorded_before_the_decision_is_taken(self, stubs):
+        """Order matters: a signal detected after the decision could not have influenced it."""
+        stubs["query"].return_value = [dict(INVOICE), *self._near_limit_credits(5)]
+        call(stubs, amount=80.00)
+        assert stubs["record_signal"].called
+        assert stubs["put"].called is False

@@ -382,10 +382,15 @@ data "aws_iam_policy_document" "request_credit" {
     resources = [aws_dynamodb_table.ledger.arn]
   }
 
+  # Reads the conversation for verification state, updates it to record risk signals, and
+  # queries the customer index for patterns across their recent calls.
   statement {
-    effect    = "Allow"
-    actions   = ["dynamodb:GetItem"]
-    resources = [aws_dynamodb_table.conversations.arn]
+    effect  = "Allow"
+    actions = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:Query"]
+    resources = [
+      aws_dynamodb_table.conversations.arn,
+      "${aws_dynamodb_table.conversations.arn}/index/*",
+    ]
   }
 
   statement {

@@ -59,6 +59,27 @@ def _purge_orphans(table, keys: set[tuple[str, ...]], key_fields: tuple[str, ...
     return removed
 
 
+def _clear_conversations(table) -> int:
+    """
+    Deletes every conversation record.
+
+    table: the conversations table.
+
+    Returns: how many were removed.
+
+    Conversation history feeds the risk rules — a customer with several calls in the last
+    month raises a contact-frequency signal. Rehearsing against the same fixtures generates
+    exactly that history, so without this a demo customer eventually starts being refused
+    for behaviour that belongs to the person testing them.
+    """
+    removed = 0
+    scan = table.scan(ProjectionExpression="conversation_id")
+    for item in scan.get("Items", []):
+        table.delete_item(Key={"conversation_id": item["conversation_id"]})
+        removed += 1
+    return removed
+
+
 def main() -> int:
     """
     Writes customers and ledger entries into the project's tables.
@@ -74,12 +95,14 @@ def main() -> int:
     dynamodb = boto3.resource("dynamodb")
     identity = dynamodb.Table(f"{PROJECT}-customer-identity")
     ledger = dynamodb.Table(f"{PROJECT}-ledger")
+    conversations = dynamodb.Table(f"{PROJECT}-conversations")
 
     identity_keys = {(c["customer_id"],) for c in fixtures.CUSTOMERS}
     ledger_keys = {(e["customer_id"], e["entry_id"]) for e in fixtures.LEDGER}
 
     dropped_identity = _purge_orphans(identity, identity_keys, ("customer_id",))
     dropped_ledger = _purge_orphans(ledger, ledger_keys, ("customer_id", "entry_id"))
+    dropped_conversations = _clear_conversations(conversations)
 
     for customer in fixtures.CUSTOMERS:
         identity.put_item(Item=_decimalise(customer))
@@ -95,6 +118,7 @@ def main() -> int:
         f"seeded {len(fixtures.LEDGER)} ledger entries into {ledger.name} "
         f"({dropped_ledger} stale removed)"
     )
+    print(f"cleared {dropped_conversations} conversation records")
     return 0
 
 

@@ -28,6 +28,7 @@ from src.domain.credit import (
     evaluate_credit,
     rolling_credit_total,
 )
+from src.domain.risk import detect_history_signals
 from src.domain.risk import evaluate as evaluate_risk
 
 LEDGER_TABLE = "ledger"
@@ -89,12 +90,28 @@ def _request(conversation_id: str, customer_id: str, display: dict, body: dict) 
     ledger = _customer_ledger(customer_id)
     credits = [e for e in ledger if e.get("type") == "CREDIT_NOTE"]
 
+    # Detected before the decision, so a pattern in the history can override rules that
+    # would otherwise permit the request. Signals raised earlier in this call — a lockout, a
+    # caller working through values — are already on the conversation and count too.
+    history_signals = detect_history_signals(
+        ledger=ledger,
+        conversations=conversation_state.recent_conversations(customer_id),
+        customer_id=customer_id,
+        conversation_id=conversation_id,
+        today=date.today(),
+        max_per_request=settings.credit_max_per_request,
+    )
+    for signal in history_signals:
+        conversation_state.record_risk_signal(signal)
+
     decision = evaluate_credit(
         requested_amount=amount,
         entry=entry_from_ledger(_find(ledger, entry_id), credits),
         account_status=str(display.get("account_status", "UNKNOWN")),
         rolling_total=rolling_credit_total(credits, date.today(), settings.credit_window_months),
-        risk_level=evaluate_risk(conversation_state.risk_signals(conversation_id)),
+        risk_level=evaluate_risk(
+            conversation_state.risk_signals(conversation_id) + history_signals
+        ),
         max_per_request=settings.credit_max_per_request,
         max_rolling=settings.credit_max_rolling,
     )

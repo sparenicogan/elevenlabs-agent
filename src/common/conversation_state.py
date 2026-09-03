@@ -8,6 +8,8 @@ conversations table, and the model's opinion is irrelevant.
 from datetime import UTC, datetime
 from enum import StrEnum
 
+from boto3.dynamodb.conditions import Key
+
 from src.adapters import dynamo
 from src.adapters.errors import ErrorCategory, ToolError
 from src.domain.risk import RiskSignal
@@ -285,3 +287,24 @@ def record_wrong_values(conversation_id: str, fingerprints: set[str]) -> int:
         },
     )
     return len(seen)
+
+
+def recent_conversations(customer_id: str, limit: int = 50) -> list[dict]:
+    """
+    Reads a customer's recent calls, newest first.
+
+    customer_id: the verified customer.
+    limit:       how many to read. Fifty is far more than any pattern needs and small enough
+                 to stay a single query.
+
+    Returns: conversation records carrying started_at and outcome. Empty when the customer
+             has never called before, which is the ordinary case for a new customer and must
+             not look like a failure.
+    """
+    return dynamo.query(
+        _TABLE,
+        index="customer-index",
+        KeyConditionExpression=Key("customer_id").eq(customer_id),
+        ScanIndexForward=False,
+        Limit=limit,
+    )
