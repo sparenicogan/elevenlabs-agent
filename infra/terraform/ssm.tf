@@ -14,6 +14,11 @@ locals {
     # but only when the written reference resolves to no invoice at all (FR-010g).
     reference_typo_max_distance = "2"
 
+    # Greeting language when the caller's number is not recognised (FR-033a). German
+    # for a Swiss customer base; set to en while rehearsing, since a demo you cannot
+    # follow is not a demo you can debug.
+    default_language = "en"
+
     credit_max_per_request    = "100"
     credit_max_rolling        = "500"
     credit_window_months      = "12"

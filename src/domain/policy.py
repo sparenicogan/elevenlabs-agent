@@ -31,6 +31,7 @@ class Policy:
     read_retry_count:          retries permitted on idempotent reads. Mutations get none.
     summary_max_chars:         cap on the per-customer summary (FR-039a).
     resolution_target_hours:   what the agent promises the caller.
+    default_language:          greeting language for an unrecognised number (FR-033a).
     """
 
     required_factor_count: int
@@ -45,6 +46,7 @@ class Policy:
     read_retry_count: int
     summary_max_chars: int
     resolution_target_hours: int
+    default_language: str
 
 
 def load() -> Policy:
@@ -69,4 +71,5 @@ def load() -> Policy:
         read_retry_count=int(raw["read_retry_count"]),
         summary_max_chars=int(raw["summary_max_chars"]),
         resolution_target_hours=int(raw["resolution_target_hours"]),
+        default_language=raw["default_language"],
     )
