@@ -32,6 +32,12 @@ NON_FIXTURE_ONLY = frozenset({"AWS account id", "E.164 phone number"})
 # Paths where a match is expected and harmless.
 EXEMPT = ("scripts/check_no_secrets.py", "uv.lock", ".python-version")
 
+# HubSpot object ids are 12 digits, the same shape as an AWS account id, and the fixtures
+# are full of them. They are not secrets: anyone with access to the CRM can read them, and
+# they identify synthetic records. Exempted for that one pattern in that one file rather
+# than weakening the rule everywhere — credential patterns still apply here.
+ACCOUNT_ID_EXEMPT_PATHS = frozenset({"scripts/seed/fixtures.py"})
+
 # Values that look like the real thing but identify nothing: the all-zeros account used as
 # a placeholder in examples and in CI, where terraform needs a syntactically valid value it
 # will never authenticate against.
@@ -60,6 +66,8 @@ def main() -> int:
         in_tests = path.startswith("tests/")
         for name, pattern in PATTERNS:
             if in_tests and name in NON_FIXTURE_ONLY:
+                continue
+            if name == "AWS account id" and path in ACCOUNT_ID_EXEMPT_PATHS:
                 continue
             for match in pattern.finditer(content):
                 if match.group() in ALLOWED_VALUES:
