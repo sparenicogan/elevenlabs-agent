@@ -93,8 +93,8 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 - [x] T032 [P] [US1] Write unit tests for exact payment matching in `tests/unit/test_payment_match.py`: exact amount and exact execution date give MATCH; a one-day or one-franc difference gives NO_MATCH; a missing field or two candidate payments give INSUFFICIENT (FR-010a)
 - [x] T033 [P] [US1] Write unit tests for allocation legality in `tests/unit/test_allocation.py`: `UNALLOCATED → UNDER_REVIEW` only, never straight to `ALLOCATED`, and a second proposal returns the first ticket (FR-012, FR-022)
-- [ ] T034 [P] [US1] Write contract tests in `tests/contract/test_tool_contracts.py` asserting every tool response matches contracts/tools.md, including that `match_payment` never returns a stored amount, date, reference, or address
-- [ ] T035 [P] [US1] Write the golden-path integration test in `tests/integration/test_golden_path.py` against deployed endpoints
+- [x] T034 [P] [US1] Write contract tests in `tests/contract/test_tool_contracts.py` asserting every tool response matches contracts/tools.md, including that `match_payment` never returns a stored amount, date, reference, or address
+- [x] T035 [P] [US1] Write the golden-path integration test in `tests/integration/test_golden_path.py` against deployed endpoints
 
 ### Implementation for User Story 1
 

@@ -18,6 +18,11 @@ lint:
 test:
 	uv run pytest tests/unit tests/contract
 
+# Runs against the deployed stack. Needs AWS credentials, and mutates the disputed payment
+# before putting it back, so do not run it mid-rehearsal.
+test-integration:
+	uv run pytest tests/integration -v
+
 deploy:
 	terraform -chdir=infra/terraform init -backend-config=backend.hcl
 	terraform -chdir=infra/terraform apply
