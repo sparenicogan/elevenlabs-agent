@@ -66,6 +66,28 @@ def set_verification(conversation_id: str, status: VerificationStatus, customer_
     )
 
 
+def record_failed_attempt(conversation_id: str) -> int:
+    """
+    Counts a failed verification attempt against the call itself.
+
+    conversation_id: the call in progress.
+
+    Returns: how many attempts have now failed in this call.
+
+    Per-customer counting alone leaves a hole: a caller who never names an account cannot
+    have their failures attributed to one, and could guess indefinitely. FR-006 requires
+    counting per caller session as well, and this is that half.
+    """
+    updated = dynamo.update_if(
+        _TABLE,
+        {"conversation_id": conversation_id},
+        condition="attribute_exists(conversation_id)",
+        UpdateExpression="ADD failed_verification_attempts :one",
+        ExpressionAttributeValues={":one": 1},
+    )
+    return int(updated.get("failed_verification_attempts", 1)) if updated else 1
+
+
 def require_verified(conversation_id: str) -> str:
     """
     Gate for every tool that touches financial data.

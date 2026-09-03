@@ -23,6 +23,12 @@ PATTERNS = [
     ("E.164 phone number", re.compile(r"\+\d{7,15}\b")),
 ]
 
+# Patterns that only make sense outside test fixtures. A fixture has to contain
+# plausible-looking data to be worth anything, and all project data is synthetic by rule
+# (FR-032). Credential patterns still apply everywhere — a real token in a fixture is a real
+# token.
+NON_FIXTURE_ONLY = frozenset({"AWS account id", "E.164 phone number"})
+
 # Paths where a match is expected and harmless.
 EXEMPT = ("scripts/check_no_secrets.py", "uv.lock", ".python-version")
 
@@ -51,7 +57,10 @@ def main() -> int:
             content = Path(path).read_text(encoding="utf-8")
         except (UnicodeDecodeError, FileNotFoundError):
             continue
+        in_tests = path.startswith("tests/")
         for name, pattern in PATTERNS:
+            if in_tests and name in NON_FIXTURE_ONLY:
+                continue
             for match in pattern.finditer(content):
                 if match.group() in ALLOWED_VALUES:
                     continue
