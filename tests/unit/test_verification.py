@@ -13,6 +13,7 @@ from datetime import date
 from decimal import Decimal  # noqa: F401  (kept: fixtures below mirror the identity record)
 
 import pytest
+
 from src.domain.verification import (
     Factor,
     VerificationStatus,
@@ -192,6 +193,46 @@ class TestNoDisclosure:
         serialised = repr(result)
         for stored_value in STORED.values():
             assert stored_value not in serialised
+
+    def test_a_real_customer_id_with_nonsense_looks_like_an_invented_one(self):
+        """Found by calling the deployed endpoint, not by the unit tests below: supplying a
+        real customer id alongside deliberate nonsense confirmed one factor, while an
+        invented id confirmed none. The difference is a customer-id enumeration oracle over
+        a five-digit space."""
+        real_id = check(
+            {Factor.CUSTOMER_ID: "CUST-00417", Factor.EMAIL: "nonsense@example.com"},
+            stored={**STORED, Factor.CUSTOMER_ID: "CUST-00417"},
+        )
+        invented_id = check(
+            {Factor.CUSTOMER_ID: "CUST-99999", Factor.EMAIL: "nonsense@example.com"},
+            stored={**STORED, Factor.CUSTOMER_ID: "CUST-00417"},
+        )
+        assert real_id.status is invented_id.status
+        assert real_id.confirmed_count == invented_id.confirmed_count == 0
+        assert real_id.next_factor_hint == invented_id.next_factor_hint
+
+    def test_a_failed_attempt_reports_no_progress_at_all(self):
+        result = check(
+            {
+                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.EMAIL: "buchhaltung@meier-bau.ch",
+                Factor.PHONE: "wrong",
+            }
+        )
+        assert result.status is VerificationStatus.FAILED
+        assert result.confirmed_count == 0
+        assert result.non_document_satisfied is False
+
+    def test_a_verified_result_asks_for_nothing_further(self):
+        result = check(
+            {
+                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.EMAIL: "buchhaltung@meier-bau.ch",
+                Factor.PHONE: "+41 44 123 45 67",
+            }
+        )
+        assert result.status is VerificationStatus.VERIFIED
+        assert result.next_factor_hint is None
 
     def test_an_unknown_customer_looks_exactly_like_a_wrong_answer(self):
         """Otherwise the response distinguishes 'no such customer' from 'wrong details', and

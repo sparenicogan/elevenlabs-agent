@@ -58,7 +58,7 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 - [x] T014 [P] Define the transcripts bucket in `infra/terraform/s3.tf`: SSE-KMS, public access blocked, lifecycle expiration driven by `var.transcript_retention_days`
 - [x] T015 [P] Define Secrets Manager entries in `infra/terraform/secrets.tf` for the ElevenLabs webhook HMAC secret, the tool API key, and the HubSpot private-app token — values supplied out of band, never in the repo
 - [x] T016 [P] Define the eleven SSM policy parameters from research.md D9 in `infra/terraform/ssm.tf`
-- [~] T017 Define the HTTP API, routes, and stage in `infra/terraform/api_gateway.tf`, with a 5-second integration timeout — API, stage and access logging done; **routes deferred to Phase 3**, since a route needs an integration and an integration needs a handler
+- [~] T017 (routes land per handler; verify-identity done) Define the HTTP API, routes, and stage in `infra/terraform/api_gateway.tf`, with a 5-second integration timeout — API, stage and access logging done; **routes deferred to Phase 3**, since a route needs an integration and an integration needs a handler
 - [x] T018 Define the reusable Lambda module in `infra/terraform/modules/lambda/`: Python 3.12, 4-second timeout, per-function least-privilege IAM role and log group. Written and validating standalone; **first instantiated in T038**. Audit log-group retention lives in `logs.tf` (T019), not the module — it is one group for the project, not one per function
 - [x] T019 Define CloudWatch log groups in `infra/terraform/logs.tf`, including the dedicated `/voice-agent/audit` group
 
@@ -98,7 +98,7 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Implementation for User Story 1
 
-- [ ] T036 [P] [US1] Write the synthetic seed script in `scripts/seed/seed.py` and fixtures in `scripts/seed/fixtures.py` for the four customers in quickstart.md — Meier Bau AG carries the overdue CHF 4,200 invoice and the unallocated CHF 4,200 payment with no reference and a mismatched payer address
+- [x] T036 [P] [US1] Write the synthetic seed script in `scripts/seed/seed.py` and fixtures in `scripts/seed/fixtures.py` for the four customers in quickstart.md — Meier Bau AG carries the overdue CHF 4,200 invoice and the unallocated CHF 4,200 payment with no reference and a mismatched payer address
 - [x] T037 [US1] Implement factor checking in `src/domain/verification.py`: compare supplied factors against stored values, count confirmed factors, and return the status enum without ever revealing which factor failed (FR-004)
 - [x] T038 [US1] Implement `src/handlers/verify_identity.py` per contracts/tools.md, resolving the customer from the factors themselves and never from the caller-id candidate (research D3), and recording verification state via T030
 - [ ] T039 [US1] Implement `src/handlers/get_account_context.py`: refuse unless the conversation is VERIFIED, then fetch open invoices from the `status-index`, open and past escalations, CRM data, and the bounded summary (FR-001, FR-039b)

@@ -152,13 +152,31 @@ def check_factors(
     else:
         status = VerificationStatus.PARTIALLY_VERIFIED
 
+    # A failed attempt reports nothing about what was right. Otherwise supplying a real
+    # customer id alongside deliberate nonsense returns a higher confirmed count than
+    # supplying an invented one, and the count becomes a way to enumerate customer ids.
+    if status is VerificationStatus.FAILED:
+        return VerificationResult(
+            status=status,
+            confirmed_count=0,
+            required_count=required_count,
+            non_document_satisfied=False,
+            next_factor_hint=_next_hint(set(), non_document_satisfied=False),
+            is_failed_attempt=True,
+        )
+
     return VerificationResult(
         status=status,
         confirmed_count=len(confirmed),
         required_count=required_count,
         non_document_satisfied=non_document_satisfied,
-        next_factor_hint=_next_hint(confirmed, non_document_satisfied),
-        is_failed_attempt=any_wrong,
+        # Nothing more to ask once verification has succeeded.
+        next_factor_hint=(
+            None
+            if status is VerificationStatus.VERIFIED
+            else _next_hint(confirmed, non_document_satisfied)
+        ),
+        is_failed_attempt=False,
     )
 
 
