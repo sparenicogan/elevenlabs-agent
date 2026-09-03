@@ -36,14 +36,23 @@ Terraform cannot create the S3 bucket it uses as its own backend, and GitHub Act
 role that does not exist yet. Both are solved by one local apply:
 
 ```bash
-export AWS_PROFILE=voice-agent-admin   # SSO profile for account 199013204701, AdministratorAccess
+export AWS_PROFILE=<your-sso-profile>   # must have AdministratorAccess on the target account
 aws sso login
-make bootstrap                                    # creates and versions the state bucket
-cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
-$EDITOR infra/terraform/terraform.tfvars          # set aws_account_id
 
-cd infra/terraform && terraform init && terraform apply
+cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
+cp infra/terraform/backend.hcl.example   infra/terraform/backend.hcl
+$EDITOR infra/terraform/terraform.tfvars   # set aws_account_id
+$EDITOR infra/terraform/backend.hcl        # set the state bucket name
+
+TF_STATE_BUCKET=<your-state-bucket> make bootstrap   # creates and versions it
+
+cd infra/terraform
+terraform init -backend-config=backend.hcl
+terraform apply
 ```
+
+Both `terraform.tfvars` and `backend.hcl` are untracked: they carry the account id, which
+has no business in a repository that may be shared.
 
 The apply prints `deploy_role_arn`. Set it as the `AWS_DEPLOY_ROLE_ARN` repository variable in
 GitHub, and CI takes over from there — no long-lived AWS keys anywhere.
@@ -53,5 +62,6 @@ If the account already has a GitHub OIDC provider, set `create_oidc_provider = f
 
 ## Deployment target
 
-Account `199013204701`, region `eu-central-1`, dedicated to this demo. The provider's
-`allowed_account_ids` guard makes an apply against any other account fail.
+A dedicated AWS account, region `eu-central-1`. The account id lives in the untracked
+`infra/terraform/terraform.tfvars`, and the provider's `allowed_account_ids` guard makes an apply
+against any other account fail rather than quietly succeed.

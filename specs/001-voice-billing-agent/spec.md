@@ -615,7 +615,7 @@ evidence on the escalation, promises human correction, and writes nothing to the
 - The human side of an escalation is a single "billing specialist" line, in practice the builder's
   own mobile. There is no queue, no routing, and no voicemail; an unanswered or unroutable transfer
   falls through to the persisted-escalation-plus-callback path.
-- Inbound telephony uses an existing provisioned number (+1 551 321-6408). The number is US-based
+- Inbound telephony uses an existing provisioned number (the provisioned inbound number). The number is US-based
   while the fictional company is Swiss; this is accepted as a demo artifact and is not presented as
   the company's real service line. Call transfer therefore has a real dial path available.
 - The demo runs against seeded fixtures: a disputing customer with an overdue CHF 4,200 invoice and

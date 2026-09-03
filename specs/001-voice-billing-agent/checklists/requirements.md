@@ -35,7 +35,7 @@
   constraints; requirement bodies stay platform-neutral ("conversational layer", "secure
   backend", "CRM").
 - All three scope questions resolved (2026-09-02):
-  - FR-047: real inbound telephony on an existing provisioned number (+1 551 321-6408). US number
+  - FR-047: real inbound telephony on an existing provisioned number (the provisioned inbound number). US number
     with a Swiss fictional company — accepted demo artifact, noted in Assumptions.
   - FR-048: outbound payment links and SMS dropped entirely. The transfer-failure fallback is now
     self-contained (persist escalation, create callback, tell the caller on the call), so no

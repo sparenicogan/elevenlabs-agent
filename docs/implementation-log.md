@@ -84,7 +84,7 @@ credential, but nothing is gained by publishing it.
 
 ### T005b — State bucket bootstrap
 
-**What**: `elevenlabs-agent-tfstate-199013204701`, created with the AWS CLI, versioning enabled.
+**What**: `<state-bucket>`, created with the AWS CLI, versioning enabled.
 
 **Why outside Terraform**: Terraform cannot create the bucket it is already configured to use as
 its backend. Versioning is the undo button if a state file is corrupted — cheap, and the only
@@ -507,7 +507,7 @@ merely everything it changes. Refresh reads every managed resource on every run.
 
 ## State at the end of Phase 2
 
-**AWS account 199013204701, eu-central-1** — 39 Terraform-managed resources: 4 DynamoDB tables,
+**AWS the target account, eu-central-1** — 39 Terraform-managed resources: 4 DynamoDB tables,
 2 KMS keys with aliases, the transcripts bucket with its lifecycle, 3 empty secrets, 11 policy
 parameters, the HTTP API and stage, 2 log groups, the OIDC provider and deploy role.
 

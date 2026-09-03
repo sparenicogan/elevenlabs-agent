@@ -14,7 +14,7 @@ How to stand the system up and prove it does what the spec claims. Implementatio
 - Terraform ≥ 1.10 (S3-native state locking), Python 3.12, `uv` or `pip`
 - ElevenLabs account with Agents access
 - HubSpot developer account and a private-app token
-- The inbound number `+1 551 321-6408` routed to the ElevenLabs agent
+- The inbound number `the provisioned inbound number` routed to the ElevenLabs agent
 - A second phone number to act as the billing-specialist transfer destination
 
 Secrets go to Secrets Manager, never to the repo:
@@ -31,9 +31,9 @@ One-time bootstrap, because Terraform cannot create the bucket it uses as a back
 
 ```bash
 aws sso login
-aws s3api create-bucket --bucket elevenlabs-agent-tfstate-199013204701 \
+aws s3api create-bucket --bucket <state-bucket> \
   --region eu-central-1 --create-bucket-configuration LocationConstraint=eu-central-1
-aws s3api put-bucket-versioning --bucket elevenlabs-agent-tfstate-199013204701 \
+aws s3api put-bucket-versioning --bucket <state-bucket> \
   --versioning-configuration Status=Enabled
 ```
 

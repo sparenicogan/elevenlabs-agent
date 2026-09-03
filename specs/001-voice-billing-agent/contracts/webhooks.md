@@ -6,7 +6,7 @@
 
 ```json
 // request (from ElevenLabs)
-{ "caller_id": "+41...", "agent_id": "...", "called_number": "+15513216408", "call_sid": "..." }
+{ "caller_id": "+41...", "agent_id": "...", "called_number": "the provisioned inbound number", "call_sid": "..." }
 
 // response
 { "dynamic_variables": {

@@ -44,7 +44,7 @@ jobs:
         with:
           terraform_version: 1.10.5
 
-      - run: terraform init
+      - run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
         working-directory: infra/terraform
 
       - run: terraform apply -auto-approve
