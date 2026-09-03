@@ -12,7 +12,7 @@
     },
     "asr": {
       "quality": "high",
-      "provider": "elevenlabs"
+      "provider": "scribe_realtime"
     },
     "turn": {
       "turn_timeout": 10,
@@ -40,6 +40,7 @@
     "first_message": "Deliberately empty. The greeting is supplied per call by the initiation webhook so it arrives in the right language. It must never use the caller's name or acknowledge that the number was recognised (FR-033b).",
     "temperature": "Low. This agent reads statuses back to callers and follows a policy; inventiveness is a defect here, not a feature.",
     "turn_timeout": "10s. Callers checking a banking app for a payment date need thinking time, and the agent explicitly offers to wait.",
-    "system_tools": "language_detection for DE/FR/IT/EN, and transfer_to_number for the escalation handoff. Both are configured at the platform level rather than in this file."
+    "system_tools": "language_detection for DE/FR/IT/EN, and transfer_to_number for the escalation handoff. Both are configured at the platform level rather than in this file.",
+    "asr": "scribe_realtime. The original 'elevenlabs' provider was removed and existing agents migrated; specifying it is now rejected."
   }
 }

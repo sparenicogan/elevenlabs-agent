@@ -2,24 +2,28 @@
   {
     "type": "webhook",
     "name": "verify_identity",
-    "description": "Check identifying details the caller has given. Call this before anything else, and again each time the caller supplies another detail. Returns VERIFIED, PARTIALLY_VERIFIED, FAILED or LOCKED, how many factors are confirmed, and which field to ask for next. It never returns the expected answer. Do not disclose any financial information until it returns VERIFIED.",
+    "description": "Check identifying details the caller has given. Call this before anything else, and again each time the caller supplies another detail. Returns VERIFIED, PARTIALLY_VERIFIED, FAILED or LOCKED, how many factors are confirmed, and which field to ask for next. It never returns the expected answer. Disclose no financial information of any kind until it returns VERIFIED.",
     "response_timeout_secs": 5,
+    "force_pre_tool_speech": true,
+    "pre_tool_speech": "auto",
     "api_schema": {
-      "url": "https://epi0a99475.execute-api.eu-central-1.amazonaws.com/tools/verify-identity",
+      "url": "/tools/verify-identity",
       "method": "POST",
-      "request_headers": {
-        "x-api-key": "{{secret__tool_api_key}}"
-      },
+      "request_headers": {},
       "request_body_schema": {
         "type": "object",
+        "required": [
+          "conversation_id",
+          "factors"
+        ],
         "properties": {
           "conversation_id": {
             "type": "string",
-            "description": "The current conversation id. Always {{system__conversation_id}}."
+            "dynamic_variable": "system__conversation_id"
           },
           "candidate_customer_id": {
             "type": "string",
-            "description": "Always {{secret__candidate_customer_id}}. Used only to scope the lookup; it never counts as a verification factor."
+            "dynamic_variable": "candidate_customer_id"
           },
           "factors": {
             "type": "array",
@@ -29,6 +33,7 @@
               "properties": {
                 "field": {
                   "type": "string",
+                  "description": "Which detail this is.",
                   "enum": [
                     "customer_id",
                     "email",
@@ -48,11 +53,7 @@
               ]
             }
           }
-        },
-        "required": [
-          "conversation_id",
-          "factors"
-        ]
+        }
       }
     }
   },
@@ -61,43 +62,47 @@
     "name": "get_account_context",
     "description": "Load the customer's open invoices, open and past escalations, CRM details and a short summary of previous conversations. Call this once, immediately after verification succeeds. It refuses if the conversation is not verified.",
     "response_timeout_secs": 5,
+    "force_pre_tool_speech": true,
+    "pre_tool_speech": "auto",
     "api_schema": {
-      "url": "https://epi0a99475.execute-api.eu-central-1.amazonaws.com/tools/get-account-context",
+      "url": "/tools/get-account-context",
       "method": "POST",
-      "request_headers": {
-        "x-api-key": "{{secret__tool_api_key}}"
-      },
+      "request_headers": {},
       "request_body_schema": {
         "type": "object",
+        "required": [
+          "conversation_id"
+        ],
         "properties": {
           "conversation_id": {
             "type": "string",
-            "description": "The current conversation id. Always {{system__conversation_id}}."
+            "dynamic_variable": "system__conversation_id"
           }
-        },
-        "required": [
-          "conversation_id"
-        ]
+        }
       }
     }
   },
   {
     "type": "webhook",
     "name": "match_payment",
-    "description": "Check a payment the caller says they made against the payments on record. Ask for the exact amount and the exact date they sent the transfer; it is fine for them to check their banking app. Never tell the caller what the record holds \u2014 you are asking them to state what they know. Returns MATCH, NO_MATCH or INSUFFICIENT.",
+    "description": "Check a payment the caller says they made against the payments on record. Ask for the exact amount and the exact date they sent the transfer; it is fine for them to check their banking app and you should offer to wait. Never tell the caller what the record holds \u2014 you are asking them to state what they know. Returns MATCH, NO_MATCH or INSUFFICIENT.",
     "response_timeout_secs": 5,
+    "force_pre_tool_speech": true,
+    "pre_tool_speech": "auto",
     "api_schema": {
-      "url": "https://epi0a99475.execute-api.eu-central-1.amazonaws.com/tools/match-payment",
+      "url": "/tools/match-payment",
       "method": "POST",
-      "request_headers": {
-        "x-api-key": "{{secret__tool_api_key}}"
-      },
+      "request_headers": {},
       "request_body_schema": {
         "type": "object",
+        "required": [
+          "conversation_id",
+          "invoice_entry_id"
+        ],
         "properties": {
           "conversation_id": {
             "type": "string",
-            "description": "The current conversation id. Always {{system__conversation_id}}."
+            "dynamic_variable": "system__conversation_id"
           },
           "invoice_entry_id": {
             "type": "string",
@@ -109,13 +114,9 @@
           },
           "claimed_transfer_date": {
             "type": "string",
-            "description": "The date the caller says they sent it, as YYYY-MM-DD. Resolve phrases like 'last Tuesday' to a date before calling; do not send them."
+            "description": "The date the caller says they sent it, as YYYY-MM-DD. Resolve phrases like 'last Tuesday' to a date yourself; never send the phrase."
           }
-        },
-        "required": [
-          "conversation_id",
-          "invoice_entry_id"
-        ]
+        }
       }
     }
   },
@@ -124,18 +125,23 @@
     "name": "propose_allocation",
     "description": "Propose that a matched payment be allocated to an invoice. Call this only after match_payment returned MATCH. It does not settle the invoice: it puts the payment under review for a person to confirm, creates a ticket and logs the interaction. Tell the caller a person will confirm it within 24 hours.",
     "response_timeout_secs": 5,
+    "force_pre_tool_speech": true,
+    "pre_tool_speech": "auto",
     "api_schema": {
-      "url": "https://epi0a99475.execute-api.eu-central-1.amazonaws.com/tools/propose-allocation",
+      "url": "/tools/propose-allocation",
       "method": "POST",
-      "request_headers": {
-        "x-api-key": "{{secret__tool_api_key}}"
-      },
+      "request_headers": {},
       "request_body_schema": {
         "type": "object",
+        "required": [
+          "conversation_id",
+          "payment_entry_id",
+          "invoice_entry_id"
+        ],
         "properties": {
           "conversation_id": {
             "type": "string",
-            "description": "The current conversation id. Always {{system__conversation_id}}."
+            "dynamic_variable": "system__conversation_id"
           },
           "payment_entry_id": {
             "type": "string",
@@ -145,12 +151,7 @@
             "type": "string",
             "description": "The invoice it settles."
           }
-        },
-        "required": [
-          "conversation_id",
-          "payment_entry_id",
-          "invoice_entry_id"
-        ]
+        }
       }
     }
   },
@@ -159,18 +160,24 @@
     "name": "request_credit",
     "description": "Ask for a goodwill credit against a specific charge. Evaluates eligibility and issues it in one step. Returns GRANTED, or a denial reason. On any denial, say a colleague will review it and give a neutral reason \u2014 never suggest the caller has asked too often and never imply anything about their honesty.",
     "response_timeout_secs": 5,
+    "force_pre_tool_speech": true,
+    "pre_tool_speech": "auto",
     "api_schema": {
-      "url": "https://epi0a99475.execute-api.eu-central-1.amazonaws.com/tools/request-credit",
+      "url": "/tools/request-credit",
       "method": "POST",
-      "request_headers": {
-        "x-api-key": "{{secret__tool_api_key}}"
-      },
+      "request_headers": {},
       "request_body_schema": {
         "type": "object",
+        "required": [
+          "conversation_id",
+          "entry_id",
+          "amount",
+          "reason"
+        ],
         "properties": {
           "conversation_id": {
             "type": "string",
-            "description": "The current conversation id. Always {{system__conversation_id}}."
+            "dynamic_variable": "system__conversation_id"
           },
           "entry_id": {
             "type": "string",
@@ -184,36 +191,35 @@
             "type": "string",
             "description": "The caller's stated reason, in their own words."
           }
-        },
-        "required": [
-          "conversation_id",
-          "entry_id",
-          "amount",
-          "reason"
-        ]
+        }
       }
     }
   },
   {
     "type": "webhook",
     "name": "create_escalation",
-    "description": "Hand the call to a person, with context so the caller does not repeat themselves. Call this before transferring, always. Works even when the caller could not be verified \u2014 use reason IDENTITY_NOT_ESTABLISHED and put what they told you in caller_stated_problem. Returns a handoff summary to pass to the human.",
+    "description": "Hand the call to a person, with context so the caller does not repeat themselves. Call this before transferring, always. It works even when the caller could not be verified \u2014 use reason IDENTITY_NOT_ESTABLISHED and put what they told you in caller_stated_problem. Returns a handoff summary to pass to the human.",
     "response_timeout_secs": 5,
+    "force_pre_tool_speech": true,
+    "pre_tool_speech": "auto",
     "api_schema": {
-      "url": "https://epi0a99475.execute-api.eu-central-1.amazonaws.com/tools/create-escalation",
+      "url": "/tools/create-escalation",
       "method": "POST",
-      "request_headers": {
-        "x-api-key": "{{secret__tool_api_key}}"
-      },
+      "request_headers": {},
       "request_body_schema": {
         "type": "object",
+        "required": [
+          "conversation_id",
+          "reason"
+        ],
         "properties": {
           "conversation_id": {
             "type": "string",
-            "description": "The current conversation id. Always {{system__conversation_id}}."
+            "dynamic_variable": "system__conversation_id"
           },
           "reason": {
             "type": "string",
+            "description": "Why the call is being escalated.",
             "enum": [
               "IDENTITY_NOT_ESTABLISHED",
               "VERIFICATION_LOCKED",
@@ -241,13 +247,9 @@
           },
           "notes": {
             "type": "string",
-            "description": "Anything else the human should know."
+            "description": "Anything else the person taking over should know."
           }
-        },
-        "required": [
-          "conversation_id",
-          "reason"
-        ]
+        }
       }
     }
   }

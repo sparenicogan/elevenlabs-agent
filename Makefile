@@ -23,7 +23,16 @@ deploy:
 	terraform -chdir=infra/terraform apply
 
 seed:
-	uv run python scripts/seed/seed.py --env dev
+	uv run python -m scripts.seed.seed --env dev
+
+# Pushes the prompt and tool definitions to ElevenLabs. The agent's behaviour lives in this
+# repository, not in a dashboard where a change leaves no trace.
+AGENT_ID ?= agent_3501m1k6hy8yech93pn3gfets2tx
+agent-sync:
+	uv run python -m scripts.agent.sync --agent-id $(AGENT_ID)
+
+agent-diff:
+	uv run python -m scripts.agent.sync --agent-id $(AGENT_ID) --dry-run
 
 # One-time only. Terraform cannot create the bucket it uses as its own backend.
 # The name is passed in rather than committed, because it embeds the account id:
