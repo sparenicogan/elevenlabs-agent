@@ -129,6 +129,8 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 - [ ] T049 [US2] Add the non-document rule to `src/domain/verification.py`: at least one confirmed factor must be email, phone, date of birth, or account opening year, so possession of an invoice is never sufficient (FR-003a)
 - [ ] T050 [US2] Add attempt counting and lockout to `src/handlers/verify_identity.py`: increment `failed_verification_attempts`, set `locked_until` past the configured limit, reset on success (FR-006)
+- [ ] T050a [US2] Count distinct values offered per factor per conversation in `src/domain/verification.py` and `src/common/conversation_state.py`, storing salted hashes rather than values; a third distinct value for one factor raises a risk signal and escalates (FR-006a–d)
+- [ ] T050b [P] [US2] Write tests in `tests/unit/test_guessing.py`: one self-correction proceeds, a third distinct value for the same factor escalates, the allowance is per factor, and no attempted value is stored in readable form
 - [ ] T051 [US2] Implement risk-signal writing in `src/domain/risk.py` and record a signal on lockout and on a candidate-id mismatch (FR-016, research D3)
 - [ ] T052 [US2] Add `next_factor_hint` selection to `src/handlers/verify_identity.py`, naming a field to ask for and never carrying a value (FR-004)
 - [ ] T053 [US2] Extend `agent/prompt/en.md` with guidance for a caller who cannot find the information — naming which document carries it, without revealing the value (FR-005) — and with escalation on LOCKED

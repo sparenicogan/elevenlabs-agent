@@ -128,6 +128,13 @@ VERIFIED, PARTIALLY_VERIFIED, FAILED, and LOCKED produces its defined behavior.
 6. **Given** a caller confirms three factors that are all printed on the invoice they hold, **When**
    the backend evaluates them, **Then** verification does not succeed, because at least one
    non-document factor is required.
+7. **Given** a caller offers one customer identifier and immediately corrects it, **When** they
+   continue, **Then** verification proceeds normally: misspeaking is not an attack.
+8. **Given** a caller offers a third distinct customer identifier in the same call, **When** the
+   backend evaluates it, **Then** a risk signal is recorded and the call escalates, regardless of
+   whether any value was correct.
+9. **Given** a caller corrects their email twice and then offers a customer identifier, **When** the
+   identifier is evaluated, **Then** it is not penalised: the allowance is per factor.
 
 ---
 
@@ -370,6 +377,17 @@ evidence on the escalation, promises human correction, and writes nothing to the
   exceeding the configured limit MUST produce LOCKED, a recorded risk signal, and escalation.
 - **FR-007**: Ownership and authority to act on the account MUST be checked in the backend for every
   request touching a customer's records.
+- **FR-006a**: The number of *distinct* values offered for each verification factor within a call
+  MUST be counted server-side. A caller may correct themselves once — misspeaking is human — but
+  offering a third distinct value for the same factor is enumeration, not correction, and MUST
+  raise a risk signal and escalate.
+- **FR-006b**: The count MUST be per factor. Correcting a mistyped email must not consume the
+  allowance for the customer identifier, or an honest caller with an unusual surname is treated as
+  an attacker.
+- **FR-006c**: Attempted values MUST be recorded as salted hashes, never as values, so distinct
+  attempts can be counted without retaining what a caller guessed (Principle IV).
+- **FR-006d**: This check MUST be enforced in the backend. The agent may also notice a caller
+  fishing and escalate sooner, but a model noticing is not a control.
 
 ### Financial behavior
 

@@ -1,0 +1,45 @@
+{
+  "name": "Helvetia Werkstoffe billing agent",
+  "conversation_config": {
+    "agent": {
+      "language": "de",
+      "prompt": {
+        "llm": "gpt-4o",
+        "temperature": 0.3,
+        "max_tokens": 500
+      },
+      "first_message": ""
+    },
+    "asr": {
+      "quality": "high",
+      "provider": "elevenlabs"
+    },
+    "turn": {
+      "turn_timeout": 10,
+      "mode": "turn"
+    },
+    "tts": {
+      "model_id": "eleven_turbo_v2_5",
+      "optimize_streaming_latency": 3,
+      "stability": 0.5,
+      "similarity_boost": 0.75
+    }
+  },
+  "platform_settings": {
+    "overrides": {
+      "conversation_config_override": {
+        "agent": {
+          "language": true,
+          "first_message": true
+        }
+      }
+    }
+  },
+  "_notes": {
+    "language": "Default de. The conversation initiation webhook overrides it per call from the caller's stored preference, falling back to German (FR-033a). Overrides must stay enabled or that webhook cannot set it.",
+    "first_message": "Deliberately empty. The greeting is supplied per call by the initiation webhook so it arrives in the right language. It must never use the caller's name or acknowledge that the number was recognised (FR-033b).",
+    "temperature": "Low. This agent reads statuses back to callers and follows a policy; inventiveness is a defect here, not a feature.",
+    "turn_timeout": "10s. Callers checking a banking app for a payment date need thinking time, and the agent explicitly offers to wait.",
+    "system_tools": "language_detection for DE/FR/IT/EN, and transfer_to_number for the escalation handoff. Both are configured at the platform level rather than in this file."
+  }
+}
