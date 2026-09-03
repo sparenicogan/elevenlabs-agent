@@ -34,6 +34,13 @@ agent-sync:
 agent-diff:
 	uv run python -m scripts.agent.sync --agent-id $(AGENT_ID) --dry-run
 
+# The most recent call, with its tool calls. `make calls` lists recent ones.
+transcript:
+	uv run python -m scripts.agent.transcript --agent-id $(AGENT_ID)
+
+calls:
+	uv run python -m scripts.agent.transcript --agent-id $(AGENT_ID) --list
+
 # One-time only. Terraform cannot create the bucket it uses as its own backend.
 # The name is passed in rather than committed, because it embeds the account id:
 #   TF_STATE_BUCKET=my-state-bucket make bootstrap
