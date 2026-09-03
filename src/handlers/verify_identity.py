@@ -10,16 +10,21 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from boto3.dynamodb.conditions import Key
+
 from src.adapters import dynamo, secrets
 from src.adapters.errors import ErrorCategory, ToolError
 from src.common import auth, conversation_state
 from src.common import logging as log
 from src.common.conversation_state import VerificationStatus as ConversationVerification
 from src.domain import policy as policy_module
+from src.domain.risk import RiskSignal, SignalType
 from src.domain.verification import (
     Factor,
     VerificationStatus,
     check_factors,
+    fingerprint,
+    is_enumerating,
 )
 
 IDENTITY_TABLE = "customer-identity"
@@ -53,7 +58,11 @@ def handler(event: dict, _context: Any = None) -> dict:
         return _response(200, result)
 
     except ToolError as error:
-        log.error("verify_identity failed", error_category=str(error.category))
+        log.error(
+            "verify_identity failed",
+            error_category=str(error.category),
+            error_detail=error.detail,
+        )
         return _response(200, error.to_response())
 
 
@@ -69,6 +78,12 @@ def _verify(conversation_id: str, body: dict) -> dict:
     settings = policy_module.load()
     supplied = _parse_factors(body.get("factors") or [])
     customer_id = _resolve_customer(body, supplied)
+
+    # Checked before the answers are evaluated. A caller working through values must not be
+    # able to learn which of them was right on the attempt that stops them.
+    enumerated = _check_for_enumeration(conversation_id, customer_id, supplied, settings)
+    if enumerated:
+        return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, None, False)
 
     # An unknown customer is carried through the rule with an empty record rather than
     # returned early, so "no such customer" produces the same response as wrong answers and
@@ -96,6 +111,20 @@ def _verify(conversation_id: str, body: dict) -> dict:
         if attempts >= settings.verification_max_attempts:
             log.info("conversation locked", conversation_id=conversation_id, status="LOCKED")
             return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, None, False)
+
+    candidate = body.get("candidate_customer_id")
+    if candidate and customer_id and candidate.strip() and candidate.strip() != customer_id:
+        # The number they called from belongs to one account and they named another. Innocent
+        # explanations exist — a shared switchboard, a colleague's desk — so it is recorded
+        # rather than acted on (research D3).
+        conversation_state.record_risk_signal(
+            RiskSignal(
+                signal_type=SignalType.CONFLICTING_IDENTITY_DATA,
+                evidence="caller number resolves to a different account than the one named",
+                conversation_id=conversation_id,
+                customer_id=customer_id,
+            )
+        )
 
     if outcome.status is VerificationStatus.VERIFIED and customer_id:
         conversation_state.set_verification(
@@ -142,6 +171,67 @@ def _display_fields(record: dict) -> dict[str, str]:
     return {f: str(record[f]) for f in fields if record.get(f) is not None}
 
 
+def _check_for_enumeration(
+    conversation_id: str,
+    customer_id: str | None,
+    supplied: dict[Factor, str],
+    settings,
+) -> bool:
+    """
+    Records what has been offered for each field and decides whether the caller is guessing.
+
+    conversation_id: the call.
+    customer_id:     the account, where one was resolved. A caller who never names one still
+                     produces signals; they belong to the conversation.
+    supplied:        this attempt's answers.
+    settings:        policy, for the allowance.
+
+    Returns: True when a field has seen more distinct values than the allowance, in which
+             case a risk signal has been raised and the call should escalate.
+
+    One correction is human. A third distinct value for the same field is someone working
+    through possibilities, and the difference matters more than any single wrong answer does
+    (FR-006a).
+    """
+    if not supplied:
+        return False
+
+    salt = secrets.get("verification/attempt-salt")
+    counts = conversation_state.record_factor_attempts(
+        conversation_id,
+        {factor.value: fingerprint(factor, value, salt) for factor, value in supplied.items()},
+    )
+
+    offending = is_enumerating(
+        {Factor(field): count for field, count in counts.items()},
+        settings.guessing_max_distinct_values,
+    )
+    if not offending:
+        return False
+
+    conversation_state.record_risk_signal(
+        RiskSignal(
+            signal_type=SignalType.SUSPECTED_GUESSING,
+            # A count and a field name. Never what was offered — recording the guesses would
+            # defeat the point of fingerprinting them.
+            evidence=(
+                f"{counts[offending.value]} distinct values offered for {offending.value}, "
+                f"allowance is {settings.guessing_max_distinct_values}"
+            ),
+            conversation_id=conversation_id,
+            customer_id=customer_id,
+        )
+    )
+    log.info(
+        "suspected guessing",
+        conversation_id=conversation_id,
+        customer_id=customer_id or "",
+        status="LOCKED",
+        attempt=counts[offending.value],
+    )
+    return True
+
+
 def _parse_factors(factors: list) -> dict[Factor, str]:
     """
     Turns the wire format into the rule's input.
@@ -167,19 +257,52 @@ def _resolve_customer(body: dict, supplied: dict[Factor, str]) -> str | None:
               caller's phone number by the initiation webhook.
     supplied: the caller's answers.
 
-    Returns: a customer id, or None when there is nothing to look up.
+    Returns: a customer id, or None when nothing supplied identifies an account.
 
-    A supplied customer id wins over the caller-id candidate. The candidate exists to pick a
-    greeting language (FR-033b); letting it silently select the record would make the phone
-    number a de facto factor. It may still scope the lookup when the caller offers no id,
-    because doing so grants nothing: three correct factors are still required against
+    Resolution tries every identifier the caller might reasonably have given, not only the
+    customer id. Requiring the id first meant a caller who led with their email — which most
+    people know and few can look up — had that correct answer scored as wrong, because there
+    was no record to compare it against yet.
+
+    A supplied identifier always wins over the caller-id candidate. The candidate exists to
+    pick a greeting language (FR-033b); letting it select the record would make the phone
+    number a de facto factor. It may still scope the lookup when the caller offers nothing
+    else, because doing so grants nothing: three correct factors are still required against
     whichever record is chosen.
     """
     if Factor.CUSTOMER_ID in supplied:
         return supplied[Factor.CUSTOMER_ID].strip().upper()
 
+    for factor, index, attribute in (
+        (Factor.EMAIL, "email-index", "email"),
+        (Factor.PHONE, "phone-index", "phone"),
+    ):
+        if factor in supplied:
+            resolved = _lookup(index, attribute, supplied[factor])
+            if resolved:
+                return resolved
+
     candidate = body.get("candidate_customer_id")
     return candidate.strip() if isinstance(candidate, str) and candidate.strip() else None
+
+
+def _lookup(index: str, attribute: str, value: str) -> str | None:
+    """
+    Finds a customer by one of the identifiers they might quote.
+
+    index:     the secondary index to query.
+    attribute: its hash key.
+    value:     what the caller said.
+
+    Returns: the customer id, or None when nothing matches — which is deliberately
+             indistinguishable downstream from an answer that matched nothing, since a
+             response that distinguished them would say whether an address is on file.
+    """
+    normalised = value.strip().casefold() if attribute == "email" else value.strip()
+    hits = dynamo.query(
+        IDENTITY_TABLE, index=index, KeyConditionExpression=Key(attribute).eq(normalised)
+    )
+    return hits[0]["customer_id"] if hits else None
 
 
 def _stored_factors(record: dict) -> dict[Factor, str]:

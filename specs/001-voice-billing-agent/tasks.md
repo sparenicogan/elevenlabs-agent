@@ -122,21 +122,21 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Tests for User Story 2
 
-- [ ] T047 [P] [US2] Write unit tests in `tests/unit/test_verification.py`: three factors required; three invoice-printed factors do not verify; PARTIALLY_VERIFIED permits nothing financial; attempts past the limit return LOCKED (FR-003, FR-003a, FR-006)
-- [ ] T048 [P] [US2] Write disclosure-gate tests in `tests/contract/test_disclosure_gate.py` asserting every financial tool returns `NOT_AUTHORIZED` when the conversation is not VERIFIED
+- [x] T047 [P] [US2] Write unit tests in `tests/unit/test_verification.py`: three factors required; three invoice-printed factors do not verify; PARTIALLY_VERIFIED permits nothing financial; attempts past the limit return LOCKED (FR-003, FR-003a, FR-006) — done in T037; 23 cases in tests/unit/test_verification.py
+- [x] T048 [P] [US2] Write disclosure-gate tests in `tests/contract/test_disclosure_gate.py` asserting every financial tool returns `NOT_AUTHORIZED` when the conversation is not VERIFIED — done in T034; TestTheGateAppliesEverywhere in tests/contract/test_tool_contracts.py covers all financial tools
 
 ### Implementation for User Story 2
 
-- [ ] T049 [US2] Add the non-document rule to `src/domain/verification.py`: at least one confirmed factor must be email, phone, date of birth, or account opening year, so possession of an invoice is never sufficient (FR-003a)
-- [ ] T050 [US2] Add attempt counting and lockout to `src/handlers/verify_identity.py`: increment `failed_verification_attempts`, set `locked_until` past the configured limit, reset on success (FR-006)
-- [ ] T050a [US2] Count distinct values offered per factor per conversation in `src/domain/verification.py` and `src/common/conversation_state.py`, storing salted hashes rather than values; a third distinct value for one factor raises a risk signal and escalates (FR-006a–d)
-- [ ] T050b [P] [US2] Write tests in `tests/unit/test_guessing.py`: one self-correction proceeds, a third distinct value for the same factor escalates, the allowance is per factor, and no attempted value is stored in readable form
-- [ ] T051 [US2] Implement risk-signal writing in `src/domain/risk.py` and record a signal on lockout and on a candidate-id mismatch (FR-016, research D3)
-- [ ] T052 [US2] Add `next_factor_hint` selection to `src/handlers/verify_identity.py`, naming a field to ask for and never carrying a value (FR-004)
-- [ ] T053 [US2] Extend `agent/prompt/en.md` with guidance for a caller who cannot find the information — naming which document carries it, without revealing the value (FR-005) — and with escalation on LOCKED
-- [ ] T053a [US2] Add the unverified-escalation branch to `agent/prompt/en.md`: when identity cannot be established, ask what the caller is calling about, record their answer verbatim, say only that identity cannot be confirmed, and transfer with that context (FR-019b, FR-019f)
-- [ ] T053b [US2] Accept `IDENTITY_NOT_ESTABLISHED` from an unverified conversation in `src/handlers/create_escalation.py`, creating a ticket with no contact or company association and a handoff carrying the stated problem, unverified self-description, verification outcome, attempt count and language — and no account fact (FR-019c, FR-019d)
-- [ ] T053c [P] [US2] Write tests in `tests/contract/test_unverified_escalation.py`: the escalation succeeds without verification, the ticket has no associations, the handoff contains no invoice, payment, balance or account field, and caller text is recorded rather than interpreted (FR-019e)
+- [x] T049 [US2] Add the non-document rule to `src/domain/verification.py`: at least one confirmed factor must be email, phone, date of birth, or account opening year, so possession of an invoice is never sufficient (FR-003a) — done in T037
+- [x] T050 [US2] Add attempt counting and lockout to `src/handlers/verify_identity.py`: increment `failed_verification_attempts`, set `locked_until` past the configured limit, reset on success (FR-006) — done in T038, plus the session counter that per-customer counting alone left open
+- [x] T050a [US2] Count distinct values offered per factor per conversation in `src/domain/verification.py` and `src/common/conversation_state.py`, storing salted hashes rather than values; a third distinct value for one factor raises a risk signal and escalates (FR-006a–d)
+- [x] T050b [P] [US2] Write tests in `tests/unit/test_guessing.py`: one self-correction proceeds, a third distinct value for the same factor escalates, the allowance is per factor, and no attempted value is stored in readable form
+- [x] T051 [US2] Implement risk-signal writing in `src/domain/risk.py` and record a signal on lockout and on a candidate-id mismatch (FR-016, research D3)
+- [x] T052 [US2] Add `next_factor_hint` selection to `src/handlers/verify_identity.py`, naming a field to ask for and never carrying a value (FR-004) — done in T038
+- [x] T053 [US2] Extend `agent/prompt/en.md` with guidance for a caller who cannot find the information — naming which document carries it, without revealing the value (FR-005) — and with escalation on LOCKED
+- [x] T053a [US2] Add the unverified-escalation branch to `agent/prompt/en.md`: when identity cannot be established, ask what the caller is calling about, record their answer verbatim, say only that identity cannot be confirmed, and transfer with that context (FR-019b, FR-019f)
+- [x] T053b [US2] Accept `IDENTITY_NOT_ESTABLISHED` from an unverified conversation in `src/handlers/create_escalation.py`, creating a ticket with no contact or company association and a handoff carrying the stated problem, unverified self-description, verification outcome, attempt count and language — and no account fact (FR-019c, FR-019d)
+- [x] T053c [P] [US2] Write tests in `tests/contract/test_unverified_escalation.py`: the escalation succeeds without verification, the ticket has no associations, the handoff contains no invoice, payment, balance or account field, and caller text is recorded rather than interpreted (FR-019e)
 
 ---
 

@@ -17,9 +17,12 @@ locals {
 data "aws_iam_policy_document" "verify_identity" {
   statement {
     effect  = "Allow"
-    actions = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+    actions = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:Query"]
     resources = [
       aws_dynamodb_table.customer_identity.arn,
+      # The email and phone indexes, so a caller can be found from an identifier they
+      # actually know rather than only from a customer id they may have to look up.
+      "${aws_dynamodb_table.customer_identity.arn}/index/*",
       aws_dynamodb_table.conversations.arn,
     ]
   }
@@ -31,9 +34,12 @@ data "aws_iam_policy_document" "verify_identity" {
   }
 
   statement {
-    effect    = "Allow"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_secretsmanager_secret.tool_api_key.arn]
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      aws_secretsmanager_secret.tool_api_key.arn,
+      aws_secretsmanager_secret.attempt_salt.arn,
+    ]
   }
 
   statement {
@@ -287,6 +293,79 @@ resource "aws_lambda_permission" "propose_allocation" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = module.propose_allocation.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
+}
+
+# --- create_escalation ---------------------------------------------------------------
+# The one handler that works without a verified conversation, because a caller the system
+# cannot identify still needs a person. It reads conversation state and writes to the CRM
+# and the audit log; it touches no financial record at all.
+
+data "aws_iam_policy_document" "create_escalation" {
+  statement {
+    effect    = "Allow"
+    actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+    resources = [aws_dynamodb_table.conversations.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
+    resources = [aws_kms_key.data.arn]
+  }
+
+  statement {
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      aws_secretsmanager_secret.tool_api_key.arn,
+      aws_secretsmanager_secret.hubspot_token.arn,
+    ]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["ssm:GetParametersByPath"]
+    resources = ["arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.project}/policy"]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.audit.arn}:*"]
+  }
+}
+
+module "create_escalation" {
+  source = "./modules/lambda"
+
+  name         = "create-escalation"
+  project      = var.project
+  handler      = "src.handlers.create_escalation.handler"
+  package_path = local.lambda_package
+  environment  = local.common_environment
+  policy_json  = data.aws_iam_policy_document.create_escalation.json
+}
+
+resource "aws_apigatewayv2_integration" "create_escalation" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.create_escalation.invoke_arn
+  payload_format_version = "2.0"
+  timeout_milliseconds   = 5000
+}
+
+resource "aws_apigatewayv2_route" "create_escalation" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /tools/create-escalation"
+  target    = "integrations/${aws_apigatewayv2_integration.create_escalation.id}"
+}
+
+resource "aws_lambda_permission" "create_escalation" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.create_escalation.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
 }

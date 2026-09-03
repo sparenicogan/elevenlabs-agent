@@ -85,6 +85,27 @@ def create_ticket(properties: dict, contact_id: str, company_id: str | None = No
     return result["id"]
 
 
+def create_unassociated_ticket(properties: dict) -> str:
+    """
+    Creates a ticket linked to no contact and no company.
+
+    properties: ticket fields, stripped to the allowlist.
+
+    Returns: the new ticket id.
+
+    Used when the caller could not be verified. Associating a ticket on an unverified
+    caller's claim would write an unverified identity into the CRM, which is precisely what
+    the data boundary exists to prevent (FR-019d). It goes to a queue instead, and the human
+    establishes who they were speaking to.
+    """
+    result = _request(
+        "POST",
+        "/crm/v3/objects/tickets",
+        {"properties": _strip(properties, ALLOWED_TICKET_FIELDS)},
+    )
+    return result["id"]
+
+
 def append_note(ticket_id: str, body: str) -> None:
     """
     Adds a note to an existing ticket, so a second finding on one call does not create a

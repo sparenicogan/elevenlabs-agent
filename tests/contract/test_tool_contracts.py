@@ -112,6 +112,7 @@ def wired(mocker):
             return_value=mocker.Mock(
                 required_factor_count=3,
                 verification_max_attempts=3,
+                guessing_max_distinct_values=2,
                 payment_date_tolerance_days=3,
                 reference_typo_max_distance=2,
                 allocation_authority_max=Decimal("0"),
@@ -143,6 +144,10 @@ def wired(mocker):
             )
             mocker.patch.object(module.conversation_state, "set_verification")
             mocker.patch.object(module.conversation_state, "record_failed_attempt", return_value=1)
+            mocker.patch.object(
+                module.conversation_state, "record_factor_attempts", return_value={}
+            )
+            mocker.patch.object(module.conversation_state, "record_risk_signal")
 
     return mocker
 

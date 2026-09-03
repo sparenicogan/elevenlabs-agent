@@ -35,15 +35,24 @@ def stubs(mocker):
     mocker.patch.object(
         module.policy_module,
         "load",
-        return_value=mocker.Mock(required_factor_count=3, verification_max_attempts=3),
+        return_value=mocker.Mock(
+            required_factor_count=3, verification_max_attempts=3, guessing_max_distinct_values=2
+        ),
     )
     return {
         "get": mocker.patch.object(module.dynamo, "get", return_value=dict(RECORD)),
+        # Resolution by email or phone. Stubbed empty by default so tests that supply a
+        # customer id take the direct path; overridden where the lookup is the subject.
+        "query": mocker.patch.object(module.dynamo, "query", return_value=[]),
         "update": mocker.patch.object(module.dynamo, "update_if", return_value={}),
         "set_verification": mocker.patch.object(module.conversation_state, "set_verification"),
         "session_attempt": mocker.patch.object(
             module.conversation_state, "record_failed_attempt", return_value=1
         ),
+        "attempts": mocker.patch.object(
+            module.conversation_state, "record_factor_attempts", return_value={}
+        ),
+        "signal": mocker.patch.object(module.conversation_state, "record_risk_signal"),
         "module": module,
     }
 
@@ -267,3 +276,132 @@ class TestMalformedInput:
             ],
         )
         assert result["status"] == "VERIFIED"
+
+
+class TestGuessing:
+    """Enumeration is stopped by the backend, not by the agent noticing (FR-006d)."""
+
+    def test_a_third_distinct_value_for_one_field_locks_the_call(self, stubs):
+        stubs["attempts"].return_value = {"customer_id": 3}
+        result = call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00003")])
+        assert result["status"] == "LOCKED"
+
+    def test_it_locks_before_the_answers_are_evaluated(self, stubs):
+        """A caller working through values must not learn from the attempt that stops them
+        whether that one was right."""
+        stubs["attempts"].return_value = {"customer_id": 3}
+        result = call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00417")])
+        assert result["status"] == "LOCKED"
+        assert result["factors_confirmed"] == 0
+
+    def test_a_risk_signal_is_raised(self, stubs):
+        stubs["attempts"].return_value = {"customer_id": 3}
+        call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00003")])
+        signal = stubs["signal"].call_args.args[0]
+        assert signal.signal_type == "SUSPECTED_GUESSING"
+
+    def test_the_signal_records_a_count_and_never_the_values_offered(self, stubs):
+        """Recording the guesses would defeat the point of fingerprinting them."""
+        stubs["attempts"].return_value = {"customer_id": 3}
+        call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-SECRET-GUESS")])
+        assert "CUST-SECRET-GUESS" not in stubs["signal"].call_args.args[0].evidence
+
+    def test_two_values_for_one_field_is_a_correction_not_enumeration(self, stubs):
+        stubs["attempts"].return_value = {"customer_id": 2}
+        result = call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00417")])
+        assert result["status"] != "LOCKED"
+
+    def test_corrections_across_different_fields_do_not_accumulate(self, stubs):
+        stubs["attempts"].return_value = {"customer_id": 2, "email": 2, "phone": 2}
+        result = call(
+            stubs,
+            [
+                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.EMAIL, RECORD["email"]),
+                factor(Factor.PHONE, RECORD["phone"]),
+            ],
+        )
+        assert result["status"] == "VERIFIED"
+
+    def test_only_fingerprints_are_recorded_never_the_answers(self, stubs):
+        call(stubs, [factor(Factor.EMAIL, "klaus@example.ch")])
+        recorded = stubs["attempts"].call_args.args[1]
+        assert "klaus@example.ch" not in str(recorded)
+        assert set(recorded) == {"email"}
+
+
+class TestConflictingIdentityData:
+    def test_naming_a_different_account_than_the_caller_id_raises_a_signal(self, stubs):
+        """Innocent explanations exist — a shared switchboard, a colleague's desk — so it is
+        recorded rather than acted on."""
+        call(
+            stubs,
+            [
+                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.EMAIL, RECORD["email"]),
+                factor(Factor.PHONE, RECORD["phone"]),
+            ],
+            candidate_customer_id="CUST-99999",
+        )
+        types = [c.args[0].signal_type for c in stubs["signal"].call_args_list]
+        assert "CONFLICTING_IDENTITY_DATA" in types
+
+    def test_no_signal_when_the_caller_id_agrees(self, stubs):
+        call(
+            stubs,
+            [
+                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.EMAIL, RECORD["email"]),
+                factor(Factor.PHONE, RECORD["phone"]),
+            ],
+            candidate_customer_id="CUST-00417",
+        )
+        types = [c.args[0].signal_type for c in stubs["signal"].call_args_list]
+        assert "CONFLICTING_IDENTITY_DATA" not in types
+
+
+class TestResolvingTheCustomer:
+    """A caller must be findable by whatever identifier they actually know.
+
+    The bug this class exists for: resolution used only the customer id, so a caller who led
+    with their email had that correct answer scored as wrong, and it burned a lockout
+    attempt. Verification could not progress until they recited an id. Found by walking
+    through the conversation, not by any test — the integration test sends all three factors
+    at once, which is not how a conversation works.
+    """
+
+    def test_an_email_alone_resolves_the_account_and_confirms(self, stubs):
+        stubs["query"].return_value = [{"customer_id": "CUST-00417"}]
+        result = call(stubs, [factor(Factor.EMAIL, RECORD["email"])])
+        assert result["status"] == "PARTIALLY_VERIFIED"
+        assert result["factors_confirmed"] == 1
+
+    def test_a_phone_alone_resolves_the_account(self, stubs):
+        stubs["query"].return_value = [{"customer_id": "CUST-00417"}]
+        result = call(stubs, [factor(Factor.PHONE, "044 123 45 67")])
+        assert result["factors_confirmed"] == 1
+
+    def test_a_correct_answer_given_first_is_never_scored_as_wrong(self, stubs):
+        """The heart of the bug. A correct email must not count as a failed attempt."""
+        stubs["query"].return_value = [{"customer_id": "CUST-00417"}]
+        call(stubs, [factor(Factor.EMAIL, RECORD["email"])])
+        stubs["session_attempt"].assert_not_called()
+
+    def test_a_supplied_customer_id_still_wins_over_a_lookup(self, stubs):
+        stubs["query"].return_value = [{"customer_id": "CUST-99999"}]
+        call(
+            stubs,
+            [
+                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.EMAIL, RECORD["email"]),
+            ],
+        )
+        assert stubs["get"].call_args.args[1] == {"customer_id": "CUST-00417"}
+
+    def test_an_email_that_matches_nobody_looks_like_a_wrong_answer(self, stubs):
+        """Resolution failing and an answer being wrong must be the same response, or the
+        gate says whether an address is on file."""
+        stubs["query"].return_value = []
+        result = call(stubs, [factor(Factor.EMAIL, "nobody@example.invalid")])
+        assert result["status"] == "FAILED"
+        assert result["factors_confirmed"] == 0

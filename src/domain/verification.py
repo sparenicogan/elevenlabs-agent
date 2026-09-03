@@ -9,6 +9,8 @@ returns a decision. Locking the account and writing risk signals are effects, an
 the handler.
 """
 
+import hashlib
+import hmac
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -198,3 +200,65 @@ def _next_hint(confirmed: set[Factor], non_document_satisfied: bool) -> Factor |
     pool = NON_DOCUMENT_FACTORS if not non_document_satisfied else set(Factor)
     remaining = sorted(pool - confirmed)
     return remaining[0] if remaining else None
+
+
+# How many distinct values a caller may offer for one field. Two allows a single correction —
+# people misspeak, and read the wrong line off a document — while a third is enumeration
+# rather than memory (FR-006a).
+DEFAULT_MAX_DISTINCT_VALUES = 2
+
+# Truncated because the full digest is not needed to tell two attempts apart within one call,
+# and a shorter one is less useful to anyone who later gets hold of the table.
+_FINGERPRINT_LENGTH = 16
+
+
+def fingerprint(factor: Factor, value: str, salt: str) -> str:
+    """
+    Reduces one attempted answer to a value that can be counted but not read.
+
+    factor: which field was answered, so the same string offered for two different fields
+            counts separately.
+    value:  what the caller said, normalised the same way the comparison normalises it, so
+            "0445012218" and "+41 44 501 22 18" are recognised as one attempt rather than
+            two.
+    salt:   a deployment secret. Without it a stored fingerprint of a date of birth could be
+            brute-forced from a table dump in seconds, since the space is small enough to
+            enumerate.
+
+    Returns: a truncated HMAC. Distinct attempts can be counted without retaining what was
+             guessed (FR-006c).
+    """
+    normalised = _normalise_for_comparison(factor, value)
+    digest = hmac.new(
+        salt.encode(), f"{factor.value}:{normalised}".encode(), hashlib.sha256
+    ).hexdigest()
+    return digest[:_FINGERPRINT_LENGTH]
+
+
+def _normalise_for_comparison(factor: Factor, value: str) -> str:
+    """Applies the same normalisation the matching rule uses, so a caller repeating one
+    answer in a different form is not counted as a second attempt."""
+    if factor is Factor.PHONE:
+        return _normalise_phone(value)
+    if factor is Factor.DATE_OF_BIRTH:
+        return _normalise_date(value)
+    return value.strip().casefold()
+
+
+def is_enumerating(distinct_counts: dict[Factor, int], max_distinct: int) -> Factor | None:
+    """
+    Decides whether a caller has moved from correcting themselves to trying values.
+
+    distinct_counts: how many distinct values have been offered for each field this call.
+    max_distinct:    how many are allowed, from policy.
+
+    Returns: the first field that exceeded the allowance, or None.
+
+    Counted per field deliberately (FR-006b). Correcting a mistyped email must not consume
+    the allowance for the customer identifier: an honest caller with an unusual surname
+    already has more to correct than most, and should not be treated as an attacker for it.
+    """
+    for factor, count in sorted(distinct_counts.items()):
+        if count > max_distinct:
+            return factor
+    return None

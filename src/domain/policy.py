@@ -18,6 +18,8 @@ class Policy:
 
     required_factor_count:     independent factors needed to verify (FR-003).
     verification_max_attempts: failures before the account locks (FR-006).
+    guessing_max_distinct_values: distinct values allowed per factor before a caller is
+                               treated as enumerating rather than correcting (FR-006a).
     payment_date_tolerance_days: how many calendar days earlier than the record a caller's
                                transfer date may be. Backward only (FR-010b).
     reference_typo_max_distance: edit distance within which a payment reference counts as a
@@ -36,6 +38,7 @@ class Policy:
 
     required_factor_count: int
     verification_max_attempts: int
+    guessing_max_distinct_values: int
     payment_date_tolerance_days: int
     reference_typo_max_distance: int
     credit_max_per_request: Decimal
@@ -61,6 +64,7 @@ def load() -> Policy:
     return Policy(
         required_factor_count=int(raw["required_factor_count"]),
         verification_max_attempts=int(raw["verification_max_attempts"]),
+        guessing_max_distinct_values=int(raw["guessing_max_distinct_values"]),
         payment_date_tolerance_days=int(raw["payment_date_tolerance_days"]),
         reference_typo_max_distance=int(raw["reference_typo_max_distance"]),
         credit_max_per_request=Decimal(raw["credit_max_per_request"]),

@@ -6,6 +6,10 @@ locals {
     required_factor_count     = "3"
     verification_max_attempts = "3"
 
+    # Distinct values a caller may offer for one field before it reads as enumeration
+    # rather than correction. Two allows a single correction (FR-006a).
+    guessing_max_distinct_values = "2"
+
     # Backward-only tolerance in calendar days: the payer sees the date their transfer left,
     # the record may hold the date it arrived. A Friday transfer posting on Monday is 3 days.
     payment_date_tolerance_days = "3"

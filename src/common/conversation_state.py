@@ -10,6 +10,7 @@ from enum import StrEnum
 
 from src.adapters import dynamo
 from src.adapters.errors import ErrorCategory, ToolError
+from src.domain.risk import RiskSignal
 
 _TABLE = "conversations"
 
@@ -141,3 +142,100 @@ def require_verified(conversation_id: str) -> str:
         raise ToolError(ErrorCategory.NOT_AUTHORIZED, "conversation is not verified")
 
     return record["customer_id"]
+
+
+def record_risk_signal(signal: RiskSignal) -> None:
+    """
+    Appends a risk signal to the conversation it was observed on.
+
+    signal: what was observed. Its evidence must already be free of caller-supplied and
+            stored values — this function does not sanitise, it stores.
+
+    Returns: nothing.
+
+    Signals live on the conversation rather than in their own table because every one is
+    raised during a call and read back only as an aggregate over a customer's recent calls,
+    which the customer-index on this table already serves.
+    """
+    dynamo.upsert(
+        _TABLE,
+        {"conversation_id": signal.conversation_id},
+        UpdateExpression=(
+            "SET risk_signals = list_append(if_not_exists(risk_signals, :empty), :signal), "
+            "started_at = if_not_exists(started_at, :now)"
+        ),
+        ExpressionAttributeValues={
+            ":empty": [],
+            ":signal": [
+                {
+                    "signal_type": str(signal.signal_type),
+                    "evidence": signal.evidence,
+                    "customer_id": signal.customer_id,
+                    "observed_at": signal.observed_at,
+                }
+            ],
+            ":now": datetime.now(UTC).isoformat(),
+        },
+    )
+
+
+def risk_signals(conversation_id: str) -> list[RiskSignal]:
+    """
+    Reads back the signals raised during this call.
+
+    conversation_id: the call.
+
+    Returns: the signals, oldest first. Empty when none were raised — and a failure raises
+             rather than returning empty, because "no signals" and "could not check" must
+             not be the same answer to a risk question.
+    """
+    record = dynamo.get(_TABLE, {"conversation_id": conversation_id}) or {}
+    return [
+        RiskSignal(
+            signal_type=entry["signal_type"],
+            evidence=entry.get("evidence", ""),
+            conversation_id=conversation_id,
+            customer_id=entry.get("customer_id"),
+            observed_at=entry.get("observed_at", ""),
+        )
+        for entry in record.get("risk_signals", [])
+    ]
+
+
+def record_factor_attempts(conversation_id: str, fingerprints: dict[str, str]) -> dict[str, int]:
+    """
+    Records which answers have been offered for which fields, and returns how many distinct
+    ones each field has now seen.
+
+    conversation_id: the call.
+    fingerprints:    field name to fingerprint of the value offered, from
+                     verification.fingerprint. Never the values themselves.
+
+    Returns: field name to distinct-attempt count.
+
+    A set per field rather than a counter, because the agent resends every factor gathered so
+    far on each call: counting increments would treat one caller repeating themselves as
+    dozens of attempts, and lock out everyone.
+    """
+    record = dynamo.get(_TABLE, {"conversation_id": conversation_id}) or {}
+    seen: dict[str, list[str]] = dict(record.get("factor_attempts") or {})
+
+    for field, value in fingerprints.items():
+        existing = list(seen.get(field, []))
+        if value not in existing:
+            existing.append(value)
+        seen[field] = existing
+
+    dynamo.upsert(
+        _TABLE,
+        {"conversation_id": conversation_id},
+        UpdateExpression=(
+            "SET factor_attempts = :attempts, started_at = if_not_exists(started_at, :now)"
+        ),
+        ExpressionAttributeValues={
+            ":attempts": seen,
+            ":now": datetime.now(UTC).isoformat(),
+        },
+    )
+
+    return {field: len(values) for field, values in seen.items()}

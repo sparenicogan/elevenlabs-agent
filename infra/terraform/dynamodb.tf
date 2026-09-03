@@ -16,6 +16,11 @@ resource "aws_dynamodb_table" "customer_identity" {
     type = "S"
   }
 
+  attribute {
+    name = "email"
+    type = "S"
+  }
+
   # Serves the greeting-language lookup in the conversation initiation webhook.
   # Projects only the two fields that lookup needs, so a compromised query cannot
   # return identity data (FR-033b).
@@ -27,6 +32,15 @@ resource "aws_dynamodb_table" "customer_identity" {
       "customer_id",
       "preferred_language",
     ]
+  }
+
+  # Lets verification find the account from an email address. Without it a caller must
+  # recite their customer id before any other answer can be checked at all, and every
+  # correct answer given first is scored as wrong.
+  global_secondary_index {
+    name            = "email-index"
+    hash_key        = "email"
+    projection_type = "KEYS_ONLY"
   }
 
   server_side_encryption {
