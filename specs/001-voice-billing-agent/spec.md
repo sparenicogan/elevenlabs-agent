@@ -563,6 +563,16 @@ evidence on the escalation, promises human correction, and writes nothing to the
   simplify, or switch language.
 - **FR-035**: Adaptation MUST NOT be based on inferences about education, nationality, ethnicity, or
   cognitive ability.
+- **FR-034a**: The agent MUST match the caller's conversational register — brisk with a caller who
+  wants only the answer, warmer with a caller who converses — while remaining courteous and concise
+  in both. Register MUST be read from how the caller speaks, never from their name, accent, company,
+  or origin.
+- **FR-034b**: The agent MUST NOT mirror hostility. An annoyed caller MUST be met with a level tone,
+  one acknowledgement that the problem is real, and progress toward a fix.
+- **FR-034c**: Adaptation MUST apply only to how something is said. It MUST NOT affect what may be
+  disclosed, what the backend has decided, or what the agent is authorised to do. A caller's warmth
+  MUST NOT move the verification gate or any policy limit, because rapport is a route to disclosure
+  and an agreeable caller is not a verified one.
 - **FR-036**: Preferred language and communication style MUST be persisted and loaded on the next
   call.
 - **FR-037**: Monetary amounts, dates, and reference numbers MUST be rendered per locale convention
