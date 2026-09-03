@@ -99,7 +99,10 @@ def _verify(conversation_id: str, body: dict) -> dict:
 
     if outcome.status is VerificationStatus.VERIFIED and customer_id:
         conversation_state.set_verification(
-            conversation_id, ConversationVerification.VERIFIED, customer_id
+            conversation_id,
+            ConversationVerification.VERIFIED,
+            customer_id,
+            display=_display_fields(record or {}),
         )
 
     log.info(
@@ -116,6 +119,27 @@ def _verify(conversation_id: str, body: dict) -> dict:
         outcome.next_factor_hint,
         outcome.non_document_satisfied,
     )
+
+
+def _display_fields(record: dict) -> dict[str, str]:
+    """
+    The few non-sensitive fields later tools need about a verified customer.
+
+    record: the identity record.
+
+    Returns: company name, language, account status and the HubSpot ids. Carried onto the
+             conversation so that no other handler needs permission on the identity table —
+             which is what keeps 'only two functions can read identity data' true rather
+             than aspirational (Principle IV).
+    """
+    fields = (
+        "company_name",
+        "preferred_language",
+        "account_status",
+        "hubspot_contact_id",
+        "hubspot_company_id",
+    )
+    return {f: str(record[f]) for f in fields if record.get(f) is not None}
 
 
 def _parse_factors(factors: list) -> dict[Factor, str]:

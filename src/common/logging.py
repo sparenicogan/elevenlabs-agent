@@ -23,6 +23,8 @@ ALLOWED_FIELDS = frozenset(
         "tool",
         "status",
         "error_category",
+        # Exception text from an adapter. Never caller-supplied input, never a stored value.
+        "error_detail",
         "latency_ms",
         "attempt",
         "retryable",

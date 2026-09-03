@@ -122,3 +122,25 @@ def update_if(table: str, key: dict[str, Any], condition: str, **kwargs: Any) ->
         if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
             return None
         raise ToolError(ErrorCategory.DEPENDENCY_DOWN, f"update {table}: {exc}") from exc
+
+
+def upsert(table: str, key: dict[str, Any], **kwargs: Any) -> dict | None:
+    """
+    Updates an item, creating it if it does not exist.
+
+    table:  logical table name without the project prefix.
+    key:    the full primary key.
+    kwargs: passed through to boto3, e.g. UpdateExpression and attribute maps.
+
+    Returns: the updated attributes.
+
+    Distinct from update_if, which enforces a condition and returns None when it fails. Use
+    this for state that ought to exist by the time it is written but whose absence must not
+    silently discard the write — verification status being the case that matters, since
+    discarding it looks identical to the disclosure gate working.
+    """
+    try:
+        response = _table(table).update_item(Key=key, ReturnValues="ALL_NEW", **kwargs)
+        return response.get("Attributes")
+    except ClientError as exc:
+        raise ToolError(ErrorCategory.DEPENDENCY_DOWN, f"upsert {table}: {exc}") from exc

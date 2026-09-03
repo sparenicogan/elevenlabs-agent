@@ -47,22 +47,42 @@ def start(conversation_id: str, agent_id: str, agent_version: str, language: str
     )
 
 
-def set_verification(conversation_id: str, status: VerificationStatus, customer_id: str) -> None:
+def set_verification(
+    conversation_id: str,
+    status: VerificationStatus,
+    customer_id: str,
+    display: dict[str, str] | None = None,
+) -> None:
     """
     Records the outcome of a verification attempt.
 
     conversation_id: the call.
     status:          the backend's decision, never the model's.
     customer_id:     the customer resolved from the factors themselves (research D3).
+    display:         the few non-sensitive fields later tools need — company name, language,
+                     account status, HubSpot ids. Carried here so that reading them does not
+                     require a third handler to hold permission on the identity table
+                     (Principle IV).
 
     Returns: nothing.
     """
-    dynamo.update_if(
+    # Creates the record when the call never passed through the initiation webhook. A
+    # conditional update silently does nothing there, and a verified caller is then treated
+    # as unverified for the rest of the call — a failure that looks exactly like the gate
+    # working correctly.
+    dynamo.upsert(
         _TABLE,
         {"conversation_id": conversation_id},
-        condition="attribute_exists(conversation_id)",
-        UpdateExpression="SET verification_status = :s, customer_id = :c",
-        ExpressionAttributeValues={":s": str(status), ":c": customer_id},
+        UpdateExpression=(
+            "SET verification_status = :s, customer_id = :c, "
+            "started_at = if_not_exists(started_at, :now), customer_display = :d"
+        ),
+        ExpressionAttributeValues={
+            ":s": str(status),
+            ":c": customer_id,
+            ":now": datetime.now(UTC).isoformat(),
+            ":d": display or {},
+        },
     )
 
 
@@ -78,14 +98,31 @@ def record_failed_attempt(conversation_id: str) -> int:
     have their failures attributed to one, and could guess indefinitely. FR-006 requires
     counting per caller session as well, and this is that half.
     """
-    updated = dynamo.update_if(
+    updated = dynamo.upsert(
         _TABLE,
         {"conversation_id": conversation_id},
-        condition="attribute_exists(conversation_id)",
         UpdateExpression="ADD failed_verification_attempts :one",
         ExpressionAttributeValues={":one": 1},
     )
     return int(updated.get("failed_verification_attempts", 1)) if updated else 1
+
+
+def verified_context(conversation_id: str) -> tuple[str, dict]:
+    """
+    The gate, plus the display fields verification recorded.
+
+    conversation_id: the call.
+
+    Returns: (customer id, display fields). Raises ToolError(NOT_AUTHORIZED) unless the
+             stored status is VERIFIED. Lets a downstream tool identify the customer without
+             any permission on the identity table.
+    """
+    record = dynamo.get(_TABLE, {"conversation_id": conversation_id})
+
+    if not record or record.get("verification_status") != VerificationStatus.VERIFIED:
+        raise ToolError(ErrorCategory.NOT_AUTHORIZED, "conversation is not verified")
+
+    return record["customer_id"], dict(record.get("customer_display") or {})
 
 
 def require_verified(conversation_id: str) -> str:
