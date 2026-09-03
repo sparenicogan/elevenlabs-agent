@@ -21,10 +21,6 @@
             "type": "string",
             "dynamic_variable": "system__conversation_id"
           },
-          "candidate_customer_id": {
-            "type": "string",
-            "dynamic_variable": "candidate_customer_id"
-          },
           "factors": {
             "type": "array",
             "description": "Every identifying detail the caller has given so far in this call, including ones already confirmed.",

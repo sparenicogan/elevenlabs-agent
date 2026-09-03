@@ -10,9 +10,7 @@
       },
       "first_message": "Helvetia Werkstoffe, accounts department. How can I help you?",
       "dynamic_variables": {
-        "dynamic_variable_placeholders": {
-          "candidate_customer_id": ""
-        }
+        "dynamic_variable_placeholders": {}
       }
     },
     "asr": {
@@ -48,7 +46,7 @@
     "system_tools": "language_detection for DE/FR/IT/EN, and transfer_to_number for the escalation handoff. Both are configured at the platform level rather than in this file.",
     "asr": "scribe_realtime. The original 'elevenlabs' provider was removed and existing agents migrated; specifying it is now rejected.",
     "phone_number": "+1 656 223 0845 (phnum_5701m1k7hybefhvvh8j28rz577e2), imported from Twilio and assigned to this agent. A number routes to exactly one agent, which is why this project uses its own rather than sharing.",
-    "dynamic_variables": "candidate_customer_id defaults to empty so a call can start before the initiation webhook exists. It scopes the identity lookup only and never counts as a verification factor (FR-033b).",
+    "dynamic_variables": "Empty. candidate_customer_id was referenced by verify_identity before the conversation initiation webhook existed to supply it, and ElevenLabs refuses to start a session whose tools reference an unresolvable variable \u2014 an agent-level placeholder does not satisfy that check. It returns with T076, when the webhook can actually provide it. The handler already treats a missing candidate as an unrecognised number.",
     "tts": "eleven_turbo_v2 is English-only, and ElevenLabs requires it (or flash v2) whenever the agent's base language is English. This is a rehearsal setting. The multilingual requirement in FR-033 needs eleven_turbo_v2_5 with a non-English base and language presets for de/fr/it/en, which lands in T080 \u2014 at which point this reverts."
   }
 }
