@@ -360,15 +360,33 @@ evidence on the escalation, promises human correction, and writes nothing to the
 
 - **FR-001**: The system MUST NOT disclose any invoice, payment, balance, credit, dispute, or other
   financial fact before verification succeeds, regardless of what the caller asserts.
+- **FR-002a**: The identity of the verified contact — which person, not only which account — MUST
+  be recorded on the conversation, in the audit record, and in any handoff, so a human knows who
+  they were speaking to.
 - **FR-002**: The verification outcome MUST be decided in the secure backend and returned as one of
   VERIFIED, PARTIALLY_VERIFIED, FAILED, or LOCKED; the conversational layer MUST NOT decide it.
 - **FR-003**: Verification MUST require three independent identifying factors, applied uniformly to
   every disclosure and every action; there is no reduced tier for routine inquiries and no elevated
   tier for high-risk ones. The count MUST remain configuration rather than a hard-coded literal.
-- **FR-003a**: The factor pool MUST be contact email, contact phone, date of birth, account opening
-  year, and customer identifier. At least one confirmed factor MUST be one that does not appear on
-  an invoice document (email, phone, date of birth, or account opening year), so that possession of
-  a customer's invoice is never sufficient to verify.
+- **FR-003a**: The factor pool MUST be the caller's own email, their own phone number, their own
+  date of birth, and the customer identifier of the account. At least one confirmed factor MUST be
+  personal to the caller — email, phone or date of birth — so that a caller producing only company
+  facts has demonstrated familiarity with the business and nothing about who they are.
+- **FR-003d**: Identity records MUST be held per person, not per company. Any contact listed
+  against an account MUST be able to verify using their own details and reach that account. A caller
+  matching no listed contact MUST NOT reach it, whatever they claim about who they work for.
+- **FR-003e**: The customer identifier names a company and MUST NOT resolve a person on its own. It
+  is checked against the account the resolved contact belongs to, so a caller who gives correct
+  personal details but names a different company does not verify.
+- **FR-003f**: The account opening year MUST NOT be a factor. It is a fact about the company that
+  every employee shares, so it distinguishes nobody, and almost nobody recalls it — which wasted an
+  exchange before reaching a question that could be answered.
+- **FR-003g**: The residual limitation MUST be recorded rather than designed around: colleagues
+  commonly know one another's email, phone and date of birth, so these factors cannot distinguish
+  one listed contact from another. This is tolerable because every listed contact has identical
+  access, so impersonating a colleague gains nothing. It is not tolerable for someone who has left
+  the company, and the control there is removing them from the contact list. A possession factor —
+  a code to the phone on file — is the correct fix and is out of scope (FR-048).
 - **FR-003b**: A caller's name MUST NOT count as a verification factor. Callers volunteer it in the
   first sentence of an ordinary call, so crediting it would hand over a third of the bar for free.
   First name and surname MUST NOT be treated as independent facts either: anyone who knows one
@@ -382,9 +400,9 @@ evidence on the escalation, promises human correction, and writes nothing to the
   exceeding the configured limit MUST produce LOCKED, a recorded risk signal, and escalation.
 - **FR-007**: Ownership and authority to act on the account MUST be checked in the backend for every
   request touching a customer's records.
-- **FR-007a**: Working at a customer company is not authority to act on its account. Only the
-  contact recorded against the account may be verified, and an employee who is not that contact MUST
-  fail verification like any other caller.
+- **FR-007a**: Being listed as a contact of the account is what confers authority. Any listed
+  contact may verify and act; a caller who matches no listed contact MUST fail verification like any
+  other stranger, however plausibly they claim to work there.
 - **FR-007b**: When a caller cannot be verified, the agent MUST explain that an authorised contact
   on the account can add them. It MAY give that contact's name, and MUST give nothing else about
   them — no email address, no telephone number, no role, no location. A colleague at the customer

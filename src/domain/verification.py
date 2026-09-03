@@ -27,26 +27,42 @@ DATE_FORMATS = ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y")
 
 
 class Factor(StrEnum):
-    # A name is deliberately absent. Callers volunteer it in the first sentence of every
-    # call, so counting it would hand over a third of the bar for free — and first name and
-    # surname are not independent facts, so accepting them separately would hand over two
-    # thirds (FR-003b).
+    """What a caller can be asked for.
+
+    A name is deliberately absent: callers volunteer it in the first sentence of every call,
+    so counting it would hand over a third of the bar for free, and first name and surname
+    are not independent facts (FR-003b).
+
+    The account opening year was removed for a related reason. It is a fact about the company
+    rather than about the caller, so every employee knows it and it distinguishes nobody —
+    and almost nobody remembers it, so it wasted an exchange before reaching a question that
+    could be answered.
+    """
+
     EMAIL = "email"
     PHONE = "phone"
     DATE_OF_BIRTH = "date_of_birth"
-    ACCOUNT_OPENING_YEAR = "account_opening_year"
     CUSTOMER_ID = "customer_id"
 
 
-# Factors a caller holding the invoice cannot read off it. At least one confirmed factor
-# must come from this set, or possession of a document becomes possession of the account
-# (FR-003a). The customer id is deliberately excluded: it is printed on the invoice.
-NON_DOCUMENT_FACTORS = frozenset(
+# Facts about the caller rather than about the company they work for. At least one confirmed
+# factor must come from this set (FR-003a).
+#
+# This is the line between "a contact of Apex Capital" and "somebody who knows about Apex
+# Capital". The customer id is excluded because it is printed on every invoice and known to
+# everyone at the company, so a caller producing only company facts has demonstrated
+# familiarity with the business and nothing about who they are.
+#
+# The limitation, stated plainly: colleagues often know each other's details, so these
+# factors cannot distinguish one listed contact from another. That is tolerable because
+# every listed contact has identical access — impersonating a colleague gains nothing. It is
+# not tolerable for someone who has left the company, and the control there is removing them
+# from the CRM rather than anything this rule can do.
+PERSONAL_FACTORS = frozenset(
     {
         Factor.EMAIL,
         Factor.PHONE,
         Factor.DATE_OF_BIRTH,
-        Factor.ACCOUNT_OPENING_YEAR,
     }
 )
 
@@ -60,7 +76,6 @@ ASK_ORDER = (
     Factor.EMAIL,
     Factor.PHONE,
     Factor.DATE_OF_BIRTH,
-    Factor.ACCOUNT_OPENING_YEAR,
     Factor.CUSTOMER_ID,
 )
 
@@ -80,8 +95,8 @@ class VerificationResult:
     status:                 the outcome the agent must honour.
     confirmed_count:        how many factors were answered correctly.
     required_count:         how many are needed, from policy.
-    non_document_satisfied: whether at least one confirmed factor was not readable off an
-                            invoice.
+    personal_satisfied:     whether at least one confirmed factor was a fact about the
+                            caller rather than about their company.
     next_factor_hint:       which field to ask for next. A field name, never a value
                             (FR-004).
     is_failed_attempt:      whether this attempt counts toward the lockout. Answering too
@@ -98,7 +113,7 @@ class VerificationResult:
     status: VerificationStatus
     confirmed_count: int
     required_count: int
-    non_document_satisfied: bool
+    personal_satisfied: bool
     next_factor_hint: Factor | None
     is_failed_attempt: bool
     mismatched_factors: frozenset[Factor] = frozenset()
@@ -170,12 +185,12 @@ def check_factors(
         else:
             mismatched.add(factor)
 
-    non_document_satisfied = bool(confirmed & NON_DOCUMENT_FACTORS)
+    personal_satisfied = bool(confirmed & PERSONAL_FACTORS)
     enough = len(confirmed) >= required_count
 
     if mismatched:
         status = VerificationStatus.FAILED
-    elif enough and non_document_satisfied:
+    elif enough and personal_satisfied:
         status = VerificationStatus.VERIFIED
     else:
         status = VerificationStatus.PARTIALLY_VERIFIED
@@ -188,8 +203,8 @@ def check_factors(
             status=status,
             confirmed_count=0,
             required_count=required_count,
-            non_document_satisfied=False,
-            next_factor_hint=_next_hint(set(), non_document_satisfied=False),
+            personal_satisfied=False,
+            next_factor_hint=_next_hint(set(), personal_satisfied=False),
             is_failed_attempt=True,
             mismatched_factors=frozenset(mismatched),
         )
@@ -198,30 +213,30 @@ def check_factors(
         status=status,
         confirmed_count=len(confirmed),
         required_count=required_count,
-        non_document_satisfied=non_document_satisfied,
+        personal_satisfied=personal_satisfied,
         # Nothing more to ask once verification has succeeded.
         next_factor_hint=(
             None
             if status is VerificationStatus.VERIFIED
-            else _next_hint(confirmed, non_document_satisfied)
+            else _next_hint(confirmed, personal_satisfied)
         ),
         is_failed_attempt=False,
         mismatched_factors=frozenset(),
     )
 
 
-def _next_hint(confirmed: set[Factor], non_document_satisfied: bool) -> Factor | None:
+def _next_hint(confirmed: set[Factor], personal_satisfied: bool) -> Factor | None:
     """
     Chooses which field to ask for next.
 
     confirmed:              factors already answered correctly.
-    non_document_satisfied: whether a non-document factor is among them.
+    personal_satisfied: whether a non-document factor is among them.
 
     Returns: a field name, never a value. When the caller has only produced things readable
              off an invoice, the next question is deliberately one the invoice cannot
              answer.
     """
-    pool = NON_DOCUMENT_FACTORS if not non_document_satisfied else set(Factor)
+    pool = PERSONAL_FACTORS if not personal_satisfied else set(Factor)
     remaining = [factor for factor in ASK_ORDER if factor in pool and factor not in confirmed]
     return remaining[0] if remaining else None
 

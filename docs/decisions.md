@@ -1143,3 +1143,72 @@ of how often it had been rehearsed.
 
 A seed is meant to restore a known state. Leaving one table's history behind made it restore
 most of one.
+
+### 12.24 Identity is per person, not per company
+
+**Decision (Nicolas).** The identity table holds one row per contact, each with their own
+email, phone and date of birth, linked to a company account. Any listed contact verifies and
+reaches that account; somebody matching no contact reaches nothing.
+
+**Cost.** A destructive table change, thirty identity records instead of ten, and a reversal
+of the authority rule written a day earlier — Precision Systems previously tested that a
+colleague *could not* verify.
+
+**Why.** It is how B2B accounts actually work. A company has an accounts department, not a
+designated caller, and the person who rings about an invoice is whoever picked up the query.
+Under the old model Anna Schmidt could never get help with her own company's invoice.
+
+The line it draws is the one that matters: **a listed contact of Apex Capital** versus
+**somebody who knows about Apex Capital**. Membership of the CRM contact list is the
+authority, which also means removing a leaver from that list removes their access — a control
+someone can actually operate.
+
+### 12.25 At least one factor must be personal, replacing the non-document rule
+
+**Decision.** The rule was "at least one factor not printed on an invoice". It is now "at
+least one factor personal to the caller" — their own email, phone or date of birth.
+
+**Cost.** None in practice; it is strictly stronger.
+
+**Why.** Per-person identity made the old rule too weak. Under it, the customer ID and the
+account opening year both counted as non-document, so a caller who worked at the company — or
+had merely seen one of its invoices — could satisfy the bar with two facts that identify
+nobody. The personal/company split names what the rule was always trying to express.
+
+### 12.26 The account opening year is removed entirely
+
+**Decision (Nicolas).** Gone from the factor pool.
+
+**Cost.** One fewer factor, so the pool is four rather than five.
+
+**Why.** It is a fact about the company that every employee shares, so it distinguishes
+nobody — and almost nobody remembers it. A walkthrough showed the agent asking for it, being
+told "I don't know that", and asking again two turns later. It cost an exchange and bought
+nothing.
+
+**A useful consequence**: with three factors required and only one company factor remaining,
+a caller necessarily supplies two personal facts plus the customer ID. The "two personal"
+requirement falls out of the arithmetic rather than needing its own rule.
+
+### 12.27 The colleague-impersonation gap is recorded, not designed around
+
+**Decision.** Colleagues commonly know each other's email, phone and date of birth, so these
+factors cannot distinguish one listed contact from another. Accepted, documented, and
+mitigated by recording *which* contact verified.
+
+**Cost.** Anyone at a customer company can verify as any of their colleagues.
+
+**Why.** Nicolas raised it directly: *"I know my colleague's email, phone, and date of
+birth."* He is right, and knowledge-based verification cannot fix it.
+
+What makes it tolerable is that every listed contact has identical access, so impersonating a
+colleague gains nothing — the blast radius inside the authorised set is zero. The real threat
+is someone who *used to be* inside it, and the control for that is the CRM contact list rather
+than anything the factors can do.
+
+The honest fix is possession rather than knowledge — a one-time code to the phone on file —
+and outbound messaging is out of scope (FR-048). It belongs in the README as the first thing
+to add in production.
+
+Which contact verified is now recorded on the conversation, in the audit record and in the
+handoff. It does not prevent the impersonation; it means there is a trace of it.

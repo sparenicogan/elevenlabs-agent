@@ -38,7 +38,6 @@ IDENTITY = {
     "email": CANARY_EMAIL,
     "phone": CANARY_PHONE,
     "date_of_birth": CANARY_DOB,
-    "account_opening_year": "2019",
     "preferred_language": "en",
     "account_status": "ACTIVE",
     "failed_verification_attempts": 0,

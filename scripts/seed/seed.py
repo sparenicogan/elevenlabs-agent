@@ -97,21 +97,21 @@ def main() -> int:
     ledger = dynamodb.Table(f"{PROJECT}-ledger")
     conversations = dynamodb.Table(f"{PROJECT}-conversations")
 
-    identity_keys = {(c["customer_id"],) for c in fixtures.CUSTOMERS}
+    identity_keys = {(c["contact_id"],) for c in fixtures.CONTACTS}
     ledger_keys = {(e["customer_id"], e["entry_id"]) for e in fixtures.LEDGER}
 
-    dropped_identity = _purge_orphans(identity, identity_keys, ("customer_id",))
+    dropped_identity = _purge_orphans(identity, identity_keys, ("contact_id",))
     dropped_ledger = _purge_orphans(ledger, ledger_keys, ("customer_id", "entry_id"))
     dropped_conversations = _clear_conversations(conversations)
 
-    for customer in fixtures.CUSTOMERS:
-        identity.put_item(Item=_decimalise(customer))
+    for contact in fixtures.CONTACTS:
+        identity.put_item(Item=_decimalise(contact))
 
     for entry in fixtures.LEDGER:
         ledger.put_item(Item=_decimalise(_amounts_to_decimal(entry)))
 
     print(
-        f"seeded {len(fixtures.CUSTOMERS)} customers into {identity.name} "
+        f"seeded {len(fixtures.CONTACTS)} contacts into {identity.name} "
         f"({dropped_identity} stale removed)"
     )
     print(

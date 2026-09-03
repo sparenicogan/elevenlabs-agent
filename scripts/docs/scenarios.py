@@ -70,23 +70,22 @@ NARRATIVE: dict[str, dict[str, str]] = {
         ),
     },
     "precision": {
-        "story": "An employee who is not authorised on the account",
+        "story": "A caller who is not on the account",
         "situation": (
-            "Julia Fischer works at Precision Systems and appears in the CRM, but the "
-            "contact recorded against the account is Martin Keller. She is a real colleague "
-            "at a real customer, and she still cannot be verified: she does not know the "
-            "account contact's date of birth, and she should not. There is no phone number "
-            "on file either, so her call is unrecognised before she says a word. "
+            "Precision Systems has three contacts in the CRM, and all three can reach the "
+            "account with their own details. Nobody else can. The company also has no phone "
+            "number on file for its primary contact, so an inbound call from them is "
+            "unrecognised before they say a word."
         ),
         "watch": (
-            "Two things, and the second is where it can go wrong. First, the greeting falls "
-            "back to the default language, with no name and no hint that anything was "
-            "recognised. Second, when she fails verification the agent must say nothing "
-            "financial at all — not the balance, not whether an invoice is outstanding, not "
-            "even whether the company has an account — and must explain the remedy, which "
-            "is that someone already authorised can add her as a contact. It must NOT say "
-            "who those people are. Telling an unverified caller whose details would have "
-            "worked is the one genuinely damaging thing it could do here. "
+            "Two things. The greeting falls back to the default language, with no name and "
+            "no hint that anything was recognised. And a caller who is not one of the three "
+            "— someone inventing an address at the right domain, say — must get nothing at "
+            "all: not the balance, not whether an invoice exists, not even whether the "
+            "company has an account. They should be told an authorised contact can add them. "
+            "The agent may name one of them and must give nothing else about them, because a "
+            "colleague already knows who works in their accounts department and it is the "
+            "contact details that would let an impersonation proceed."
         ),
     },
     "heritage": {
@@ -171,13 +170,6 @@ NARRATIVE: dict[str, dict[str, str]] = {
 }
 
 
-# Real people in the CRM who work at the company but are not the contact recorded against
-# the account. Calling as one of them is how the authority rule gets exercised (FR-007a).
-UNAUTHORISED_CALLERS = {
-    "precision": "Julia Fischer (julia.fischer@precision-systems.ch)",
-}
-
-
 def _entries_by_customer() -> dict[str, list[dict]]:
     """Groups every ledger entry by the customer it belongs to."""
     grouped = defaultdict(list)
@@ -188,33 +180,41 @@ def _entries_by_customer() -> dict[str, list[dict]]:
 
 def _verification_block(company: dict) -> str:
     """
-    Renders the three factors a tester needs to get past the disclosure gate.
+    Renders every person who can verify for this company, and what each of them knows.
 
     company: one entry from fixtures.COMPANIES.
 
-    Returns: a markdown list. The phone number is shown in national form because that is how
-             a caller says it, and the point is that the backend accepts it either way.
+    Returns: a markdown table, one row per listed contact. Any of them can reach the account
+             using their own details; nobody else can, however plausibly they claim to work
+             there. Phone numbers are shown in national form because that is how a caller
+             says them, and the point is that the backend accepts either.
     """
-    lines = [
-        f"- Customer ID — `{company['customer_id']}`",
-        f"- Email — `{company['email']}`",
-    ]
-    if company["phone"]:
-        national = "0" + company["phone"].replace("+41 ", "").replace(" ", "")
-        lines.append(f"- Phone — `{company['phone']}` (say it as `{national}`)")
-    else:
-        lines.append("- Phone — **none on file**, so this caller is never recognised")
-    lines.append(f"- Date of birth — `{company['date_of_birth']}`")
-    lines.append(f"- Account opened — `{company['account_opening_year']}`")
+    contacts = [c for c in fixtures.CONTACTS if c["account_id"] == company["customer_id"]]
 
-    if company["key"] in UNAUTHORISED_CALLERS:
-        caller = UNAUTHORISED_CALLERS[company["key"]]
-        lines.append("")
-        lines.append(
-            f"To test the unauthorised case, call as **{caller}** instead — a real colleague "
-            "at the company who is not the contact on the account. They can offer the "
-            "customer id and their own email, and should still get nowhere."
+    lines = [
+        f"Customer ID (the company, shared by all of them) — `{company['customer_id']}`",
+        "",
+        "| Contact | Email | Phone | Date of birth |",
+        "|---|---|---|---|",
+    ]
+    for contact in contacts:
+        phone = contact.get("phone")
+        spoken = (
+            f"`{phone}` — say `0{phone.replace('+41 ', '').replace(' ', '')}`"
+            if phone
+            else "**none on file**"
         )
+        lines.append(
+            f"| {contact['first_name']} {contact['last_name']} | `{contact['email']}` "
+            f"| {spoken} | `{contact['date_of_birth']}` |"
+        )
+
+    lines.append("")
+    lines.append(
+        "Any of them verifies with **their own** email, phone or date of birth, plus the "
+        "customer ID. Three factors, at least one personal. Somebody not in this table gets "
+        "nowhere, whatever they claim about working here."
+    )
     return "\n".join(lines)
 
 

@@ -57,7 +57,7 @@ class TestFingerprinting:
         """Otherwise a caller could offer one value as an email and again as a customer id
         and have it counted once."""
         assert fingerprint(Factor.EMAIL, "2019", SALT) != fingerprint(
-            Factor.ACCOUNT_OPENING_YEAR, "2019", SALT
+            Factor.DATE_OF_BIRTH, "2019", SALT
         )
 
     def test_a_different_salt_produces_a_different_fingerprint(self):

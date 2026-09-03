@@ -15,7 +15,7 @@ from decimal import Decimal  # noqa: F401  (kept: fixtures below mirror the iden
 import pytest
 
 from src.domain.verification import (
-    NON_DOCUMENT_FACTORS,
+    PERSONAL_FACTORS,
     Factor,
     VerificationStatus,
     check_factors,
@@ -25,7 +25,6 @@ STORED = {
     Factor.EMAIL: "Buchhaltung@Meier-Bau.ch",
     Factor.PHONE: "+41 44 123 45 67",
     Factor.DATE_OF_BIRTH: "1974-03-12",
-    Factor.ACCOUNT_OPENING_YEAR: "2019",
     Factor.CUSTOMER_ID: "CUST-00417",
 }
 
@@ -42,7 +41,7 @@ def check(supplied, required=REQUIRED, stored=None):
 
 
 class TestVerified:
-    def test_three_correct_factors_including_a_non_document_one(self):
+    def test_three_correct_factors_including_a_personal_one(self):
         result = check(
             {
                 Factor.CUSTOMER_ID: "CUST-00417",
@@ -59,7 +58,7 @@ class TestVerified:
             {
                 Factor.EMAIL: "BUCHHALTUNG@MEIER-BAU.CH",
                 Factor.DATE_OF_BIRTH: "1974-03-12",
-                Factor.ACCOUNT_OPENING_YEAR: "2019",
+                Factor.PHONE: "+41 44 123 45 67",
             }
         )
         assert result.status is VerificationStatus.VERIFIED
@@ -87,11 +86,11 @@ class TestVerified:
         assert result.status is VerificationStatus.VERIFIED
 
 
-class TestNonDocumentRule:
-    def test_three_factors_printed_on_the_invoice_do_not_verify(self):
-        """FR-003a. A caller holding a stolen invoice has the customer id and can read the
-        company details off it. At least one factor must be something the document does not
-        carry, or possession of the invoice is possession of the account."""
+class TestThePersonalFactorRule:
+    def test_a_company_fact_alone_is_never_enough(self):
+        """FR-003a. The customer id is printed on every invoice and known to everyone at the
+        company, so producing it demonstrates familiarity with the business and nothing about
+        who the caller is."""
         result = check(
             {
                 Factor.CUSTOMER_ID: "CUST-00417",
@@ -100,25 +99,20 @@ class TestNonDocumentRule:
             },
             stored={**STORED, Factor.EMAIL: "buchhaltung@meier-bau.ch"},
         )
-        # Email and phone are non-document factors, so this one does verify.
+        # Email and phone are facts about the person, so this one does verify.
         assert result.status is VerificationStatus.VERIFIED
 
     def test_customer_id_alone_is_not_enough_even_repeated(self):
         result = check({Factor.CUSTOMER_ID: "CUST-00417"})
         assert result.status is VerificationStatus.PARTIALLY_VERIFIED
-        assert result.non_document_satisfied is False
+        assert result.personal_satisfied is False
 
-    def test_the_hint_asks_for_a_non_document_factor_when_that_is_what_is_missing(self):
+    def test_the_hint_asks_for_a_personal_factor_when_that_is_what_is_missing(self):
         """When the count is met but every factor came off the document, the next question
         must be one the document cannot answer."""
         result = check({Factor.CUSTOMER_ID: "CUST-00417"}, required=1)
         assert result.status is not VerificationStatus.VERIFIED
-        assert result.next_factor_hint in {
-            Factor.EMAIL,
-            Factor.PHONE,
-            Factor.DATE_OF_BIRTH,
-            Factor.ACCOUNT_OPENING_YEAR,
-        }
+        assert result.next_factor_hint in PERSONAL_FACTORS
 
 
 class TestPartiallyVerified:
@@ -138,7 +132,7 @@ class TestPartiallyVerified:
         assert result.confirmed_count == 0
 
     def test_being_short_of_factors_is_not_a_failed_attempt(self):
-        """A caller who does not know their account opening year has not failed
+        """A caller who cannot recall their date of birth on the spot has not failed
         verification; they have answered fewer questions. Counting this against the lockout
         would punish honesty (FR-006)."""
         result = check({Factor.EMAIL: "buchhaltung@meier-bau.ch"})
@@ -222,7 +216,7 @@ class TestNoDisclosure:
         )
         assert result.status is VerificationStatus.FAILED
         assert result.confirmed_count == 0
-        assert result.non_document_satisfied is False
+        assert result.personal_satisfied is False
 
     def test_a_verified_result_asks_for_nothing_further(self):
         result = check(
@@ -321,14 +315,16 @@ class TestWhatToAskNext:
         result = check({Factor.EMAIL: STORED[Factor.EMAIL]})
         assert result.next_factor_hint is Factor.PHONE
 
-    def test_the_opening_year_is_suggested_last_of_the_non_document_factors(self):
+    def test_the_customer_id_is_suggested_last(self):
+        """It is the only company fact left, and the weakest thing to ask for — everyone at
+        the company knows it and it is printed on every invoice."""
         confirmed = {
             Factor.EMAIL: STORED[Factor.EMAIL],
             Factor.PHONE: STORED[Factor.PHONE],
             Factor.DATE_OF_BIRTH: STORED[Factor.DATE_OF_BIRTH],
         }
         result = check(confirmed, required=4)
-        assert result.next_factor_hint is Factor.ACCOUNT_OPENING_YEAR
+        assert result.next_factor_hint is Factor.CUSTOMER_ID
 
     def test_a_confirmed_factor_is_never_suggested_again(self):
         result = check({Factor.EMAIL: STORED[Factor.EMAIL]})
@@ -338,4 +334,4 @@ class TestWhatToAskNext:
         """The non-document rule showing through the hint: knowing the customer id gets you
         asked for something the invoice cannot tell you."""
         result = check({Factor.CUSTOMER_ID: STORED[Factor.CUSTOMER_ID]})
-        assert result.next_factor_hint in NON_DOCUMENT_FACTORS
+        assert result.next_factor_hint in PERSONAL_FACTORS

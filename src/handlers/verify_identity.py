@@ -77,12 +77,12 @@ def _verify(conversation_id: str, body: dict) -> dict:
     """
     settings = policy_module.load()
     supplied = _parse_factors(body.get("factors") or [])
-    customer_id = _resolve_customer(body, supplied)
+    contact_id = _resolve_contact(body, supplied)
 
     # Checked before the answers are evaluated. A caller working through values must not be
     # able to learn which of them was right on the attempt that stops them.
     enumerated, offered_new = _check_for_enumeration(
-        conversation_id, customer_id, supplied, settings
+        conversation_id, contact_id, supplied, settings
     )
     if enumerated:
         return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, None, False)
@@ -90,7 +90,7 @@ def _verify(conversation_id: str, body: dict) -> dict:
     # An unknown customer is carried through the rule with an empty record rather than
     # returned early, so "no such customer" produces the same response as wrong answers and
     # the gate cannot be used to enumerate customers.
-    record = dynamo.get(IDENTITY_TABLE, {"customer_id": customer_id}) if customer_id else None
+    record = dynamo.get(IDENTITY_TABLE, {"contact_id": contact_id}) if contact_id else None
     stored = _stored_factors(record) if record else {}
 
     if record and _is_locked(record):
@@ -129,7 +129,7 @@ def _verify(conversation_id: str, body: dict) -> dict:
         return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, None, False)
 
     candidate = body.get("candidate_customer_id")
-    if candidate and customer_id and candidate.strip() and candidate.strip() != customer_id:
+    if candidate and contact_id and candidate.strip() and candidate.strip() != contact_id:
         # The number they called from belongs to one account and they named another. Innocent
         # explanations exist — a shared switchboard, a colleague's desk — so it is recorded
         # rather than acted on (research D3).
@@ -138,16 +138,18 @@ def _verify(conversation_id: str, body: dict) -> dict:
                 signal_type=SignalType.CONFLICTING_IDENTITY_DATA,
                 evidence="caller number resolves to a different account than the one named",
                 conversation_id=conversation_id,
-                customer_id=customer_id,
+                customer_id=contact_id,
             )
         )
 
-    if outcome.status is VerificationStatus.VERIFIED and customer_id:
+    if outcome.status is VerificationStatus.VERIFIED and record:
+        # The account is the contact's company. A person authenticates; a company account is
+        # what they reach.
         conversation_state.set_verification(
             conversation_id,
             ConversationVerification.VERIFIED,
-            customer_id,
-            display=_display_fields(record or {}),
+            str(record["account_id"]),
+            display=_display_fields(record),
         )
 
     log.info(
@@ -162,7 +164,7 @@ def _verify(conversation_id: str, body: dict) -> dict:
         outcome.confirmed_count,
         outcome.required_count,
         outcome.next_factor_hint,
-        outcome.non_document_satisfied,
+        outcome.personal_satisfied,
     )
 
 
@@ -183,6 +185,11 @@ def _display_fields(record: dict) -> dict[str, str]:
         "account_status",
         "hubspot_contact_id",
         "hubspot_company_id",
+        # Which person verified. It reaches the audit record and the handoff, so a human
+        # knows who they were speaking to rather than only which account.
+        "first_name",
+        "last_name",
+        "contact_id",
     )
     return {f: str(record[f]) for f in fields if record.get(f) is not None}
 
@@ -213,7 +220,7 @@ def _wrong_fingerprints(supplied: dict[Factor, str], outcome) -> set[str]:
 
 def _check_for_enumeration(
     conversation_id: str,
-    customer_id: str | None,
+    contact_id: str | None,
     supplied: dict[Factor, str],
     settings,
 ) -> tuple[bool, bool]:
@@ -221,7 +228,7 @@ def _check_for_enumeration(
     Records what has been offered for each field and decides whether the caller is guessing.
 
     conversation_id: the call.
-    customer_id:     the account, where one was resolved. A caller who never names one still
+    contact_id:      the person, where one was resolved. A caller who matches nobody still
                      produces signals; they belong to the conversation.
     supplied:        this attempt's answers.
     settings:        policy, for the allowance.
@@ -260,13 +267,13 @@ def _check_for_enumeration(
                 f"allowance is {settings.guessing_max_distinct_values}"
             ),
             conversation_id=conversation_id,
-            customer_id=customer_id,
+            customer_id=contact_id,
         )
     )
     log.info(
         "suspected guessing",
         conversation_id=conversation_id,
-        customer_id=customer_id or "",
+        customer_id=contact_id or "",
         status="LOCKED",
         attempt=counts[offending.value],
     )
@@ -290,15 +297,15 @@ def _parse_factors(factors: list) -> dict[Factor, str]:
     return parsed
 
 
-def _resolve_customer(body: dict, supplied: dict[Factor, str]) -> str | None:
+def _resolve_contact(body: dict, supplied: dict[Factor, str]) -> str | None:
     """
-    Works out whose record to check the answers against.
+    Works out which person's record to check the answers against.
 
     body:     the request, which may carry the candidate customer id derived from the
               caller's phone number by the initiation webhook.
     supplied: the caller's answers.
 
-    Returns: a customer id, or None when nothing supplied identifies an account.
+    Returns: a contact id, or None when nothing supplied identifies a person.
 
     Resolution tries every identifier the caller might reasonably have given, not only the
     customer id. Requiring the id first meant a caller who led with their email — which most
@@ -311,9 +318,6 @@ def _resolve_customer(body: dict, supplied: dict[Factor, str]) -> str | None:
     else, because doing so grants nothing: three correct factors are still required against
     whichever record is chosen.
     """
-    if Factor.CUSTOMER_ID in supplied:
-        return supplied[Factor.CUSTOMER_ID].strip().upper()
-
     for factor, index, attribute in (
         (Factor.EMAIL, "email-index", "email"),
         (Factor.PHONE, "phone-index", "phone"),
@@ -335,7 +339,7 @@ def _lookup(index: str, attribute: str, value: str) -> str | None:
     attribute: its hash key.
     value:     what the caller said.
 
-    Returns: the customer id, or None when nothing matches — which is deliberately
+    Returns: the contact id, or None when nothing matches — which is deliberately
              indistinguishable downstream from an answer that matched nothing, since a
              response that distinguished them would say whether an address is on file.
     """
@@ -343,17 +347,26 @@ def _lookup(index: str, attribute: str, value: str) -> str | None:
     hits = dynamo.query(
         IDENTITY_TABLE, index=index, KeyConditionExpression=Key(attribute).eq(normalised)
     )
-    return hits[0]["customer_id"] if hits else None
+    return hits[0]["contact_id"] if hits else None
 
 
 def _stored_factors(record: dict) -> dict[Factor, str]:
     """Extracts only the comparable fields from the identity record, so nothing else can be
     reached by the rule."""
-    return {
+    stored = {
         factor: str(record[factor.value])
         for factor in Factor
         if record.get(factor.value) is not None
     }
+
+    # The customer id names the company, not the person, so it is compared against the
+    # account this contact belongs to. A caller giving only their customer id has said which
+    # company they are calling about and nothing about who they are — which is why it cannot
+    # resolve a contact on its own.
+    if record.get("account_id"):
+        stored[Factor.CUSTOMER_ID] = str(record["account_id"])
+
+    return stored
 
 
 def _is_locked(record: dict) -> bool:
@@ -377,13 +390,13 @@ def _record_attempt(record: dict, outcome, max_attempts: int, wrong_count: int) 
              values advance it, so a caller who knows fewer facts, or who has one wrong
              answer resent on every turn, is never locked out for it.
     """
-    customer_id = record["customer_id"]
+    contact_id = record["contact_id"]
 
     if outcome.status is VerificationStatus.VERIFIED:
         dynamo.update_if(
             IDENTITY_TABLE,
-            {"customer_id": customer_id},
-            condition="attribute_exists(customer_id)",
+            {"contact_id": contact_id},
+            condition="attribute_exists(contact_id)",
             UpdateExpression="SET failed_verification_attempts = :zero REMOVE locked_until",
             ExpressionAttributeValues={":zero": 0},
         )
@@ -400,31 +413,31 @@ def _record_attempt(record: dict, outcome, max_attempts: int, wrong_count: int) 
         locked_until = (datetime.now(UTC) + timedelta(minutes=30)).isoformat()
         dynamo.update_if(
             IDENTITY_TABLE,
-            {"customer_id": customer_id},
-            condition="attribute_exists(customer_id)",
+            {"contact_id": contact_id},
+            condition="attribute_exists(contact_id)",
             UpdateExpression="SET failed_verification_attempts = :n, locked_until = :until",
             ExpressionAttributeValues={":n": attempts, ":until": locked_until},
         )
-        log.info("account locked", customer_id=customer_id, status="LOCKED", attempt=attempts)
+        log.info("account locked", customer_id=contact_id, status="LOCKED", attempt=attempts)
         return
 
     dynamo.update_if(
         IDENTITY_TABLE,
-        {"customer_id": customer_id},
-        condition="attribute_exists(customer_id)",
+        {"contact_id": contact_id},
+        condition="attribute_exists(contact_id)",
         UpdateExpression="SET failed_verification_attempts = :n",
         ExpressionAttributeValues={":n": attempts},
     )
 
 
-def _body(status, confirmed: int, required: int, hint, non_document: bool) -> dict:
+def _body(status, confirmed: int, required: int, hint, personal: bool) -> dict:
     """Builds the response defined in contracts/tools.md."""
     return {
         "status": str(status),
         "factors_confirmed": confirmed,
         "factors_required": required,
         "next_factor_hint": str(hint) if hint else None,
-        "non_document_factor_satisfied": non_document,
+        "personal_factor_satisfied": personal,
     }
 
 

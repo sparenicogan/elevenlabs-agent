@@ -14,6 +14,7 @@ is always overdue and the disputed payment always sits inside the matching toler
 fixtures do not go stale between rehearsals.
 """
 
+import hashlib
 from datetime import date, timedelta
 
 TODAY = date.today()
@@ -462,29 +463,128 @@ def _goodwill_credits() -> list[dict]:
     ]
 
 
-CUSTOMERS = [
-    {
-        "customer_id": c["customer_id"],
-        "company_name": c["company_name"],
-        "first_name": c["first_name"],
-        "last_name": c["last_name"],
-        "date_of_birth": c["date_of_birth"],
+# --- The other people at each company ---------------------------------------------------
+# Every contact in the CRM can reach their company's account, using their own details. Only
+# their email and HubSpot id are real (they exist in the CRM); the phone and date of birth
+# are generated deterministically below, because the CRM holds neither and the backend is
+# the only place personal data lives (FR-027).
+
+COLLEAGUES = [
+    ("alpina", "859585000686", "Thomas", "Weber", "thomas.weber@alpina-tech.ch"),
+    ("alpina", "859585552601", "Anna", "Schmidt", "anna.schmidt@alpina-tech.ch"),
+    ("ticino", "859584517346", "Lucia", "Ferrari", "lucia.ferrari@ticino-ind.ch"),
+    ("ticino", "859585552602", "Giovanni", "Bianchi", "giovanni.bianchi@ticino-ind.ch"),
+    ("apex", "859559808229", "Olivier", "Lefevre", "olivier.lefevre@apex-capital.ch"),
+    ("apex", "859585472726", "Veronique", "Champagne", "veronique.champagne@apex-capital.ch"),
+    ("precision", "859479298251", "Julia", "Fischer", "julia.fischer@precision-systems.ch"),
+    ("precision", "859585843404", "Daniel", "Zimmermann", "daniel.zimmermann@precision-systems.ch"),
+    ("heritage", "859585176817", "Francesca", "Rizzo", "francesca.rizzo@heritage-mfg.ch"),
+    ("heritage", "859585472725", "Carlo", "Moretti", "carlo.moretti@heritage-mfg.ch"),
+    ("nexus", "859585276131", "Felix", "Graber", "felix.graber@nexus-consulting.ch"),
+    ("nexus", "859585938681", "Beatrice", "Fuchs", "beatrice.fuchs@nexus-consulting.ch"),
+    ("innovatech", "859559924937", "Luc", "Martin", "luc.martin@innovatech.ch"),
+    ("innovatech", "859563078868", "Claire", "Moreau", "claire.moreau@innovatech.ch"),
+    ("synergy", "859584707809", "Peter", "Bauer", "peter.bauer@synergy-sol.ch"),
+    ("synergy", "859585377478", "Michael", "Lang", "michael.lang@synergy-sol.ch"),
+    ("lumina", "859559297238", "Pierre", "Bernard", "pierre.bernard@lumina-analytics.ch"),
+    ("lumina", "859585640653", "Jean", "Dupont", "jean.dupont@lumina-analytics.ch"),
+    ("frontier", "859559808228", "Isabelle", "Deschamps", "isabelle.deschamps@digital-frontier.ch"),
+    ("frontier", "859586047210", "Eric", "Leclerc", "eric.leclerc@digital-frontier.ch"),
+]
+
+# Swiss area codes by city, so a colleague's number looks like it belongs where they work.
+_AREA_CODES = {
+    "Zürich": "44",
+    "Lugano": "91",
+    "Genève": "22",
+    "Bern": "31",
+    "Bellinzona": "91",
+    "Lausanne": "21",
+    "Basel": "61",
+    "Fribourg": "26",
+}
+
+
+def _personal_facts(email: str, city: str) -> tuple[str, str]:
+    """
+    Invents a phone number and date of birth for one person.
+
+    email: their address, used as the seed so the values never change between runs.
+    city:  where they work, so the area code is plausible.
+
+    Returns: (phone in international form, date of birth as ISO).
+
+    Generated rather than written out because the CRM holds neither — personal data lives
+    only in the backend (FR-027) — and thirty hand-written dates of birth would be thirty
+    chances to typo one.
+    """
+    seed = int(hashlib.sha256(email.encode()).hexdigest()[:12], 16)
+    area = _AREA_CODES.get(city, "44")
+    phone = f"+41 {area} {seed % 900 + 100} {seed // 900 % 90 + 10} {seed // 81000 % 90 + 10}"
+    year = 1962 + seed % 36
+    month = seed // 36 % 12 + 1
+    day = seed // 432 % 28 + 1
+    return phone, f"{year}-{month:02d}-{day:02d}"
+
+
+def _contact(
+    company: dict,
+    contact_id: str,
+    first: str,
+    last: str,
+    email: str,
+    phone: str | None,
+    date_of_birth: str,
+) -> dict:
+    """One person who may call about a company's account."""
+    return {
+        "contact_id": contact_id,
+        "account_id": company["customer_id"],
+        "company_name": company["company_name"],
+        "first_name": first,
+        "last_name": last,
+        "date_of_birth": date_of_birth,
         "postal_address": {
-            "street": c["street"],
-            "postcode": c["postcode"],
-            "city": c["city"],
+            "street": company["street"],
+            "postcode": company["postcode"],
+            "city": company["city"],
             "country": "CH",
         },
-        **({"phone": c["phone"]} if c["phone"] else {}),
-        "email": c["email"],
-        "account_opening_year": c["account_opening_year"],
+        **({"phone": phone} if phone else {}),
+        "email": email,
         "account_status": "ACTIVE",
-        "preferred_language": c["language"],
-        "hubspot_company_id": c["hubspot_company_id"],
-        "hubspot_contact_id": c["hubspot_contact_id"],
+        "preferred_language": company["language"],
+        "hubspot_company_id": company["hubspot_company_id"],
+        "hubspot_contact_id": contact_id,
         "failed_verification_attempts": 0,
     }
-    for c in COMPANIES
-]
+
+
+def _build_contacts() -> list[dict]:
+    """Every person who can verify: one primary contact per company, plus their colleagues."""
+    by_key = {c["key"]: c for c in COMPANIES}
+
+    contacts = [
+        _contact(
+            company=c,
+            contact_id=c["hubspot_contact_id"],
+            first=c["first_name"],
+            last=c["last_name"],
+            email=c["email"],
+            phone=c["phone"],
+            date_of_birth=c["date_of_birth"],
+        )
+        for c in COMPANIES
+    ]
+
+    for key, contact_id, first, last, email in COLLEAGUES:
+        company = by_key[key]
+        phone, date_of_birth = _personal_facts(email, company["city"])
+        contacts.append(_contact(company, contact_id, first, last, email, phone, date_of_birth))
+
+    return contacts
+
+
+CONTACTS = _build_contacts()
 
 LEDGER = build_ledger()

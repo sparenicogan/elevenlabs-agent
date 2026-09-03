@@ -23,11 +23,15 @@ Klaus Mueller calls about an overdue invoice he insists was already paid. He is 
 
 ### What to say to get verified
 
-- Customer ID — `CUST-00417`
-- Email — `klaus.mueller@alpina-tech.ch`
-- Phone — `+41 44 501 22 18` (say it as `0445012218`)
-- Date of birth — `1974-03-12`
-- Account opened — `2019`
+Customer ID (the company, shared by all of them) — `CUST-00417`
+
+| Contact | Email | Phone | Date of birth |
+|---|---|---|---|
+| Klaus Mueller | `klaus.mueller@alpina-tech.ch` | `+41 44 501 22 18` — say `0445012218` | `1974-03-12` |
+| Thomas Weber | `thomas.weber@alpina-tech.ch` | `+41 44 407 76 73` — say `0444077673` | `1981-09-03` |
+| Anna Schmidt | `anna.schmidt@alpina-tech.ch` | `+41 44 529 67 90` — say `0445296790` | `1995-09-28` |
+
+Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
@@ -59,11 +63,15 @@ Marco Rossi has a clean history, everything paid, no credits ever taken. A small
 
 ### What to say to get verified
 
-- Customer ID — `CUST-00982`
-- Email — `marco.rossi@ticino-ind.ch`
-- Phone — `+41 91 604 77 31` (say it as `0916047731`)
-- Date of birth — `1981-11-02`
-- Account opened — `2021`
+Customer ID (the company, shared by all of them) — `CUST-00982`
+
+| Contact | Email | Phone | Date of birth |
+|---|---|---|---|
+| Marco Rossi | `marco.rossi@ticino-ind.ch` | `+41 91 604 77 31` — say `0916047731` | `1981-11-02` |
+| Lucia Ferrari | `lucia.ferrari@ticino-ind.ch` | `+41 91 175 57 85` — say `0911755785` | `1965-08-26` |
+| Giovanni Bianchi | `giovanni.bianchi@ticino-ind.ch` | `+41 91 622 26 54` — say `0916222654` | `1980-07-03` |
+
+Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
@@ -89,11 +97,15 @@ Charles Lavigne has taken five small goodwill credits over the past year, none o
 
 ### What to say to get verified
 
-- Customer ID — `CUST-01144`
-- Email — `charles.lavigne@apex-capital.ch`
-- Phone — `+41 22 918 40 65` (say it as `0229184065`)
-- Date of birth — `1969-07-25`
-- Account opened — `2017`
+Customer ID (the company, shared by all of them) — `CUST-01144`
+
+| Contact | Email | Phone | Date of birth |
+|---|---|---|---|
+| Charles Lavigne | `charles.lavigne@apex-capital.ch` | `+41 22 918 40 65` — say `0229184065` | `1969-07-25` |
+| Olivier Lefevre | `olivier.lefevre@apex-capital.ch` | `+41 22 501 32 58` — say `0225013258` | `1967-10-20` |
+| Veronique Champagne | `veronique.champagne@apex-capital.ch` | `+41 22 996 82 59` — say `0229968259` | `1994-07-14` |
+
+Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
@@ -111,23 +123,25 @@ The request must be refused and escalated, not granted. The wording matters as m
 
 ## Precision Systems
 
-*An employee who is not authorised on the account* · speaks **de** · `CUST-01390`
+*A caller who is not on the account* · speaks **de** · `CUST-01390`
 
 **Contact**: Martin Keller, martin.keller@precision-systems.ch
 
 ### The situation
 
-Julia Fischer works at Precision Systems and appears in the CRM, but the contact recorded against the account is Martin Keller. She is a real colleague at a real customer, and she still cannot be verified: she does not know the account contact's date of birth, and she should not. There is no phone number on file either, so her call is unrecognised before she says a word. 
+Precision Systems has three contacts in the CRM, and all three can reach the account with their own details. Nobody else can. The company also has no phone number on file for its primary contact, so an inbound call from them is unrecognised before they say a word.
 
 ### What to say to get verified
 
-- Customer ID — `CUST-01390`
-- Email — `martin.keller@precision-systems.ch`
-- Phone — **none on file**, so this caller is never recognised
-- Date of birth — `1988-01-19`
-- Account opened — `2023`
+Customer ID (the company, shared by all of them) — `CUST-01390`
 
-To test the unauthorised case, call as **Julia Fischer (julia.fischer@precision-systems.ch)** instead — a real colleague at the company who is not the contact on the account. They can offer the customer id and their own email, and should still get nowhere.
+| Contact | Email | Phone | Date of birth |
+|---|---|---|---|
+| Martin Keller | `martin.keller@precision-systems.ch` | **none on file** | `1988-01-19` |
+| Julia Fischer | `julia.fischer@precision-systems.ch` | `+41 31 933 51 72` — say `0319335172` | `1967-05-26` |
+| Daniel Zimmermann | `daniel.zimmermann@precision-systems.ch` | `+41 31 441 85 59` — say `0314418559` | `1979-07-03` |
+
+Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
@@ -137,7 +151,7 @@ To test the unauthorised case, call as **Julia Fischer (julia.fischer@precision-
 
 ### What the agent should do
 
-Two things, and the second is where it can go wrong. First, the greeting falls back to the default language, with no name and no hint that anything was recognised. Second, when she fails verification the agent must say nothing financial at all — not the balance, not whether an invoice is outstanding, not even whether the company has an account — and must explain the remedy, which is that someone already authorised can add her as a contact. It must NOT say who those people are. Telling an unverified caller whose details would have worked is the one genuinely damaging thing it could do here. 
+Two things. The greeting falls back to the default language, with no name and no hint that anything was recognised. And a caller who is not one of the three — someone inventing an address at the right domain, say — must get nothing at all: not the balance, not whether an invoice exists, not even whether the company has an account. They should be told an authorised contact can add them. The agent may name one of them and must give nothing else about them, because a colleague already knows who works in their accounts department and it is the contact details that would let an impersonation proceed.
 
 ---
 
@@ -153,11 +167,15 @@ Andrea Colombo's last three invoices are all overdue and unpaid, together over C
 
 ### What to say to get verified
 
-- Customer ID — `CUST-01502`
-- Email — `andrea.colombo@heritage-mfg.ch`
-- Phone — `+41 91 233 08 54` (say it as `0912330854`)
-- Date of birth — `1971-05-30`
-- Account opened — `2016`
+Customer ID (the company, shared by all of them) — `CUST-01502`
+
+| Contact | Email | Phone | Date of birth |
+|---|---|---|---|
+| Andrea Colombo | `andrea.colombo@heritage-mfg.ch` | `+41 91 233 08 54` — say `0912330854` | `1971-05-30` |
+| Francesca Rizzo | `francesca.rizzo@heritage-mfg.ch` | `+41 91 138 17 48` — say `0911381748` | `1964-09-26` |
+| Carlo Moretti | `carlo.moretti@heritage-mfg.ch` | `+41 91 990 57 10` — say `0919905710` | `1988-12-16` |
+
+Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
@@ -189,11 +207,15 @@ Raphael Mueller's most recent invoice was CHF 2,780 and he paid CHF 3,000. The i
 
 ### What to say to get verified
 
-- Customer ID — `CUST-01633`
-- Email — `raphael.mueller@nexus-consulting.ch`
-- Phone — `+41 31 776 15 09` (say it as `0317761509`)
-- Date of birth — `1985-09-14`
-- Account opened — `2020`
+Customer ID (the company, shared by all of them) — `CUST-01633`
+
+| Contact | Email | Phone | Date of birth |
+|---|---|---|---|
+| Raphael Mueller | `raphael.mueller@nexus-consulting.ch` | `+41 31 776 15 09` — say `0317761509` | `1985-09-14` |
+| Felix Graber | `felix.graber@nexus-consulting.ch` | `+41 31 746 49 22` — say `0317464922` | `1996-09-19` |
+| Beatrice Fuchs | `beatrice.fuchs@nexus-consulting.ch` | `+41 31 585 99 28` — say `0315859928` | `1979-07-24` |
+
+Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
@@ -219,11 +241,15 @@ Stephane Richard has been a customer since 2024 and has paid every invoice. Noth
 
 ### What to say to get verified
 
-- Customer ID — `CUST-01718`
-- Email — `stephane.richard@innovatech.ch`
-- Phone — `+41 21 340 62 77` (say it as `0213406277`)
-- Date of birth — `1979-12-08`
-- Account opened — `2018`
+Customer ID (the company, shared by all of them) — `CUST-01718`
+
+| Contact | Email | Phone | Date of birth |
+|---|---|---|---|
+| Stephane Richard | `stephane.richard@innovatech.ch` | `+41 21 340 62 77` — say `0213406277` | `1979-12-08` |
+| Luc Martin | `luc.martin@innovatech.ch` | `+41 21 325 98 34` — say `0213259834` | `1971-11-09` |
+| Claire Moreau | `claire.moreau@innovatech.ch` | `+41 21 288 56 40` — say `0212885640` | `1970-04-10` |
+
+Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
@@ -249,11 +275,15 @@ Sandra Hoffmann has one invoice outstanding, issued recently and not yet due.
 
 ### What to say to get verified
 
-- Customer ID — `CUST-01845`
-- Email — `sandra.hoffmann@synergy-sol.ch`
-- Phone — `+41 61 285 93 40` (say it as `0612859340`)
-- Date of birth — `1983-02-21`
-- Account opened — `2022`
+Customer ID (the company, shared by all of them) — `CUST-01845`
+
+| Contact | Email | Phone | Date of birth |
+|---|---|---|---|
+| Sandra Hoffmann | `sandra.hoffmann@synergy-sol.ch` | `+41 61 285 93 40` — say `0612859340` | `1983-02-21` |
+| Peter Bauer | `peter.bauer@synergy-sol.ch` | `+41 61 118 36 90` — say `0611183690` | `1980-03-03` |
+| Michael Lang | `michael.lang@synergy-sol.ch` | `+41 61 574 53 10` — say `0615745310` | `1968-09-27` |
+
+Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
@@ -283,11 +313,15 @@ Marie Rousseau's account opened in 2024 and has a short, clean history.
 
 ### What to say to get verified
 
-- Customer ID — `CUST-01960`
-- Email — `marie.rousseau@lumina-analytics.ch`
-- Phone — `+41 22 447 31 86` (say it as `0224473186`)
-- Date of birth — `1990-06-17`
-- Account opened — `2024`
+Customer ID (the company, shared by all of them) — `CUST-01960`
+
+| Contact | Email | Phone | Date of birth |
+|---|---|---|---|
+| Marie Rousseau | `marie.rousseau@lumina-analytics.ch` | `+41 22 447 31 86` — say `0224473186` | `1990-06-17` |
+| Pierre Bernard | `pierre.bernard@lumina-analytics.ch` | `+41 22 488 39 54` — say `0224883954` | `1990-04-20` |
+| Jean Dupont | `jean.dupont@lumina-analytics.ch` | `+41 22 928 84 82` — say `0229288482` | `1962-02-11` |
+
+Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
@@ -313,11 +347,15 @@ Francois Hubert has two invoices overdue from different months, together CHF 7,7
 
 ### What to say to get verified
 
-- Customer ID — `CUST-02071`
-- Email — `francois.hubert@digital-frontier.ch`
-- Phone — `+41 26 512 70 24` (say it as `0265127024`)
-- Date of birth — `1976-10-03`
-- Account opened — `2019`
+Customer ID (the company, shared by all of them) — `CUST-02071`
+
+| Contact | Email | Phone | Date of birth |
+|---|---|---|---|
+| Francois Hubert | `francois.hubert@digital-frontier.ch` | `+41 26 512 70 24` — say `0265127024` | `1976-10-03` |
+| Isabelle Deschamps | `isabelle.deschamps@digital-frontier.ch` | `+41 26 160 27 29` — say `0261602729` | `1986-01-03` |
+| Eric Leclerc | `eric.leclerc@digital-frontier.ch` | `+41 26 957 62 71` — say `0269576271` | `1991-10-01` |
+
+Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 

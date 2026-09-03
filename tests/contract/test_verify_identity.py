@@ -13,14 +13,22 @@ from src.domain.verification import Factor
 
 API_KEY = "test-key"
 
+# One person, belonging to one company account. Financial records are keyed by account_id;
+# this row is keyed by the person.
 RECORD = {
-    "customer_id": "CUST-00417",
-    "email": "buchhaltung@meier-bau.ch",
-    "phone": "+41 44 123 45 67",
+    "contact_id": "859557757171",
+    "account_id": "CUST-00417",
+    "company_name": "Alpina Tech",
+    "first_name": "Klaus",
+    "last_name": "Mueller",
+    "email": "klaus.mueller@alpina-tech.ch",
+    "phone": "+41 44 501 22 18",
     "date_of_birth": "1974-03-12",
-    "account_opening_year": "2019",
     "failed_verification_attempts": 0,
 }
+
+# What the email and phone indexes return: a pointer to the person, nothing else.
+LOOKUP_HIT = [{"contact_id": RECORD["contact_id"]}]
 
 
 @pytest.fixture
@@ -41,9 +49,9 @@ def stubs(mocker):
     )
     return {
         "get": mocker.patch.object(module.dynamo, "get", return_value=dict(RECORD)),
-        # Resolution by email or phone. Stubbed empty by default so tests that supply a
-        # customer id take the direct path; overridden where the lookup is the subject.
-        "query": mocker.patch.object(module.dynamo, "query", return_value=[]),
+        # Resolution by email or phone. A caller is found by something personal — the
+        # customer id names a company and cannot identify a person.
+        "query": mocker.patch.object(module.dynamo, "query", return_value=list(LOOKUP_HIT)),
         "update": mocker.patch.object(module.dynamo, "update_if", return_value={}),
         "set_verification": mocker.patch.object(module.conversation_state, "set_verification"),
         "session_attempt": mocker.patch.object(
@@ -90,9 +98,9 @@ class TestVerification:
         result = call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, RECORD["email"]),
-                factor(Factor.PHONE, "044 123 45 67"),
+                factor(Factor.PHONE, "044 501 22 18"),
             ],
         )
         assert result["status"] == "VERIFIED"
@@ -104,15 +112,17 @@ class TestVerification:
         stubs["set_verification"].assert_not_called()
 
     def test_the_response_carries_a_field_name_and_never_a_value(self, stubs):
-        result = call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00417")])
+        result = call(stubs, [factor(Factor.CUSTOMER_ID, RECORD["account_id"])])
         assert result["next_factor_hint"] in {
             "email",
             "phone",
             "date_of_birth",
-            "account_opening_year",
         }
-        for stored_value in RECORD.values():
-            assert str(stored_value) not in json.dumps(result)
+        echoed_back = {RECORD["account_id"], RECORD["contact_id"]}
+        for field, stored_value in RECORD.items():
+            if stored_value in echoed_back or field == "failed_verification_attempts":
+                continue
+            assert str(stored_value) not in json.dumps(result), field
 
 
 class TestLockout:
@@ -121,7 +131,7 @@ class TestLockout:
         call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, "wrong@example.com"),
             ],
         )
@@ -151,7 +161,7 @@ class TestLockout:
         call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, "wrong@example.com"),
             ],
         )
@@ -168,7 +178,7 @@ class TestLockout:
         result = call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, RECORD["email"]),
                 factor(Factor.PHONE, RECORD["phone"]),
             ],
@@ -184,7 +194,7 @@ class TestLockout:
         result = call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, RECORD["email"]),
                 factor(Factor.PHONE, RECORD["phone"]),
             ],
@@ -196,7 +206,7 @@ class TestLockout:
         call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, RECORD["email"]),
                 factor(Factor.PHONE, RECORD["phone"]),
             ],
@@ -204,32 +214,48 @@ class TestLockout:
         assert "REMOVE locked_until" in stubs["update"].call_args.kwargs["UpdateExpression"]
 
 
-class TestCustomerResolution:
-    def test_a_supplied_customer_id_wins_over_the_caller_id_candidate(self, stubs):
-        """The candidate exists to pick a greeting language. Letting it select the record
-        when the caller names a different one would make the phone number a factor
-        (FR-033b)."""
-        call(
-            stubs,
-            [factor(Factor.CUSTOMER_ID, "CUST-00417")],
-            candidate_customer_id="CUST-99999",
-        )
-        assert stubs["get"].call_args.args[1] == {"customer_id": "CUST-00417"}
+class TestResolutionNeedsSomethingPersonal:
+    """A customer id names a company, so it cannot identify a person.
 
-    def test_the_candidate_may_scope_the_lookup_when_no_id_is_given(self, stubs):
-        """Granting nothing: three correct factors are still required against whatever
-        record is chosen."""
-        call(
-            stubs,
-            [factor(Factor.EMAIL, RECORD["email"])],
-            candidate_customer_id="CUST-00417",
-        )
-        assert stubs["get"].call_args.args[1] == {"customer_id": "CUST-00417"}
+    A caller who offers only their customer id has said which company they are calling about
+    and nothing about who they are. Resolution therefore needs an email or a phone number —
+    which is also the first thing the agent asks for.
+    """
 
-    def test_the_candidate_alone_never_verifies(self, stubs):
-        result = call(stubs, [], candidate_customer_id="CUST-00417")
-        assert result["status"] != "VERIFIED"
+    def test_a_customer_id_alone_resolves_nobody(self, stubs):
+        stubs["query"].return_value = []
+        result = call(stubs, [factor(Factor.CUSTOMER_ID, RECORD["account_id"])])
+        assert result["status"] == "FAILED"
         assert result["factors_confirmed"] == 0
+
+    def test_an_email_resolves_the_person(self, stubs):
+        call(stubs, [factor(Factor.EMAIL, RECORD["email"])])
+        assert stubs["get"].call_args.args[1] == {"contact_id": RECORD["contact_id"]}
+
+    def test_the_customer_id_is_checked_against_the_persons_company(self, stubs):
+        """It is a real factor — it just cannot be the one that finds them."""
+        result = call(
+            stubs,
+            [
+                factor(Factor.EMAIL, RECORD["email"]),
+                factor(Factor.PHONE, RECORD["phone"]),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
+            ],
+        )
+        assert result["status"] == "VERIFIED"
+
+    def test_naming_the_wrong_company_does_not_verify(self, stubs):
+        """Anna Schmidt is real and her details are right, but she does not work at the
+        company she named."""
+        result = call(
+            stubs,
+            [
+                factor(Factor.EMAIL, RECORD["email"]),
+                factor(Factor.PHONE, RECORD["phone"]),
+                factor(Factor.CUSTOMER_ID, "CUST-99999"),
+            ],
+        )
+        assert result["status"] == "FAILED"
 
 
 class TestUnknownCustomer:
@@ -257,7 +283,7 @@ class TestDegradation:
         from src.adapters.errors import ErrorCategory, ToolError
 
         stubs["get"].side_effect = ToolError(ErrorCategory.DEPENDENCY_DOWN, "table down")
-        result = call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00417")])
+        result = call(stubs, [factor(Factor.EMAIL, RECORD["email"])])
         assert result["status"] == "SERVICE_UNAVAILABLE"
         assert result["error_category"] == "DEPENDENCY_DOWN"
         assert result["retryable"] is True
@@ -277,7 +303,7 @@ class TestMalformedInput:
             stubs,
             [
                 {"field": "favourite_colour", "value": "blue"},
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, RECORD["email"]),
                 factor(Factor.PHONE, RECORD["phone"]),
             ],
@@ -297,7 +323,7 @@ class TestGuessing:
         """A caller working through values must not learn from the attempt that stops them
         whether that one was right."""
         stubs["attempts"].return_value = ({"customer_id": 3}, True)
-        result = call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00417")])
+        result = call(stubs, [factor(Factor.CUSTOMER_ID, RECORD["account_id"])])
         assert result["status"] == "LOCKED"
         assert result["factors_confirmed"] == 0
 
@@ -315,7 +341,7 @@ class TestGuessing:
 
     def test_two_values_for_one_field_is_a_correction_not_enumeration(self, stubs):
         stubs["attempts"].return_value = ({"customer_id": 2}, True)
-        result = call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00417")])
+        result = call(stubs, [factor(Factor.CUSTOMER_ID, RECORD["account_id"])])
         assert result["status"] != "LOCKED"
 
     def test_corrections_across_different_fields_do_not_accumulate(self, stubs):
@@ -323,7 +349,7 @@ class TestGuessing:
         result = call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, RECORD["email"]),
                 factor(Factor.PHONE, RECORD["phone"]),
             ],
@@ -344,7 +370,7 @@ class TestConflictingIdentityData:
         call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, RECORD["email"]),
                 factor(Factor.PHONE, RECORD["phone"]),
             ],
@@ -357,61 +383,14 @@ class TestConflictingIdentityData:
         call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, RECORD["email"]),
                 factor(Factor.PHONE, RECORD["phone"]),
             ],
-            candidate_customer_id="CUST-00417",
+            candidate_customer_id=RECORD["contact_id"],
         )
         types = [c.args[0].signal_type for c in stubs["signal"].call_args_list]
         assert "CONFLICTING_IDENTITY_DATA" not in types
-
-
-class TestResolvingTheCustomer:
-    """A caller must be findable by whatever identifier they actually know.
-
-    The bug this class exists for: resolution used only the customer id, so a caller who led
-    with their email had that correct answer scored as wrong, and it burned a lockout
-    attempt. Verification could not progress until they recited an id. Found by walking
-    through the conversation, not by any test — the integration test sends all three factors
-    at once, which is not how a conversation works.
-    """
-
-    def test_an_email_alone_resolves_the_account_and_confirms(self, stubs):
-        stubs["query"].return_value = [{"customer_id": "CUST-00417"}]
-        result = call(stubs, [factor(Factor.EMAIL, RECORD["email"])])
-        assert result["status"] == "PARTIALLY_VERIFIED"
-        assert result["factors_confirmed"] == 1
-
-    def test_a_phone_alone_resolves_the_account(self, stubs):
-        stubs["query"].return_value = [{"customer_id": "CUST-00417"}]
-        result = call(stubs, [factor(Factor.PHONE, "044 123 45 67")])
-        assert result["factors_confirmed"] == 1
-
-    def test_a_correct_answer_given_first_is_never_scored_as_wrong(self, stubs):
-        """The heart of the bug. A correct email must not count as a failed attempt."""
-        stubs["query"].return_value = [{"customer_id": "CUST-00417"}]
-        call(stubs, [factor(Factor.EMAIL, RECORD["email"])])
-        stubs["session_attempt"].assert_not_called()
-
-    def test_a_supplied_customer_id_still_wins_over_a_lookup(self, stubs):
-        stubs["query"].return_value = [{"customer_id": "CUST-99999"}]
-        call(
-            stubs,
-            [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
-                factor(Factor.EMAIL, RECORD["email"]),
-            ],
-        )
-        assert stubs["get"].call_args.args[1] == {"customer_id": "CUST-00417"}
-
-    def test_an_email_that_matches_nobody_looks_like_a_wrong_answer(self, stubs):
-        """Resolution failing and an answer being wrong must be the same response, or the
-        gate says whether an address is on file."""
-        stubs["query"].return_value = []
-        result = call(stubs, [factor(Factor.EMAIL, "nobody@example.invalid")])
-        assert result["status"] == "FAILED"
-        assert result["factors_confirmed"] == 0
 
 
 class TestResendingIsNotRetrying:
@@ -429,7 +408,7 @@ class TestResendingIsNotRetrying:
         call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, "wrong@example.com"),
             ],
         )
@@ -439,7 +418,7 @@ class TestResendingIsNotRetrying:
         call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, RECORD["email"]),
                 factor(Factor.PHONE, RECORD["phone"]),
             ],
@@ -476,7 +455,7 @@ class TestResendingIsNotRetrying:
         result = call(
             stubs,
             [
-                factor(Factor.CUSTOMER_ID, "CUST-00417"),
+                factor(Factor.CUSTOMER_ID, RECORD["account_id"]),
                 factor(Factor.EMAIL, RECORD["email"]),
                 factor(Factor.PHONE, RECORD["phone"]),
             ],

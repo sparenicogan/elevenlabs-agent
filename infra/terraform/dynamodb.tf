@@ -1,13 +1,24 @@
 # Four tables, separated by sensitivity and retention class rather than by convenience.
 # See specs/001-voice-billing-agent/data-model.md.
 
+# One row per person, not per company. A company's account may have several contacts, and
+# each verifies with their own email, phone and date of birth — which is what separates a
+# listed contact of a customer from somebody who merely knows about that customer.
+#
+# account_id points at the company, and every financial record is keyed by that. So a person
+# authenticates and a company account is what they reach.
 resource "aws_dynamodb_table" "customer_identity" {
   name         = "${var.project}-customer-identity"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "customer_id"
+  hash_key     = "contact_id"
 
   attribute {
-    name = "customer_id"
+    name = "contact_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "account_id"
     type = "S"
   }
 
@@ -34,12 +45,20 @@ resource "aws_dynamodb_table" "customer_identity" {
     ]
   }
 
-  # Lets verification find the account from an email address. Without it a caller must
-  # recite their customer id before any other answer can be checked at all, and every
-  # correct answer given first is scored as wrong.
+  # Lets verification find the person from an email address. Without it a caller must recite
+  # their customer id before any other answer can be checked at all, and every correct
+  # answer given first is scored as wrong.
   global_secondary_index {
     name            = "email-index"
     hash_key        = "email"
+    projection_type = "KEYS_ONLY"
+  }
+
+  # Every contact belonging to one company account. Used to check that a caller naming a
+  # customer id is actually one of that account's people.
+  global_secondary_index {
+    name            = "account-index"
+    hash_key        = "account_id"
     projection_type = "KEYS_ONLY"
   }
 
