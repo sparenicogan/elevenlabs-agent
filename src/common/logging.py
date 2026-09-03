@@ -25,6 +25,7 @@ ALLOWED_FIELDS = frozenset(
         "error_category",
         # Exception text from an adapter. Never caller-supplied input, never a stored value.
         "error_detail",
+        "action",
         "latency_ms",
         "attempt",
         "retryable",

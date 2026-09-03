@@ -25,6 +25,11 @@ deploy:
 seed:
 	uv run python -m scripts.seed.seed --env dev
 
+# Regenerate docs/test-scenarios.md. Every figure in it is relative to the seeding date,
+# so run this after make seed rather than trusting an old copy.
+scenarios:
+	uv run python -m scripts.docs.scenarios
+
 # Pushes the prompt and tool definitions to ElevenLabs. The agent's behaviour lives in this
 # repository, not in a dashboard where a change leaves no trace.
 AGENT_ID ?= agent_3501m1k6hy8yech93pn3gfets2tx

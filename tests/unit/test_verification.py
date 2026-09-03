@@ -283,3 +283,21 @@ class TestConfigurability:
 def test_date_is_importable():
     """Guards the fixture format above against a stray refactor."""
     assert date.fromisoformat("1974-03-12").year == 1974
+
+
+class TestNameIsNotAFactor:
+    """A caller volunteers their name in the first sentence of every call.
+
+    Counting it would hand over a third of the bar for free, and since first name and surname
+    are not independent facts — anyone who knows one almost always knows the other —
+    accepting them separately would hand over two thirds (FR-003b).
+    """
+
+    def test_there_is_no_name_factor(self):
+        assert not [f for f in Factor if "name" in f.value]
+
+    def test_a_name_offered_as_a_factor_is_ignored_not_credited(self):
+        """The handler drops unrecognised field names rather than failing the call, so a
+        volunteered name confirms nothing and costs nothing."""
+        result = check({Factor.EMAIL: "buchhaltung@meier-bau.ch"})
+        assert result.confirmed_count == 1

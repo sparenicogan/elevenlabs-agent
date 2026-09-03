@@ -369,6 +369,11 @@ evidence on the escalation, promises human correction, and writes nothing to the
   year, and customer identifier. At least one confirmed factor MUST be one that does not appear on
   an invoice document (email, phone, date of birth, or account opening year), so that possession of
   a customer's invoice is never sufficient to verify.
+- **FR-003b**: A caller's name MUST NOT count as a verification factor. Callers volunteer it in the
+  first sentence of an ordinary call, so crediting it would hand over a third of the bar for free.
+  First name and surname MUST NOT be treated as independent facts either: anyone who knows one
+  almost always knows the other, and counting them separately would hand over two thirds. The tool
+  contract MUST provide no field for a name.
 - **FR-004**: The system MUST NOT reveal or hint at an expected verification answer, and MUST NOT
   tell the caller which specific factor failed.
 - **FR-005**: The system MUST help a caller locate the requested information (for example, naming
@@ -377,6 +382,16 @@ evidence on the escalation, promises human correction, and writes nothing to the
   exceeding the configured limit MUST produce LOCKED, a recorded risk signal, and escalation.
 - **FR-007**: Ownership and authority to act on the account MUST be checked in the backend for every
   request touching a customer's records.
+- **FR-007a**: Working at a customer company is not authority to act on its account. Only the
+  contact recorded against the account may be verified, and an employee who is not that contact MUST
+  fail verification like any other caller.
+- **FR-007b**: When a caller cannot be verified, the agent MUST explain that an authorised contact
+  on the account can add them. It MAY give that contact's name, and MUST give nothing else about
+  them — no email address, no telephone number, no role, no location. A colleague at the customer
+  already knows who works in their accounts department, so the name carries little; the contact
+  details are what would let an impersonation proceed.
+- **FR-007c**: An unauthorised caller MUST receive no financial information of any kind, including
+  whether the company has an account at all.
 - **FR-006a**: The number of *distinct* values offered for each verification factor within a call
   MUST be counted server-side. A caller may correct themselves once — misspeaking is human — but
   offering a third distinct value for the same factor is enumeration, not correction, and MUST
@@ -412,6 +427,10 @@ evidence on the escalation, promises human correction, and writes nothing to the
   account while the record may hold the date it arrived; a Friday transfer posting on Monday must not
   cause a caller answering honestly to be told their payment cannot be found. The tolerance MUST be
   configuration.
+- **FR-010j**: When more than one of the customer's invoices could be the one a caller means, the
+  agent MUST establish which before matching anything. Two overdue invoices and a caller saying "I
+  paid it" is ambiguity, and ambiguity MUST NOT be resolved by choosing. If it cannot be resolved,
+  the call MUST escalate.
 - **FR-010c**: The caller MUST NOT be asked for the payment's reference. It is held on the record,
   and a payer rarely knows what their accounts department wrote. The caller supplies amount and date
   only, which serve to prove knowledge of the payment rather than to allocate it.
@@ -474,6 +493,15 @@ evidence on the escalation, promises human correction, and writes nothing to the
   type, timestamp, evidence, and conversation.
 - **FR-017**: Balances MUST be derived from ledger entries rather than stored as an independent
   mutable figure.
+- **FR-017a**: A payment exceeding the invoice it settles leaves a surplus on the account. The
+  surplus MUST be offset against the customer's next invoice by default, and the agent MUST say so
+  when asked rather than implying the money is lost or that a refund is automatic.
+- **FR-017b**: A caller who asks for the surplus to be returned rather than offset is requesting a
+  refund. It MUST be evaluated under the same limits as any other outbound amount: at most CHF 100
+  in a single request and at most CHF 500 across the rolling twelve months, both inclusive. Above
+  either limit it MUST escalate.
+- **FR-017c**: The agent MUST NOT promise a refund, a timeline, or an offset amount it has not been
+  told by the backend.
 
 ### Escalation and handoff
 

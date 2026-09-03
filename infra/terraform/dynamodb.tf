@@ -65,6 +65,11 @@ resource "aws_dynamodb_table" "ledger" {
     type = "S"
   }
 
+  attribute {
+    name = "invoice_number"
+    type = "S"
+  }
+
   # Open invoices and unallocated payments are read by status on every call.
   # Without this index those reads become table scans.
   global_secondary_index {
@@ -81,6 +86,16 @@ resource "aws_dynamodb_table" "ledger" {
   global_secondary_index {
     name            = "reference-index"
     hash_key        = "payment_reference"
+    projection_type = "KEYS_ONLY"
+  }
+
+  # The same question asked of the other identifier. A payment may quote the invoice number
+  # rather than the payment reference, and if that number belongs to a different invoice the
+  # money is earmarked there. Without this index that case is unresolvable and the safe
+  # answer would have to be a refusal, which would strand legitimate payments.
+  global_secondary_index {
+    name            = "invoice-number-index"
+    hash_key        = "invoice_number"
     projection_type = "KEYS_ONLY"
   }
 

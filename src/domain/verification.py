@@ -25,6 +25,10 @@ DATE_FORMATS = ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y")
 
 
 class Factor(StrEnum):
+    # A name is deliberately absent. Callers volunteer it in the first sentence of every
+    # call, so counting it would hand over a third of the bar for free — and first name and
+    # surname are not independent facts, so accepting them separately would hand over two
+    # thirds (FR-003b).
     EMAIL = "email"
     PHONE = "phone"
     DATE_OF_BIRTH = "date_of_birth"

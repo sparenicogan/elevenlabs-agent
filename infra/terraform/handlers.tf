@@ -149,3 +149,144 @@ resource "aws_lambda_permission" "get_account_context" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
 }
+
+# --- match_payment ------------------------------------------------------------------
+# Reads the ledger and both reference indexes. No write permission: matching decides
+# nothing, it only answers whether the caller's claim fits a payment on record.
+
+data "aws_iam_policy_document" "match_payment" {
+  statement {
+    effect  = "Allow"
+    actions = ["dynamodb:GetItem", "dynamodb:Query"]
+    resources = [
+      aws_dynamodb_table.ledger.arn,
+      "${aws_dynamodb_table.ledger.arn}/index/*",
+      aws_dynamodb_table.conversations.arn,
+    ]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
+    resources = [aws_kms_key.data.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.tool_api_key.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["ssm:GetParametersByPath"]
+    resources = ["arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.project}/policy"]
+  }
+}
+
+module "match_payment" {
+  source = "./modules/lambda"
+
+  name         = "match-payment"
+  project      = var.project
+  handler      = "src.handlers.match_payment.handler"
+  package_path = local.lambda_package
+  environment  = local.common_environment
+  policy_json  = data.aws_iam_policy_document.match_payment.json
+}
+
+resource "aws_apigatewayv2_integration" "match_payment" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.match_payment.invoke_arn
+  payload_format_version = "2.0"
+  timeout_milliseconds   = 5000
+}
+
+resource "aws_apigatewayv2_route" "match_payment" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /tools/match-payment"
+  target    = "integrations/${aws_apigatewayv2_integration.match_payment.id}"
+}
+
+resource "aws_lambda_permission" "match_payment" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.match_payment.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
+}
+
+# --- propose_allocation -------------------------------------------------------------
+# The only handler with write permission on the ledger, and the only one that can write an
+# audit event. Its update is conditional on the payment still being unallocated, so the
+# permission grants far less than it appears to.
+
+data "aws_iam_policy_document" "propose_allocation" {
+  statement {
+    effect    = "Allow"
+    actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+    resources = [aws_dynamodb_table.ledger.arn, aws_dynamodb_table.conversations.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
+    resources = [aws_kms_key.data.arn]
+  }
+
+  statement {
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      aws_secretsmanager_secret.tool_api_key.arn,
+      aws_secretsmanager_secret.hubspot_token.arn,
+    ]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["ssm:GetParametersByPath"]
+    resources = ["arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.project}/policy"]
+  }
+
+  # Audit events are append-only and go to their own log group with ten-year retention.
+  statement {
+    effect    = "Allow"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.audit.arn}:*"]
+  }
+}
+
+module "propose_allocation" {
+  source = "./modules/lambda"
+
+  name         = "propose-allocation"
+  project      = var.project
+  handler      = "src.handlers.propose_allocation.handler"
+  package_path = local.lambda_package
+  environment  = local.common_environment
+  policy_json  = data.aws_iam_policy_document.propose_allocation.json
+}
+
+resource "aws_apigatewayv2_integration" "propose_allocation" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.propose_allocation.invoke_arn
+  payload_format_version = "2.0"
+  timeout_milliseconds   = 5000
+}
+
+resource "aws_apigatewayv2_route" "propose_allocation" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /tools/propose-allocation"
+  target    = "integrations/${aws_apigatewayv2_integration.propose_allocation.id}"
+}
+
+resource "aws_lambda_permission" "propose_allocation" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.propose_allocation.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
+}

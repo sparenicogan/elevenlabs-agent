@@ -112,10 +112,13 @@ COMPANIES = [
         "customer_id": "CUST-01390",
         "company_name": "Precision Systems",
         "hubspot_company_id": "446087611588",
-        "hubspot_contact_id": "859479298251",
-        "first_name": "Julia",
-        "last_name": "Fischer",
-        "email": "julia.fischer@precision-systems.ch",
+        # Martin Keller is the contact recorded against the account. Julia Fischer and
+        # Daniel Zimmermann also work there and exist in the CRM, but are not authorised to
+        # act on it — which is the scenario this company exists to exercise (FR-007a).
+        "hubspot_contact_id": "859585276132",
+        "first_name": "Martin",
+        "last_name": "Keller",
+        "email": "martin.keller@precision-systems.ch",
         # No phone on file, so an inbound call is unrecognised and the greeting falls back
         # to the configured default language (FR-033a).
         "phone": None,
@@ -125,7 +128,7 @@ COMPANIES = [
         "city": "Bern",
         "postcode": "3011",
         "street": "Bahnhofplatz 3",
-        "role": "unrecognised caller number: greeting falls back to the default language",
+        "role": "an employee who is not the account contact, calling from an unknown number",
     },
     {
         "key": "heritage",

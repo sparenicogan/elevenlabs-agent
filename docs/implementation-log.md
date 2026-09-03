@@ -523,3 +523,300 @@ validate` passing for the root module and the Lambda module, `lambda.zip` buildi
 secrets are empty. Nothing in the system yet knows what an invoice is.
 
 **Next**: Phase 3, the golden path — 15 tasks, and the MVP.
+
+---
+---
+
+# APPENDED — Phase 3, the golden path
+
+*Everything above documents Phases 1 and 2 and is unchanged. This section covers tasks
+T032–T046: the golden path, from a verified caller to a payment sitting under human review.*
+
+**Scope**: T032, T033, T036–T046. Phase 3 is the MVP — the journey the Loom shows.
+
+---
+
+## What Phase 3 delivered
+
+A caller can ring a real phone number, be verified against real records, dispute a real
+invoice, have their payment matched server-side, and leave with it under review, a ticket
+raised, and an audit event written. Four tool endpoints are live behind API Gateway.
+
+The remaining Phase 3 tasks are the two test tasks, T034 and T035.
+
+---
+
+## The tasks
+
+### T032 / T040 — Payment matching
+
+**Tests first, then the rule.** 28 cases written before any implementation, so the rule was
+fixed by the requirement rather than by whatever the code happened to do.
+
+Writing them produced three corrections to the spec, all from the user reading the tests:
+
+**A 3-day backward date tolerance.** The payer reads the date their transfer *left*; the
+record holds the date it *arrived*. Under exact matching a Friday transfer posting on Monday
+tells an honest caller their payment does not exist. Backward only — a payment cannot post
+before it was sent, so a later date is a genuine mismatch, not a banking artefact.
+
+**Two invoice identifiers instead of one.** This is the most consequential design change in
+the phase. `invoice_number` (`INV-2026-0412`) is sequential, spoken aloud, and never
+fuzzy-matched. `payment_reference` (a random 7-digit key) is what customers quote on
+transfers, and is the only field matched fuzzily.
+
+The reason: consecutive invoice numbers differ by **one character**. Fuzzy-matching them
+would classify a payment correctly earmarked for `INV-2026-0413` as a typo of `INV-2026-0412`
+and propose allocating it to the wrong invoice — with the amount and date appearing to agree.
+Silent, plausible, wrong. A random key over ten million values almost never has a real
+neighbour, so a near miss that resolves to nothing is safely a typo.
+
+**Payer name and address stopped affecting the outcome.** A payment may legitimately come
+from a parent company or a third party; refusing it would strand real money. Both became
+informational flags, and the rule receives booleans rather than values so it cannot leak
+either.
+
+**Two orderings in the implementation are load-bearing**, not incidental:
+
+- Reference classification checks "resolves to another invoice" *before* "looks like a typo
+  of this one". Reversed, a mistyped key landing on a real invoice reads as a typo and the
+  payment goes to the wrong invoice.
+- Amount and date are checked *before* the reference is classified at all, so a caller who
+  has not demonstrated knowledge of the payment learns nothing from a failed attempt — not
+  even that a payment exists.
+
+### T037 / T038 — Verification
+
+The disclosure gate. 22 domain tests and 20 contract tests.
+
+**Writing the handler tests found a real security hole.** Failed attempts were counted only
+per customer. A caller supplying a wrong answer without ever naming an account resolves to no
+customer, so no counter moved and they could guess indefinitely. FR-006 says attempts are
+counted per customer *and per caller session*; only the first half had been built. The
+session counter now lives on the conversation record.
+
+Three other decisions:
+
+- **A locked account is refused before answers are evaluated.** Evaluating first would let a
+  locked-out caller keep reading `factors_confirmed` to learn which answers were right,
+  making the lockout a speed bump rather than a lock.
+- **An unknown customer is carried through with an empty record** rather than returned early,
+  so it is indistinguishable from wrong answers. Otherwise the gate enumerates customers.
+- **Invented field names are dropped, not rejected.** A language model will occasionally
+  hallucinate a field; failing the call for it turns that into a refused customer.
+
+**Phone numbers are compared on their last nine digits.** `+41 44 123 45 67`,
+`044 123 45 67` and `0041441234567` are one Swiss number written three ways, and a voice
+agent transcribes whichever the caller speaks. Comparing raw strings refuses correct callers
+routinely.
+
+### T036 — The customer base
+
+Ten companies and thirty contacts mirroring the HubSpot development account, linked by id,
+with 91 ledger entries reaching back to April 2024.
+
+**This is where the data boundary became real rather than asserted.** HubSpot holds names,
+emails and companies. DynamoDB holds dates of birth, phone numbers, and every franc. A
+reviewer can open both systems and check FR-027 and FR-028 hold, instead of taking the
+spec's word for it.
+
+Dates are offsets from the seeding date rather than fixed, so the overdue invoice is always
+overdue and the disputed payment always sits inside the matching tolerance. Fixtures do not
+go stale between rehearsals.
+
+**Seeding deletes rows the fixtures no longer describe.** Overwriting alone left ten orphans
+from the previous fixture set — phantom invoices that would quietly change a balance.
+
+### T039 — Account context
+
+The first tool to read financial data, and the first place the gate protects anything.
+
+**It exposed a bug with a nasty shape.** `set_verification` updated the conversation record
+*conditionally on it already existing*, and nothing created it — `start()` is only called by
+the initiation webhook, which is T076 and not built. Verification returned VERIFIED, the
+write was discarded, and every subsequent tool refused the caller.
+
+A discarded verification write **looks identical to the disclosure gate working correctly.**
+Refusing callers is what a working gate does. It only became visible by comparing what
+verification returned against what the table actually held.
+
+The contract tests could not have caught it: they mock `set_verification`, so the real module
+never ran. Mocking what you depend on means never testing it.
+
+**Then deploying hit IAM.** The handler read the identity table, which its policy
+deliberately excludes. Rather than granting a third handler access to identity data,
+verification now records the few non-sensitive fields downstream tools need — company name,
+language, status, HubSpot ids — onto the conversation. Principle IV stays true rather than
+aspirational, and a test asserts this handler never touches that table.
+
+### T041 — Payment matching endpoint
+
+**The asymmetry is the security property**: the caller supplies values and learns only
+whether they matched. Nothing flows the other way.
+
+A `_ReferenceResolver` answers "does this string resolve to a real invoice?" through two
+indexed queries rather than loading every invoice in the system. It excludes the invoice
+under discussion by entry id, so that invoice's own reference cannot look like another's.
+
+A second GSI was added on `invoice_number`. Without it, a payment quoting an invoice number
+belonging to a different invoice would be unresolvable, and the safe answer would have to be
+a blanket refusal — which strands legitimate payments.
+
+**A failed match returns `{"status": "NO_MATCH"}` and nothing else.** A test asserts that a
+customer with no unallocated payments and a customer with a wrong amount produce byte-identical
+responses, so probing reveals not even whether a payment exists.
+
+### T042 / T043 — Allocation
+
+The golden path's one mutation, and the only place the agent changes a financial record.
+
+**State is checked before authority**, so raising the authority threshold can never become a
+way to allocate a payment that has not arrived. The auto-allocate branch is unreachable under
+the shipped policy of zero, but it exists and is tested rather than being an undefined
+consequence of changing a parameter.
+
+**Write order matters and is documented in the code**: the ledger moves first because it is
+the only authoritative record; ticket and CRM log follow. If HubSpot fails afterwards the
+payment is still under review and a human still finds it. The reverse would promise a caller
+a review that does not exist.
+
+**Everything survives being called twice.** The update is conditional on the payment still
+being `UNALLOCATED`, so two concurrent calls cannot both create a review; a repeat returns
+the original ticket rather than an error, so the agent can say something true and calm.
+
+### T044 / T045 / T046 — The agent
+
+The prompt and tool definitions live in git and reach ElevenLabs through `make agent-sync`,
+not through a dashboard where a change leaves no trace and no review.
+
+**Rewriting `tools.json` against the real API corrected two guesses.** Platform-injected
+fields use `dynamic_variable` rather than a templated description, so `conversation_id` is
+supplied by ElevenLabs instead of depending on the model to pass it correctly — and such a
+field may carry no description, since the model never sees it. The API key reaches tools as a
+workspace secret *reference*, so it exists in Secrets Manager and in ElevenLabs' secret store
+and in no file.
+
+Several prompt instructions exist because their absence has a specific cost: speak before
+every tool call, because a silent pause sounds like a dropped line; offer to wait while the
+caller checks their banking app, because exact-date matching requires a lookup; never say
+"close" or "almost" on a wrong factor, because that turns verification into an oracle; never
+speculate aloud about why a rule fired, because saying anything fraud-adjacent to a customer
+who may be entirely honest is indefensible.
+
+**The prompt names no company and no scenario.** Behaviour comes from principles, so it
+generalises to callers the fixtures never anticipated.
+
+---
+
+## Failures encountered
+
+Six more, on top of the six in Phases 1 and 2.
+
+### 7. A customer-id enumeration oracle, found by deploying
+
+Supplying a *real* customer id alongside deliberate nonsense returned `factors_confirmed: 1`;
+an invented id returned `0`. Both `FAILED`, but the difference lets an attacker enumerate
+customer ids across a five-digit space.
+
+The unit test compared unknown-against-wrong using *identical* supplied values, so it was
+structurally blind to it — two different ids was the case it never tried. Calling the
+deployed endpoint with two different ids found it in seconds.
+
+**Fix**: a failed attempt now reports zero confirmed, no non-document flag, and a hint
+derived from nothing. Byte-identical responses, verified live.
+
+**The lesson**: this is the argument for deploying early. The same bug found a week later
+would have been buried under three other unfamiliar failures.
+
+### 8. Verification written to nowhere
+
+Covered under T039 above. The defining property is that the failure mode was indistinguishable
+from correct behaviour.
+
+### 9. Audit events landing in the wrong log group
+
+`audit.write` logged to stdout, and Lambda routes stdout to the function's own log group —
+**90-day retention**. FR-038a requires audit events to be kept ten years. The event was
+complete and correct, and would have expired in three months.
+
+**Fix**: audit events are now written directly to `/voice-agent/audit` through the CloudWatch
+Logs API, with one stream per function per execution environment.
+
+**Why it was easy to miss**: the event *looked* right in the logs. Nothing failed. Only asking
+"which log group is this in?" surfaced it.
+
+### 10. A dynamic variable with no webhook to supply it
+
+Every inbound call died after one second with `agent_configuration_error 1008`. Twilio
+reported 31921 — a WebSocket close — because from its side ElevenLabs simply hung up.
+
+The tool definition referenced `candidate_customer_id`, which the conversation initiation
+webhook supplies, and that webhook is T076. **The config ran ahead of the implementation.**
+An agent-level placeholder did not satisfy the check; the field had to be removed until
+there is something to provide it.
+
+**The lesson**: referencing platform state before the thing that produces it exists fails at
+call time, not at sync time, and the error surfaces three systems away from its cause.
+
+### 11. An ASR provider and an LLM that were not available
+
+Two separate config errors found only by calling. `agent.json` named an ASR provider that had
+been removed, and `gpt-4o` returned "exceeds your quota limit" mid-call because premium LLMs
+are metered separately on ElevenLabs.
+
+Also learned: **ElevenLabs ties the TTS model to the agent's base language.** An English-base
+agent must use the English-only models, while multilingual requires `eleven_turbo_v2_5`. So
+FR-033's four languages cannot be delivered with English as the base language — the current
+English setting is explicitly a rehearsal configuration, and T080 reverts it.
+
+### 12. Editing in the dashboard, silently reverted
+
+A language change made in the ElevenLabs UI was overwritten by the next `make agent-sync`.
+The repository is the source of truth by design, which means dashboard edits are lost rather
+than merged. Worth stating plainly because it looks like the tool failing.
+
+---
+
+## Changes that came from reading the artifacts
+
+Three requirements were added because the user read the generated test-scenario document and
+found gaps the spec had not anticipated:
+
+- **Authority to act** (FR-007a–c). Working at a customer company is not authority over its
+  account. An employee who is not the recorded contact fails verification like anyone else,
+  gets no financial information at all, and is told that an authorised contact can add them —
+  **without being told who those contacts are**, since naming them tells an unverified caller
+  who to impersonate next.
+- **Overpayments** (FR-017a–c). A surplus is offset against the next invoice by default. A
+  caller who wants it back is requesting a refund, evaluated under the same CHF 100 / CHF 500
+  limits as any other outbound amount.
+- **Ambiguity** (FR-010j). When more than one invoice could be the one a caller means, the
+  agent establishes which before matching anything, and escalates if it cannot.
+
+---
+
+## State at the end of Phase 3
+
+**Deployed**: four tool endpoints — `verify-identity`, `get-account-context`, `match-payment`,
+`propose-allocation`. 39 → 55 Terraform-managed resources.
+
+**Data**: 10 customers, 91 ledger entries, 30 CRM contacts across 10 companies.
+
+**Tests**: 152 passing.
+
+**Proven live, end to end**: verified caller → overdue invoice → server-side payment match →
+payment moved to `UNDER_REVIEW` → HubSpot ticket carrying the reason it never allocated →
+audit event in the ten-year log group. Called twice, it returns the original ticket rather
+than creating a second review.
+
+**Documentation**: `docs/test-scenarios.md` is generated from the fixtures by `make
+scenarios`, because every figure in it is relative to the seeding date and a hand-written
+copy would be wrong the next morning.
+
+**Not yet true**: credits, escalation and transfer are unbuilt, so a call that needs a human
+has nowhere to go. Multilingual is a rehearsal configuration rather than the real one. The
+conversation initiation webhook does not exist, so greetings do not yet arrive in the
+caller's stored language.
+
+**Next**: T034 and T035 close Phase 3, then US2 hardens verification — lockout, risk signals,
+and the guessing detection the user asked for.
