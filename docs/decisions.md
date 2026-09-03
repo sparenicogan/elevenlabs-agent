@@ -996,3 +996,80 @@ this after a *correct* answer:
 answer is wrong, every subsequent result is `FAILED` including the ones where the caller was
 right. So the sentence was both untrue and an oracle: it told a caller working through values
 that their last guess had not landed.
+
+### 12.15 Factors are suggested in order of how answerable they are
+
+**Decision.** `next_factor_hint` follows a fixed order — email, phone, date of birth, account
+opening year, customer id — rather than alphabetical.
+
+**Cost.** A hardcoded ordering that someone may need to revisit for a different customer base.
+
+**Why.** It was alphabetical, which put `account_opening_year` first. That is the single
+hardest question a customer can be asked, and a walkthrough showed the agent asking for it,
+being told "I don't know that", and then asking for it again two turns later because the
+backend had no idea it had been declined.
+
+Alphabetical order was not a decision, it was the absence of one. Email and phone are what
+most people can give without looking anything up.
+
+### 12.16 The agent may offer a credit, but never assert a finding
+
+**Decision (Nicolas).** Offering a goodwill credit nobody asked for is good service and is
+kept. What changes is the framing: it must be offered as goodwill for something unverified,
+never as redress for an established error.
+
+**Cost.** A caller with a genuine complaint hears "I can't confirm what happened" rather than
+"you're right, that's our mistake", which is less satisfying.
+
+**Why.** A walkthrough produced this, unprompted:
+
+> "That's a billing error on our end, not a payment issue. For a billing error like this
+> where you were charged for an item you didn't order, you're entitled to a credit."
+
+Every clause is invented. The system holds **no line-item data at all** — no product names,
+no quantities. There is no "red fabric" anywhere in it. The agent could not have checked, did
+not check, and asserted a conclusion about the company's own billing anyway.
+
+My initial fix was to stop the agent offering credits unprompted. Nicolas overruled it, and
+was right: the offer is the useful part, and the problem was never the generosity. It was
+claiming to know something. "I can't see the individual lines, but I can put a goodwill credit
+on the account and have a colleague look" is both helpful and true.
+
+### 12.17 The agent states what it cannot see
+
+**Decision.** The prompt names the boundary explicitly: invoices, payments and credits are
+visible; line items, products and quantities are not.
+
+**Cost.** More prompt, and a caller is told about a limitation they might not have noticed.
+
+**Why.** Without it the model fills the gap. Asked about a duplicated line item it reasoned
+confidently about a record it had never seen, and narrated "let me check the details of
+invoice INV-00982-004" while making **no tool call at all**. A claimed check that did not
+happen is worse than a refusal, because everything said afterwards rests on it.
+
+Two rules follow: if you say you will look something up, call the tool; if you cannot check
+something, say so.
+
+### 12.18 The agent writes the credit reason itself
+
+**Decision.** The agent composes the reason from what the caller said, rather than asking
+them to phrase it.
+
+**Cost.** None worth noting.
+
+**Why.** It asked "I'll need to note your reason in your own words — something like 'charged
+for item not ordered' or however you'd describe it." The caller had already explained the
+problem. Asking them to write the file note is administrative work handed to a customer, and
+it makes the agent sound like a form.
+
+### 12.19 Credit effects are described accurately, and identifiers are not read aloud
+
+**Decision.** A credit against a settled invoice is described as sitting on the account, not
+as reducing a balance. Internal identifiers are never spoken.
+
+**Cost.** None.
+
+**Why.** The agent said a credit "will reduce your balance accordingly" when the balance was
+zero and the invoice paid — a small untruth the person reconciling it would notice. It also
+recited `CN-701CE28C14CE62D1807A`, which is a database key reformatted to look like a
+reference number. Nothing downstream accepts it, so reading it out only sounds official.

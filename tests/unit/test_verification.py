@@ -15,6 +15,7 @@ from decimal import Decimal  # noqa: F401  (kept: fixtures below mirror the iden
 import pytest
 
 from src.domain.verification import (
+    NON_DOCUMENT_FACTORS,
     Factor,
     VerificationStatus,
     check_factors,
@@ -301,3 +302,40 @@ class TestNameIsNotAFactor:
         volunteered name confirms nothing and costs nothing."""
         result = check({Factor.EMAIL: "buchhaltung@meier-bau.ch"})
         assert result.confirmed_count == 1
+
+
+class TestWhatToAskNext:
+    """The order factors are suggested in.
+
+    A caller asked for something they cannot produce says so, and the next suggestion is all
+    they have to work with. Alphabetical ordering led with the account opening year — the one
+    question almost nobody can answer — which made the gate feel like an obstacle and wasted
+    two exchanges before reaching a question the caller could actually answer.
+    """
+
+    def test_email_is_suggested_before_the_account_opening_year(self):
+        result = check({})
+        assert result.next_factor_hint is Factor.EMAIL
+
+    def test_the_phone_comes_next(self):
+        result = check({Factor.EMAIL: STORED[Factor.EMAIL]})
+        assert result.next_factor_hint is Factor.PHONE
+
+    def test_the_opening_year_is_suggested_last_of_the_non_document_factors(self):
+        confirmed = {
+            Factor.EMAIL: STORED[Factor.EMAIL],
+            Factor.PHONE: STORED[Factor.PHONE],
+            Factor.DATE_OF_BIRTH: STORED[Factor.DATE_OF_BIRTH],
+        }
+        result = check(confirmed, required=4)
+        assert result.next_factor_hint is Factor.ACCOUNT_OPENING_YEAR
+
+    def test_a_confirmed_factor_is_never_suggested_again(self):
+        result = check({Factor.EMAIL: STORED[Factor.EMAIL]})
+        assert result.next_factor_hint is not Factor.EMAIL
+
+    def test_a_caller_with_only_document_factors_is_pushed_to_a_non_document_one(self):
+        """The non-document rule showing through the hint: knowing the customer id gets you
+        asked for something the invoice cannot tell you."""
+        result = check({Factor.CUSTOMER_ID: STORED[Factor.CUSTOMER_ID]})
+        assert result.next_factor_hint in NON_DOCUMENT_FACTORS

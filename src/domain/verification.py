@@ -51,6 +51,20 @@ NON_DOCUMENT_FACTORS = frozenset(
 )
 
 
+# The order factors are suggested in, most answerable first. Ordering matters because a
+# caller asked for something they cannot produce says so, and the next suggestion is all
+# they have to work with — leading with the account opening year, which almost nobody
+# remembers, wastes the exchange and makes the gate feel like an obstacle rather than a
+# formality. Email and phone are the two most people can give without looking anything up.
+ASK_ORDER = (
+    Factor.EMAIL,
+    Factor.PHONE,
+    Factor.DATE_OF_BIRTH,
+    Factor.ACCOUNT_OPENING_YEAR,
+    Factor.CUSTOMER_ID,
+)
+
+
 class VerificationStatus(StrEnum):
     VERIFIED = "VERIFIED"
     PARTIALLY_VERIFIED = "PARTIALLY_VERIFIED"
@@ -208,7 +222,7 @@ def _next_hint(confirmed: set[Factor], non_document_satisfied: bool) -> Factor |
              answer.
     """
     pool = NON_DOCUMENT_FACTORS if not non_document_satisfied else set(Factor)
-    remaining = sorted(pool - confirmed)
+    remaining = [factor for factor in ASK_ORDER if factor in pool and factor not in confirmed]
     return remaining[0] if remaining else None
 
 
