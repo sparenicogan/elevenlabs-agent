@@ -126,6 +126,21 @@ def _normalise_phone(value: str) -> str:
     return digits[-PHONE_SIGNIFICANT_DIGITS:]
 
 
+def _normalise_email(value: str) -> str:
+    """
+    Reduces an email to the form a spoken one can be compared against.
+
+    Case goes, because nobody speaks capitals. Hyphens go because a caller spelling an
+    address aloud says "alpina tech", and the transcript reliably loses the hyphen —
+    "klaus.mueller@alpinatech.ch" for "klaus.mueller@alpina-tech.ch" is what locked out the
+    first voice test. Dots are kept: they separate a real name and callers do say them.
+
+    This is deliberately narrow rather than a fuzzy match. Two addresses differing only by a
+    hyphen now collide, which is why an ambiguous lookup resolves nobody.
+    """
+    return value.strip().casefold().replace("-", "")
+
+
 def _normalise_date(value: str) -> str:
     """Parses a spoken-then-transcribed date into ISO form, or returns a sentinel that can
     never equal a stored date so an unparseable answer is simply wrong, not an exception."""
@@ -153,7 +168,30 @@ def _matches(factor: Factor, supplied: str, stored: str) -> bool:
         return _normalise_phone(supplied) == _normalise_phone(stored)
     if factor is Factor.DATE_OF_BIRTH:
         return _normalise_date(supplied) == _normalise_date(stored)
+    if factor is Factor.EMAIL:
+        return _normalise_email(supplied) == _normalise_email(stored)
     return supplied.strip().casefold() == stored.strip().casefold()
+
+
+def lookup_key(factor: Factor, value: str) -> str:
+    """
+    Reduces an identifier to the form the table is indexed on.
+
+    factor: EMAIL or PHONE, the two a caller can be found by.
+    value:  what the caller said, or what the record holds.
+
+    Returns: the normalised key.
+
+    The same function serves the index, the seed and the comparison, because when they were
+    separate they drifted: comparison normalised phone numbers to their trailing digits while
+    the index was queried with the raw string, so a caller reciting their own number
+    correctly could never be found by it.
+    """
+    if factor is Factor.PHONE:
+        return _normalise_phone(value)
+    if factor is Factor.EMAIL:
+        return _normalise_email(value)
+    return value.strip().casefold()
 
 
 def check_factors(

@@ -23,12 +23,12 @@ resource "aws_dynamodb_table" "customer_identity" {
   }
 
   attribute {
-    name = "phone"
+    name = "phone_lookup"
     type = "S"
   }
 
   attribute {
-    name = "email"
+    name = "email_lookup"
     type = "S"
   }
 
@@ -37,7 +37,7 @@ resource "aws_dynamodb_table" "customer_identity" {
   # return identity data (FR-033b).
   global_secondary_index {
     name            = "phone-index"
-    hash_key        = "phone"
+    hash_key        = "phone_lookup"
     projection_type = "INCLUDE"
     non_key_attributes = [
       "customer_id",
@@ -50,7 +50,7 @@ resource "aws_dynamodb_table" "customer_identity" {
   # answer given first is scored as wrong.
   global_secondary_index {
     name            = "email-index"
-    hash_key        = "email"
+    hash_key        = "email_lookup"
     projection_type = "KEYS_ONLY"
   }
 

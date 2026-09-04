@@ -1435,3 +1435,43 @@ writes the ledger triggered by an inbound internet request — precisely the bla
 §12.36 exists to shrink. A bug in the signature check would move money. The schedule's trigger
 lives inside AWS and the ledger writer is unreachable from the internet. Free tier likely
 gates private-app webhooks anyway, but the choice would be the same on Enterprise.
+
+### 12.41 Lookup and comparison share one normalisation
+
+**Decision.** `lookup_key()` in the domain is used by the identity indexes, the seed and the
+factor comparison. The indexes key on `email_lookup` and `phone_lookup` rather than on the
+stored display values. Email normalisation drops hyphens; phone keeps its trailing nine
+digits, as the comparison already did.
+
+**Cost.** Two addresses differing only by a hyphen now collide, so an ambiguous lookup has to
+resolve nobody. A GSI rebuild and a re-seed to populate the new attributes.
+
+**Why.** They had drifted, and the drift was invisible until a voice call. The comparison
+normalised a phone number to its trailing digits while the lookup queried the index with the
+raw string, so a caller reciting their own number correctly could never be found by it. Every
+test until then had been text, where a caller "says" exactly what is on file.
+
+### 12.42 The lockout counter is per field, not a total
+
+**Decision.** `record_wrong_values` stores wrong-value fingerprints per field and returns the
+worst field's count. Three factors offered together that match nobody is one failed attempt.
+
+**Cost.** A caller can now be wrong once about each of three fields across three turns without
+locking. The allowance is effectively larger for someone spreading guesses across fields.
+
+**Why.** It locked an honest caller on his opening sentence. He gave email, phone and date of
+birth in one breath; the email had lost a hyphen in transcription, so no record resolved, so
+all three were scored wrong — including the two that were right — and three wrong values was
+the whole allowance. `is_enumerating` was already per field for exactly this reason (FR-006b);
+the lock counter simply had not been. Someone working through three different emails still
+trips both.
+
+### 12.43 An ambiguous lookup resolves nobody
+
+**Decision.** `_lookup` returns a contact only when exactly one row matches.
+
+**Cost.** Two people whose addresses normalise identically can neither be found.
+
+**Why.** Dropping hyphens merges values that were distinct. Picking the first of two would
+check a caller's answers against a record that is not theirs, which is worse than failing to
+find them — and failing to find them is already indistinguishable from a wrong answer.
