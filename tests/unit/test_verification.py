@@ -15,7 +15,6 @@ from decimal import Decimal  # noqa: F401  (kept: fixtures below mirror the iden
 import pytest
 
 from src.domain.verification import (
-    PERSONAL_FACTORS,
     Factor,
     VerificationStatus,
     check_factors,
@@ -112,7 +111,6 @@ class TestThePersonalFactorRule:
         must be one the document cannot answer."""
         result = check({Factor.CUSTOMER_ID: "445909044455"}, required=1)
         assert result.status is not VerificationStatus.VERIFIED
-        assert result.next_factor_hint in PERSONAL_FACTORS
 
 
 class TestPartiallyVerified:
@@ -174,9 +172,12 @@ class TestFailed:
                 Factor.CUSTOMER_ID: "445909044455",
             }
         )
-        serialised = repr(result)
-        assert "wrong@example.com" not in serialised
-        assert "EMAIL" not in serialised or result.next_factor_hint is not None
+        # mismatched_factors is deliberately on the result: the handler needs it to count
+        # distinct wrong values. It is never serialised into a response, which is the
+        # property that matters and is asserted in tests/contract/test_verify_identity.py.
+        public = {k: v for k, v in vars(result).items() if k != "mismatched_factors"}
+        assert "wrong@example.com" not in repr(public)
+        assert "EMAIL" not in repr(public)
         assert not hasattr(result, "failed_factors")
 
 
@@ -204,7 +205,6 @@ class TestNoDisclosure:
         )
         assert real_id.status is invented_id.status
         assert real_id.confirmed_count == invented_id.confirmed_count == 0
-        assert real_id.next_factor_hint == invented_id.next_factor_hint
 
     def test_a_failed_attempt_reports_no_progress_at_all(self):
         result = check(
@@ -227,7 +227,6 @@ class TestNoDisclosure:
             }
         )
         assert result.status is VerificationStatus.VERIFIED
-        assert result.next_factor_hint is None
 
     def test_an_unknown_customer_looks_exactly_like_a_wrong_answer(self):
         """Otherwise the response distinguishes 'no such customer' from 'wrong details', and
@@ -296,42 +295,3 @@ class TestNameIsNotAFactor:
         volunteered name confirms nothing and costs nothing."""
         result = check({Factor.EMAIL: "buchhaltung@meier-bau.ch"})
         assert result.confirmed_count == 1
-
-
-class TestWhatToAskNext:
-    """The order factors are suggested in.
-
-    A caller asked for something they cannot produce says so, and the next suggestion is all
-    they have to work with. Alphabetical ordering led with the account opening year — the one
-    question almost nobody can answer — which made the gate feel like an obstacle and wasted
-    two exchanges before reaching a question the caller could actually answer.
-    """
-
-    def test_email_is_suggested_before_the_account_opening_year(self):
-        result = check({})
-        assert result.next_factor_hint is Factor.EMAIL
-
-    def test_the_phone_comes_next(self):
-        result = check({Factor.EMAIL: STORED[Factor.EMAIL]})
-        assert result.next_factor_hint is Factor.PHONE
-
-    def test_the_customer_id_is_suggested_last(self):
-        """It is the only company fact left, and the weakest thing to ask for — everyone at
-        the company knows it and it is printed on every invoice."""
-        confirmed = {
-            Factor.EMAIL: STORED[Factor.EMAIL],
-            Factor.PHONE: STORED[Factor.PHONE],
-            Factor.DATE_OF_BIRTH: STORED[Factor.DATE_OF_BIRTH],
-        }
-        result = check(confirmed, required=4)
-        assert result.next_factor_hint is Factor.CUSTOMER_ID
-
-    def test_a_confirmed_factor_is_never_suggested_again(self):
-        result = check({Factor.EMAIL: STORED[Factor.EMAIL]})
-        assert result.next_factor_hint is not Factor.EMAIL
-
-    def test_a_caller_with_only_document_factors_is_pushed_to_a_non_document_one(self):
-        """The non-document rule showing through the hint: knowing the customer id gets you
-        asked for something the invoice cannot tell you."""
-        result = check({Factor.CUSTOMER_ID: STORED[Factor.CUSTOMER_ID]})
-        assert result.next_factor_hint in PERSONAL_FACTORS

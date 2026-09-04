@@ -67,18 +67,6 @@ PERSONAL_FACTORS = frozenset(
 )
 
 
-# The order factors are suggested in, most answerable first. Ordering matters because a
-# caller asked for something they cannot produce says so, and the next suggestion is all
-# they have to work with — leading with the account opening year, which almost nobody
-# remembers, wastes the exchange and makes the gate feel like an obstacle rather than a
-# formality. Email and phone are the two most people can give without looking anything up.
-ASK_ORDER = (
-    Factor.EMAIL,
-    Factor.PHONE,
-    Factor.DATE_OF_BIRTH,
-    Factor.CUSTOMER_ID,
-)
-
 
 class VerificationStatus(StrEnum):
     VERIFIED = "VERIFIED"
@@ -97,7 +85,6 @@ class VerificationResult:
     required_count:         how many are needed, from policy.
     personal_satisfied:     whether at least one confirmed factor was a fact about the
                             caller rather than about their company.
-    next_factor_hint:       which field to ask for next. A field name, never a value
                             (FR-004).
     is_failed_attempt:      whether this attempt counts toward the lockout. Answering too
                             few questions does not; answering one wrongly does.
@@ -114,7 +101,6 @@ class VerificationResult:
     confirmed_count: int
     required_count: int
     personal_satisfied: bool
-    next_factor_hint: Factor | None
     is_failed_attempt: bool
     mismatched_factors: frozenset[Factor] = frozenset()
 
@@ -242,7 +228,6 @@ def check_factors(
             confirmed_count=0,
             required_count=required_count,
             personal_satisfied=False,
-            next_factor_hint=_next_hint(set(), personal_satisfied=False),
             is_failed_attempt=True,
             mismatched_factors=frozenset(mismatched),
         )
@@ -253,30 +238,9 @@ def check_factors(
         required_count=required_count,
         personal_satisfied=personal_satisfied,
         # Nothing more to ask once verification has succeeded.
-        next_factor_hint=(
-            None
-            if status is VerificationStatus.VERIFIED
-            else _next_hint(confirmed, personal_satisfied)
-        ),
         is_failed_attempt=False,
         mismatched_factors=frozenset(),
     )
-
-
-def _next_hint(confirmed: set[Factor], personal_satisfied: bool) -> Factor | None:
-    """
-    Chooses which field to ask for next.
-
-    confirmed:              factors already answered correctly.
-    personal_satisfied: whether a non-document factor is among them.
-
-    Returns: a field name, never a value. When the caller has only produced things readable
-             off an invoice, the next question is deliberately one the invoice cannot
-             answer.
-    """
-    pool = PERSONAL_FACTORS if not personal_satisfied else set(Factor)
-    remaining = [factor for factor in ASK_ORDER if factor in pool and factor not in confirmed]
-    return remaining[0] if remaining else None
 
 
 # How many distinct values a caller may offer for one field. Two allows a single correction —

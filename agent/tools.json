@@ -2,7 +2,7 @@
   {
     "type": "webhook",
     "name": "verify_identity",
-    "description": "Check identifying details the caller has given. Returns VERIFIED, PARTIALLY_VERIFIED, FAILED or LOCKED, and how many factors are confirmed. It never says which detail was wrong and never returns the expected answer. Disclose no financial information of any kind until it returns VERIFIED.",
+    "description": "Check the identifying details the caller has given. Returns VERIFIED, PARTIALLY_VERIFIED, FAILED or LOCKED, and how many factors are confirmed. It never says which detail was wrong and never returns the expected answer. Disclose no financial information of any kind until it returns VERIFIED.",
     "response_timeout_secs": 5,
     "force_pre_tool_speech": true,
     "pre_tool_speech": "auto",

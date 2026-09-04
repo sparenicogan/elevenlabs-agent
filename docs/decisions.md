@@ -1522,3 +1522,19 @@ reacting to a failure.
 example in the prompt was found and deleted; this was the second source and the stronger one,
 because an enum in a function schema is a list of valid choices rather than prose the model
 may or may not weigh.
+
+### 12.47 The backend stops suggesting what to ask next
+
+**Decision.** `ASK_ORDER`, `_next_hint` and `next_factor_hint` are removed. The response says
+how many factors are confirmed and whether a personal one is among them, and nothing about
+what to ask for.
+
+**Cost.** A caller who cannot produce the detail being asked for no longer has the backend
+steering them to one they can. That guidance now has to live in the procedure, which is a
+fixed order rather than an adaptive one.
+
+**Why.** The procedure decides the sequence. A hint in the tool response is a second voice
+telling the agent something different, and when two sources disagree the model picks — which
+is the failure mode this whole line of work exists to remove. Deleting the hint also removes
+a response field that had to be checked for leaking a value; a field that does not exist
+cannot leak.
