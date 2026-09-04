@@ -248,7 +248,7 @@ def _regenerate_summary(conversation_id: str, payload: dict) -> None:
         return
 
     sources = [str(c) for c in (existing.get("source_conversation_ids") or [])]
-    dynamo.upsert(
+    dynamo.update_if(
         SUMMARIES_TABLE,
         {"customer_id": str(customer_id)},
         condition="attribute_not_exists(version) OR version = :expected",
