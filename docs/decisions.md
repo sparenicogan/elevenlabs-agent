@@ -1475,3 +1475,50 @@ trips both.
 **Why.** Dropping hyphens merges values that were distinct. Picking the first of two would
 check a caller's answers against a record that is not theirs, which is worse than failing to
 find them — and failing to find them is already indistinguishable from a wrong answer.
+
+### 12.44 Verification becomes a structured procedure
+
+**Decision.** The verification sequence moves out of the prompt and into an ElevenLabs
+structured procedure: tell, ask email, read it back, ask phone, ask date of birth, one
+`verify_identity` call, branch on the result. Steps are enforced by the platform rather than
+interpreted by the model.
+
+**Cost.** The sequence is now fixed. A caller who volunteers their phone number first still
+gets asked for their email first, where the prompt could adapt. Verification also stops being
+readable in one file — it lives in `agent/procedures/verification.json` and only takes effect
+once compiled and published.
+
+**Why.** §12.33 said prompt rules are tendencies. This is the clearest case in the project:
+the prompt says, in bold, *"Never say whether an individual answer was right or wrong. Not
+'that's confirmed', not 'I couldn't confirm that', not 'close'."* The agent then said "I
+couldn't confirm that" to a caller whose email was correct. The rule was present, explicit,
+and quoted the exact forbidden phrase.
+
+Under the procedure it cannot happen, and not because it is forbidden harder. There is no
+tool call between the questions, so there is no result to narrate and no step in which to
+narrate it. The prohibition becomes unnecessary rather than better enforced.
+
+### 12.45 The email is read back on every call
+
+**Decision.** A dedicated Ask step spells the address back and asks whether it is right,
+before any of it is sent.
+
+**Cost.** An extra exchange in every verification.
+
+**Why.** The first voice call was lost to a hyphen the transcript dropped from
+"alpina-tech.ch". Reading it back only when the lookup fails would be an oracle — the caller
+would learn their answer matched nobody, which is the one thing the gate refuses to say.
+Doing it every time reveals nothing, because the agent is repeating what the caller just
+said and has no record to compare it against yet. It fixes the transcription rather than
+reacting to a failure.
+
+### 12.46 The removed factor is gone from the tool schema
+
+**Decision.** `account_opening_year` is removed from the `verify_identity` enum.
+
+**Cost.** None.
+
+**Why.** The factor was removed from the domain, and the agent kept asking for it. A stale
+example in the prompt was found and deleted; this was the second source and the stronger one,
+because an enum in a function schema is a list of valid choices rather than prose the model
+may or may not weigh.

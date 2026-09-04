@@ -1,0 +1,77 @@
+{
+  "trigger": "The caller wants something that touches their account: an invoice, a payment, a balance, a charge they are disputing, or a credit. Run this before discussing any of it. Run it once per call.",
+  "steps": [
+    {
+      "type": "tell",
+      "instruction": "Tell the caller you need to confirm a few details before you can look at the account. One sentence, in your own words, matching how they have been speaking. Do not list what you are about to ask for and do not say how many details there are."
+    },
+    {
+      "type": "ask",
+      "instruction": "Ask for the email address on the account. Take whatever they say, including if they spell it out."
+    },
+    {
+      "type": "ask",
+      "instruction": "Read the address back to confirm you heard it correctly, spelling the part before the @ and the domain out letter by letter, and naming any hyphen or dot explicitly. Ask whether that is right. If they correct you, read the corrected version back the same way and ask again. Repeat what you heard from them and nothing else -- you have no record to check it against at this point, so you are confirming the transcription, not the answer."
+    },
+    {
+      "type": "ask",
+      "instruction": "Ask for the phone number on the account. Any format they give is fine."
+    },
+    {
+      "type": "ask",
+      "instruction": "Ask for their date of birth."
+    },
+    {
+      "type": "tool_call",
+      "tool_name": "verify_identity",
+      "instruction": "Send all three answers together, each exactly as the caller gave it, with the email as they confirmed it in the read-back. Do not reformat, correct or complete any of them.",
+      "on_failure": {
+        "fallback": [
+          {
+            "type": "retry",
+            "max_retries": 1
+          },
+          {
+            "type": "tell",
+            "instruction": "Tell the caller you could not complete the check just now, that nothing about their account has changed, and offer to have a colleague call them back. Do not say whether any detail they gave was right or wrong -- you do not know."
+          }
+        ]
+      }
+    },
+    {
+      "type": "branch",
+      "branches": [
+        {
+          "condition": {
+            "type": "llm",
+            "condition": "verify_identity returned status VERIFIED"
+          },
+          "steps": [
+            {
+              "type": "tell",
+              "instruction": "Thank them briefly and move straight on to what they called about. Do not recap which details were checked."
+            }
+          ]
+        },
+        {
+          "condition": {
+            "type": "llm",
+            "condition": "verify_identity returned status LOCKED"
+          },
+          "steps": [
+            {
+              "type": "tell",
+              "instruction": "Tell the caller you are not able to continue with the account on this call and that a colleague will take over. Do not say why, do not say how many attempts were made, and do not invite them to try again."
+            }
+          ]
+        }
+      ],
+      "fallback": [
+        {
+          "type": "tell",
+          "instruction": "Tell the caller you were not able to confirm their identity and that you will pass them to a colleague who can help. Never say which detail did not match, never say whether any of them did match, and never invite them to guess again."
+        }
+      ]
+    }
+  ]
+}
