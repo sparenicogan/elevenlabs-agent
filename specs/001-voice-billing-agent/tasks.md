@@ -210,18 +210,18 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Tests for User Story 6
 
-- [ ] T074 [P] [US6] Write tests in `tests/unit/test_conversation_init.py`: a known number yields its stored language, an unknown number yields German, and the response never carries a name or any account fact (FR-033a, FR-033b)
-- [ ] T075 [P] [US6] Write locale rendering tests in `tests/unit/test_locale.py` asserting amounts and dates follow convention while staying numerically exact (FR-037)
+- [x] T074 [P] [US6] Write tests in `tests/unit/test_conversation_init.py`: a known number yields its stored language, an unknown number yields German, and the response never carries a name or any account fact (FR-033a, FR-033b)
+- [x] T075 [P] [US6] Write locale rendering tests in `tests/unit/test_locale.py` asserting amounts and dates follow convention while staying numerically exact (FR-037)
 
 ### Implementation for User Story 6
 
-- [ ] T076 [US6] Implement `src/handlers/conversation_init.py` per contracts/webhooks.md: resolve `caller_id` via the `phone-index`, return the candidate id as a `secret__` dynamic variable and the greeting language, and nothing else
-- [ ] T077 [P] [US6] Write `agent/prompt/de.md` as the full translation of the English prompt, not a summary of it
-- [ ] T078 [P] [US6] Write `agent/prompt/fr.md`
-- [ ] T079 [P] [US6] Write `agent/prompt/it.md`
-- [ ] T080 [US6] Enable the language detection system tool for DE/FR/IT/EN in `agent/agent.json` and require every tool-driven statement and escalation message to stay in the caller's language (FR-033)
-- [ ] T081 [US6] Add the adaptation rules to all four prompts in `agent/prompt/`: adjust pace, sentence length, vocabulary, and confirmation frequency from the observed conversation only, never from assumptions about the person, and offer to slow down, simplify, or switch (FR-034, FR-035)
-- [ ] T082 [US6] Persist `preferred_language` and `communication_style` to `customer_identity` from `src/handlers/post_call.py` when the caller switches language or asks for a different style (FR-036)
+- [x] T076 [US6] Implement `src/handlers/conversation_init.py` per contracts/webhooks.md: resolve `caller_id` via the `phone-index`, return the candidate id as a `secret__` dynamic variable and the greeting language, and nothing else
+- [x] T077 [P] [US6] Write `agent/prompt/de.md` as the full translation of the English prompt, not a summary of it
+- [x] T078 [P] [US6] Write `agent/prompt/fr.md`
+- [x] T079 [P] [US6] Write `agent/prompt/it.md`
+- [x] T080 [US6] Enable the language detection system tool for DE/FR/IT/EN in `agent/agent.json` and require every tool-driven statement and escalation message to stay in the caller's language (FR-033)
+- [x] T081 [US6] Add the adaptation rules to all four prompts in `agent/prompt/`: adjust pace, sentence length, vocabulary, and confirmation frequency from the observed conversation only, never from assumptions about the person, and offer to slow down, simplify, or switch (FR-034, FR-035)
+- [x] T082 [US6] Persist `preferred_language` and `communication_style` to `customer_identity` from `src/handlers/post_call.py` when the caller switches language or asks for a different style (FR-036)
 
 ---
 
@@ -233,18 +233,18 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Tests for User Story 7
 
-- [ ] T083 [P] [US7] Write tests in `tests/unit/test_post_call.py`: HMAC validation including timestamp window, duplicate delivery creating nothing twice, and a failure in one step not rolling back earlier steps (FR-024, FR-025)
-- [ ] T084 [P] [US7] Write summary tests in `tests/unit/test_summary.py`: stays within `summary_max_chars` across ten successive regenerations, and contains no verification answer, date of birth, or payment credential (SC-008, FR-029)
-- [ ] T085 [P] [US7] Write metrics tests in `tests/unit/test_metrics.py` asserting all nine derived rates in FR-043 can be computed from stored fields
+- [x] T083 [P] [US7] Write tests in `tests/unit/test_post_call.py`: HMAC validation including timestamp window, duplicate delivery creating nothing twice, and a failure in one step not rolling back earlier steps (FR-024, FR-025)
+- [x] T084 [P] [US7] Write summary tests in `tests/unit/test_summary.py`: stays within `summary_max_chars` across ten successive regenerations, and contains no verification answer, date of birth, or payment credential (SC-008, FR-029)
+- [x] T085 [P] [US7] Write metrics tests in `tests/unit/test_metrics.py` asserting all nine derived rates in FR-043 can be computed from stored fields
 
 ### Implementation for User Story 7
 
-- [ ] T086 [US7] Implement HMAC validation in `src/handlers/post_call.py` per contracts/webhooks.md, rejecting a timestamp outside the 30-minute window
-- [ ] T087 [US7] Implement transcript persistence to S3 in `src/handlers/post_call.py` at the key layout in data-model.md
-- [ ] T088 [US7] Implement metrics persistence to `conversations` in `src/handlers/post_call.py`, writing every FR-042 field
-- [ ] T089 [US7] Implement summary regeneration in `src/handlers/post_call.py`: summarise the prior summary plus this call, cap at `summary_max_chars`, write with a version check, and record provenance (FR-039a)
-- [ ] T090 [US7] Implement transfer reconciliation in `src/handlers/post_call.py` as the backstop for a failed transfer that ended the call (FR-020, research D4)
-- [ ] T091 [US7] Write the metrics derivation queries in `scripts/metrics.py` as CloudWatch Logs Insights and DynamoDB queries producing the nine rates (FR-043)
+- [x] T086 [US7] Implement HMAC validation in `src/handlers/post_call.py` per contracts/webhooks.md, rejecting a timestamp outside the 30-minute window
+- [x] T087 [US7] Implement transcript persistence to S3 in `src/handlers/post_call.py` at the key layout in data-model.md
+- [x] T088 [US7] Implement metrics persistence to `conversations` in `src/handlers/post_call.py`, writing every FR-042 field
+- [x] T089 [US7] Implement summary regeneration in `src/handlers/post_call.py`: summarise the prior summary plus this call, cap at `summary_max_chars`, write with a version check, and record provenance (FR-039a)
+- [x] T090 [US7] Implement transfer reconciliation in `src/handlers/post_call.py` as the backstop for a failed transfer that ended the call (FR-020, research D4)
+- [x] T091 [US7] Write the metrics derivation queries in `scripts/metrics.py` as CloudWatch Logs Insights and DynamoDB queries producing the nine rates (FR-043)
 
 ---
 
@@ -256,12 +256,12 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Tests for User Story 8
 
-- [ ] T092 [P] [US8] Write tests in `tests/unit/test_discrepancy.py`: the flag is not exposed before a MATCH, the explanation appends to the existing ticket rather than creating a second, and no address write occurs (FR-031, FR-031a, FR-031b)
+- [x] T092 [P] [US8] Write tests in `tests/unit/test_discrepancy.py`: the flag is not exposed before a MATCH, the explanation appends to the existing ticket rather than creating a second, and no address write occurs (FR-031, FR-031a, FR-031b)
 
 ### Implementation for User Story 8
 
-- [ ] T093 [US8] Accept the `discrepancy` field in `src/handlers/create_escalation.py` and append it to the ticket named by `existing_ticket_id`
-- [ ] T094 [US8] Add the discrepancy step to every prompt in `agent/prompt/`: only after the payment is confirmed, ask whether the company moved or the record has a typo, say a person will correct it, and never offer or confirm either address value
+- [x] T093 [US8] Accept the `discrepancy` field in `src/handlers/create_escalation.py` and append it to the ticket named by `existing_ticket_id`
+- [x] T094 [US8] Add the discrepancy step to every prompt in `agent/prompt/`: only after the payment is confirmed, ask whether the company moved or the record has a typo, say a person will correct it, and never offer or confirm either address value
 
 ---
 
@@ -303,10 +303,10 @@ writes nothing.
       counted as `already_applied` and silently does nothing.
 - [x] T103 [P] [US9] Write `tests/contract/test_apply_decisions.py` cases for a ticket closed with
       no outcome, and for Canceled by customer, neither of which is currently covered.
-- [ ] T104 [US9] Write `tests/integration/test_applier.py`: raise a real request, mark the ticket
+- [x] T104 [US9] Write `tests/integration/test_applier.py`: raise a real request, mark the ticket
       Accepted, run the applier, and assert the ledger entry, the note on the ticket, and that a
       second run writes nothing.
-- [ ] T105 [P] [US9] Assert the ledger Deny holds, in `tests/integration/test_iam.py`, using
+- [x] T105 [P] [US9] Assert the ledger Deny holds, in `tests/integration/test_iam.py`, using
       `iam:SimulatePrincipalPolicy` against every agent-facing role.
 - [x] T106a [US9] Log the per-run counts from `apply_decisions`: the line currently reads
       `apply run complete` with no numbers, so a run failing on every ticket is indistinguishable
@@ -317,12 +317,12 @@ writes nothing.
 
 ## Phase 11: Polish & Cross-Cutting
 
-- [ ] T095 [P] Verify no identity field reaches any log by asserting the allowlist in `tests/unit/test_log_scrubbing.py` and reviewing a real call's log output (FR-029, SC-002)
-- [ ] T096 [P] Verify the `src/adapters/hubspot.py` field allowlist against a real ticket and interaction record — no date of birth, verification answer, or payment detail (FR-028, SC-002)
-- [ ] T097 [P] Tighten per-Lambda IAM in `infra/terraform/iam.tf` so only `verify_identity` and `conversation_init` can read `customer_identity` (Principle X)
-- [ ] T098 [P] Verify the lifecycle rules in `infra/terraform/s3.tf` and `infra/terraform/logs.tf` match FR-038a: transcripts 90 days, metadata and metrics 10 years, audit 10 years
+- [x] T095 [P] Verify no identity field reaches any log by asserting the allowlist in `tests/unit/test_log_scrubbing.py` and reviewing a real call's log output (FR-029, SC-002)
+- [x] T096 [P] Verify the `src/adapters/hubspot.py` field allowlist against a real ticket and interaction record — no date of birth, verification answer, or payment detail (FR-028, SC-002)
+- [x] T097 [P] Tighten per-Lambda IAM in `infra/terraform/iam.tf` so only `verify_identity` and `conversation_init` can read `customer_identity` (Principle X)
+- [x] T098 [P] Verify the lifecycle rules in `infra/terraform/s3.tf` and `infra/terraform/logs.tf` match FR-038a: transcripts 90 days, metadata and metrics 10 years, audit 10 years
 - [ ] T099 Run the full quickstart.md validation for all nine user stories and fix what it surfaces
-- [ ] T100 Write `README.md`: architecture, the trust boundary between agent and backend, how to run the tests, and an honest statement of what is out of scope (SMS, payment links, auto-reconciliation) and what is proven by tests rather than demonstrated live
+- [x] T100 Write `README.md`: architecture, the trust boundary between agent and backend, how to run the tests, and an honest statement of what is out of scope (SMS, payment links, auto-reconciliation) and what is proven by tests rather than demonstrated live
 - [ ] T101 Record the 3–5 minute Loom: the golden path plus one failure path, using the pre-recording checklist in quickstart.md
 
 ---

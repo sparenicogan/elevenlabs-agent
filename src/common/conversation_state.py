@@ -384,3 +384,25 @@ def resolved_contact(conversation_id: str) -> str | None:
     record = dynamo.get(_TABLE, {"conversation_id": conversation_id}) or {}
     value = record.get("resolved_contact_id")
     return str(value) if value else None
+
+
+def claim_post_call(conversation_id: str) -> bool:
+    """
+    Takes ownership of post-call processing for one conversation.
+
+    conversation_id: the call that has ended.
+
+    Returns: True the first time, False for every delivery after it.
+
+    A conditional write rather than a read-then-write: two deliveries arriving together would
+    both read "not processed" and both proceed, which is how a customer gets two summaries and
+    two callbacks from one call (FR-024).
+    """
+    claimed = dynamo.update_if(
+        _TABLE,
+        {"conversation_id": conversation_id},
+        condition="attribute_not_exists(post_call_processed_at)",
+        UpdateExpression="SET post_call_processed_at = :now",
+        ExpressionAttributeValues={":now": datetime.now(UTC).isoformat()},
+    )
+    return claimed is not None

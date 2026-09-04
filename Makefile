@@ -67,3 +67,10 @@ bootstrap:
 		--create-bucket-configuration LocationConstraint=eu-central-1
 	aws s3api put-bucket-versioning --bucket $(TF_STATE_BUCKET) \
 		--versioning-configuration Status=Enabled
+
+# Ruff caches aggressively, and a cached pass has twice let a lint error reach CI that had
+# already been "verified" locally. The cache saves under a second on a repository this size.
+lint-ci:
+	uv run ruff check --no-cache .
+	uv run ruff format --no-cache --check .
+	uv run python scripts/check_no_secrets.py

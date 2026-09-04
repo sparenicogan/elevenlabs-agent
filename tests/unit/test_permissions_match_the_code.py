@@ -22,6 +22,7 @@ SECRET_RESOURCES = {
     "verification/attempt-salt": "aws_secretsmanager_secret.attempt_salt.arn",
     "hubspot/private-app-token": "aws_secretsmanager_secret.hubspot_token.arn",
     "elevenlabs/api-key": "aws_secretsmanager_secret.elevenlabs_api_key.arn",
+    "elevenlabs/webhook-secret": "aws_secretsmanager_secret.elevenlabs_webhook.arn",
 }
 
 

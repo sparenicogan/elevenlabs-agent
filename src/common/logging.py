@@ -23,6 +23,8 @@ ALLOWED_FIELDS = frozenset(
         "tool",
         "status",
         "error_category",
+        # Which detail a check was about, e.g. "email". The name, never the value.
+        "field",
         # Exception text from an adapter. Never caller-supplied input, never a stored value.
         "error_detail",
         "action",

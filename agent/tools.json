@@ -249,7 +249,8 @@
               "ABUSE_DETECTED",
               "OUT_OF_AUTHORITY",
               "BACKEND_ERROR",
-              "CUSTOMER_REQUESTED_HUMAN"
+              "CUSTOMER_REQUESTED_HUMAN",
+              "ADDRESS_DISCREPANCY"
             ]
           },
           "existing_ticket_id": {
@@ -267,6 +268,20 @@
           "notes": {
             "type": "string",
             "description": "Anything else the person taking over should know."
+          },
+          "discrepancy": {
+            "type": "object",
+            "description": "A field that differs from the record and what the caller said about it. Only ever with existing_ticket_id, so it joins the review already open.",
+            "properties": {
+              "field": {
+                "type": "string",
+                "description": "Which field differs, e.g. payer_address."
+              },
+              "caller_explanation": {
+                "type": "string",
+                "description": "What the caller said, in their words."
+              }
+            }
           }
         }
       }
