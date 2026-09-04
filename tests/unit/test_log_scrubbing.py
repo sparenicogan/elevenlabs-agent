@@ -41,13 +41,28 @@ def test_no_identifying_field_is_on_the_allowlist(field):
     assert field not in ALLOWED_FIELDS
 
 
-def test_a_forbidden_field_is_dropped_rather_than_written(capsys):
+def test_a_forbidden_field_is_dropped_rather_than_written():
     """The enforcement is in the writer, not in the discipline of the caller.
 
-    Captured from the handler's own stream rather than caplog: the logger does not propagate
-    to the root, which is deliberate — a Lambda writing twice writes to CloudWatch twice."""
-    log("INFO", "probe", email="klaus.mueller@alpina-tech.ch", conversation_id="conv_1")
-    written = capsys.readouterr().out + capsys.readouterr().err
+    Captured by attaching a handler rather than by caplog or capsys: the logger deliberately
+    does not propagate to the root, and its own handler is configured once per process — so
+    whether stdout is captured depends on which test ran first.
+    """
+    import io
+    import logging as stdlib_logging
+
+    from src.common.logging import _logger, configure
+
+    configure()
+    stream = io.StringIO()
+    handler = stdlib_logging.StreamHandler(stream)
+    _logger.addHandler(handler)
+    try:
+        log("INFO", "probe", email="klaus.mueller@alpina-tech.ch", conversation_id="conv_1")
+    finally:
+        _logger.removeHandler(handler)
+
+    written = stream.getvalue()
     assert "klaus.mueller" not in written
     assert "conv_1" in written
 

@@ -9,6 +9,36 @@ holds only non-sensitive CRM records. The agent asks, explains and recommends; i
 
 All data is synthetic.
 
+## The trust boundary
+
+The agent is a good conversationalist and an unreliable narrator. Everything it says is a
+tendency; everything the backend enforces is a control. The line between them is the design.
+
+**The agent cannot see anything financial until the backend says `VERIFIED`.** Not because the
+prompt forbids it — because `require_verified()` reads a row written by `verify_identity` and
+raises otherwise. The model's opinion of whether someone sounds genuine is never consulted.
+
+**The agent cannot write the financial ledger.** All seven agent-facing IAM roles carry an
+explicit `Deny` on the ledger table, so a future `Allow` added by someone who does not know this
+rule cannot reopen the path. A credit or an allocation becomes a HubSpot ticket; a person accepts
+it; a scheduled `apply_decisions` Lambda — with no API Gateway route and no way in from a call —
+re-reads the ledger, re-runs the rules, and writes only what still passes. A person accepting a
+ticket says they are content for it to happen, not that the arithmetic works.
+
+**The agent cannot see what it must not say.** `match_payment` compares the caller's claimed
+amount and date server-side and returns a verdict, never the stored values. There is no response
+in which the expected answer appears, so no prompt rule is needed to stop it being read out.
+
+What is left to the prompt is what a prompt is good at: tone, judgement, when to offer a credit
+nobody asked for, and how to be decent to someone who is annoyed.
+
+### Why not more of it in the prompt
+
+Because it was tried. `docs/decisions.md` §12.33 records a rule that was present, bolded, and
+quoted the exact phrase it forbade — and the agent said that phrase to a caller anyway. §12.50
+records a structured procedure that read a fabricated version of itself aloud. Both are why the
+controls that matter are IAM statements and conditional writes rather than sentences.
+
 ## Documentation
 
 | Document | What it holds |
@@ -27,8 +57,38 @@ All data is synthetic.
 ```bash
 uv sync --all-groups
 make lint
-make test
+make test          # 706 offline, no AWS credentials needed
 ```
+
+### The four test layers
+
+| Layer | Proves | Needs |
+|---|---|---|
+| `tests/unit` | The rules, as pure functions | nothing |
+| `tests/contract` | Each handler, with every adapter replaced | nothing |
+| `tests/integration` | The pieces are wired to each other | a deployed stack |
+| `tests/conversation` | The agent behaves, via `simulate-conversation` | ElevenLabs credits |
+
+The first two run in about a second and are what `make test` runs. The split matters: a unit
+test can prove the code does not attempt a ledger write, and only an integration test can prove
+IAM would refuse if it did. Both of this project's worst afternoons were permissions the code
+needed and Terraform did not have, and neither was visible offline.
+
+```bash
+AWS_PROFILE=voice-agent-admin uv run pytest tests/integration -v
+```
+
+## Running it
+
+```bash
+uv run python -m scripts.seed.seed                       # synthetic customers and ledger
+uv run python -m scripts.agent.sync --agent-id agent_...  # tools and prompt to ElevenLabs
+DEMO_TRANSFER_NUMBER=+41... uv run python -m scripts.agent.transfer --agent-id agent_...
+uv run python -m scripts.metrics --days 30               # the nine rates in FR-043
+```
+
+`docs/test-scenarios.md` is generated from the fixtures and is the script for calling the agent
+by phone: ten companies, what is true of each account, and what the agent should do.
 
 ## Bootstrap (once per account)
 
@@ -65,3 +125,34 @@ If the account already has a GitHub OIDC provider, set `create_oidc_provider = f
 A dedicated AWS account, region `eu-central-1`. The account id lives in the untracked
 `infra/terraform/terraform.tfvars`, and the provider's `allowed_account_ids` guard makes an apply
 against any other account fail rather than quietly succeed.
+
+## What is here
+
+```
+src/domain/      pure rules — no I/O, so Principle II is checkable rather than aspirational
+src/adapters/    the only code that touches anything external
+src/handlers/    thin Lambda entry points
+agent/prompt/    four prompts, held to each other by tests/unit/test_prompts_agree.py
+infra/terraform/ every AWS resource, including the Deny that the design rests on
+docs/decisions.md  every decision, with what it cost
+```
+
+`src/domain` importing nothing from `src/adapters` is the whole reason the rules can be tested
+without a network, and why fault injection needs no production flag: the adapter is replaced,
+not a switch flipped.
+
+## What is not done
+
+`docs/decisions.md` is honest about the tradeoffs; this is honest about the gaps.
+
+- **The conversation-test layer is expensive and the results are not stable.** Running it twice
+  produced different outcomes, which is the same finding as §12.33 from another angle.
+- **HubSpot is load-bearing.** A credit request needs the CRM to raise the ticket and to compute
+  the ceiling. If HubSpot is down the agent refuses rather than guessing, which is right, but it
+  is a real availability cost bought deliberately.
+- **`check_factor` is an enumeration oracle.** It tells a caller which detail failed, which the
+  final verification refuses to. That is what buys the spelling and date recovery, and the bar
+  itself has not moved — knowing an address exists says nothing about who is holding the phone.
+- **The applier is scheduled, not triggered.** A webhook would put the ledger-writing path behind
+  an inbound internet request, which is the blast radius the design exists to shrink. The cost is
+  up to a minute of lag.

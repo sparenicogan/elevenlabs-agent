@@ -322,7 +322,7 @@ writes nothing.
 - [x] T097 [P] Tighten per-Lambda IAM in `infra/terraform/iam.tf` so only `verify_identity` and `conversation_init` can read `customer_identity` (Principle X)
 - [x] T098 [P] Verify the lifecycle rules in `infra/terraform/s3.tf` and `infra/terraform/logs.tf` match FR-038a: transcripts 90 days, metadata and metrics 10 years, audit 10 years
 - [ ] T099 Run the full quickstart.md validation for all nine user stories and fix what it surfaces
-- [ ] T100 Write `README.md`: architecture, the trust boundary between agent and backend, how to run the tests, and an honest statement of what is out of scope (SMS, payment links, auto-reconciliation) and what is proven by tests rather than demonstrated live
+- [x] T100 Write `README.md`: architecture, the trust boundary between agent and backend, how to run the tests, and an honest statement of what is out of scope (SMS, payment links, auto-reconciliation) and what is proven by tests rather than demonstrated live
 - [ ] T101 Record the 3–5 minute Loom: the golden path plus one failure path, using the pre-recording checklist in quickstart.md
 
 ---
