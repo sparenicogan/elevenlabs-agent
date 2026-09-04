@@ -414,18 +414,23 @@ evidence on the escalation, promises human correction, and writes nothing to the
 ### User Story 9 - A human decision reaches the ledger (Priority: P9)
 
 A colleague opens a ticket the agent raised, decides it, and sets the outcome. A scheduled applier
-picks it up, re-reads the ledger, re-runs the credit rules against the account as it stands now,
-and writes the entry only if they still pass. It is the only component permitted to write the
-financial ledger and the only one a caller cannot reach.
+picks it up, re-reads the ledger, re-runs the rules against the account as it stands now, and
+writes only if they still pass. It applies both kinds of request: a credit note, and an allocation
+moving a payment against the invoices it settles.
+
+It is the only component permitted to write the financial ledger and the only one a caller cannot
+reach. No agent-facing role holds a write on the ledger under any circumstances, and IAM denies it
+explicitly rather than relying on no Allow having been granted.
 
 **Why this priority**: It is the only path by which money moves at all. Everything the agent does
 stops at a request, so without this no credit ever reaches an account. It is also where a human
 decision is checked rather than trusted: a person accepting something they misread must not be able
 to produce an entry the rules would refuse.
 
-**Independent Test**: Raise a credit request on a call, set Request outcome to Accepted in the CRM,
-wait for the applier, and confirm a credit note exists on the ledger derived from the ticket id,
-the ticket carries a note saying it was applied, and running the applier again writes nothing.
+**Independent Test**: Raise a credit request and an allocation on separate calls, set Request
+outcome to Accepted on both, wait for the applier, and confirm the credit note exists on the ledger
+derived from the ticket id, the payment has moved to ALLOCATED against the invoice it settles, both
+tickets carry a note saying they were applied, and running the applier again writes nothing.
 
 **Acceptance Scenarios**:
 
@@ -437,6 +442,15 @@ the ticket carries a note saying it was applied, and running the applier again w
 3. **Given** a ticket marked Accepted whose amount now breaches a ceiling, because other credits
    landed between the call and the decision, **When** the applier runs, **Then** it is refused, a
    note explaining the refusal is written to the ticket, and no ledger entry is created.
+3a. **Given** an allocation ticket marked Accepted, **When** the applier runs, **Then** the payment
+   moves from UNALLOCATED to ALLOCATED against every invoice named in `related_entry_id`, which
+   carries the payment and the invoices it settles as a list, and the move is conditional on the
+   payment still being UNALLOCATED.
+3b. **Given** an allocation ticket whose payment has already been allocated, **When** the applier
+   runs, **Then** nothing is written, because the conditional write refuses it.
+3c. **Given** an allocation ticket naming an invoice the payment does not cover, **When** the
+   applier runs, **Then** it is refused and a note explaining why is written to the ticket. A
+   person accepting a ticket is not evidence the arithmetic works.
 4. **Given** a ticket marked Rejected or Canceled by customer, **When** the applier runs, **Then**
    nothing is written to the ledger.
 5. **Given** a ticket closed without an outcome set, **When** the applier runs, **Then** nothing is
@@ -444,7 +458,11 @@ the ticket carries a note saying it was applied, and running the applier again w
 6. **Given** one malformed ticket among several, **When** the applier runs, **Then** the others are
    still applied and the failure is counted and logged.
 7. **Given** any agent-facing role, **When** it attempts to write the ledger, **Then** IAM denies it,
-   whatever the code attempted.
+   whatever the code attempted. The Deny is explicit and attached to every such role, so a future
+   Allow added by someone who does not know this rule does not reopen the path.
+8. **Given** the applier, **When** its permissions are inspected, **Then** it holds no route in from
+   a call: no API Gateway route, no public endpoint, and an invocation path that starts inside AWS
+   on a schedule.
 
 ---
 
@@ -579,7 +597,8 @@ the ticket carries a note saying it was applied, and running the applier again w
 - **FR-012**: An allocation above the agent's authority MUST be recorded as a ticket carrying the
   payment's entry id, and MUST NOT change the ledger. The payment stays UNALLOCATED until a person
   accepts the proposal. A second caller asking about the same payment MUST be told it is already in
-  process, found from the open ticket rather than from the payment's status.
+  process, found from the open ticket rather than from the payment's status. When a person accepts
+  the ticket, the applier moves the payment to ALLOCATED against the invoices named on it.
 - **FR-013**: A goodwill credit MUST be requested only when every one of these holds: the caller is
   verified; the account is active and not in collections; the claim names a specific existing ledger
   entry; that entry has no open dispute; and no risk or abuse signal triggers. The conversational
@@ -594,6 +613,9 @@ the ticket carries a note saying it was applied, and running the applier again w
 
 - **FR-013f**: When the ceiling cannot be read in full, the request MUST be refused rather than
   raised. An unreadable ceiling is not an empty one.
+
+- **FR-012a**: An allocation ticket MUST carry the payment's entry id and the invoices it settles
+  as a list, so the applier knows what to allocate and to what without re-deriving it.
 
 - **FR-013g**: Only one principal MUST be able to write the financial ledger, and it MUST NOT be
   reachable from a call. It MUST re-read the ledger and re-run the credit rules before writing, and

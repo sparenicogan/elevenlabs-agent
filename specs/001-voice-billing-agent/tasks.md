@@ -294,6 +294,13 @@ writes nothing.
       both `src/adapters/hubspot.py` and `src/handlers/apply_decisions.py` read `customer_id`, so
       the applier fails on every accepted ticket. Set it when raising the ticket in
       `src/handlers/request_credit.py`, which never writes it under either name.
+- [ ] T103a [US9] Write the payment and the invoices it settles into `related_entry_id` as a list
+      in `src/handlers/propose_allocation.py`. It carries only the payment today, so the applier
+      cannot know what to allocate it against.
+- [ ] T103b [US9] Apply accepted allocations in `src/handlers/apply_decisions.py`: move the payment
+      to ALLOCATED against every invoice named, conditional on it still being UNALLOCATED, and
+      refuse with a note when the payment does not cover them. Today an allocation ticket is
+      counted as `already_applied` and silently does nothing.
 - [ ] T103 [P] [US9] Write `tests/contract/test_apply_decisions.py` cases for a ticket closed with
       no outcome, and for Canceled by customer, neither of which is currently covered.
 - [ ] T104 [US9] Write `tests/integration/test_applier.py`: raise a real request, mark the ticket
@@ -301,6 +308,9 @@ writes nothing.
       second run writes nothing.
 - [ ] T105 [P] [US9] Assert the ledger Deny holds, in `tests/integration/test_iam.py`, using
       `iam:SimulatePrincipalPolicy` against every agent-facing role.
+- [ ] T106a [US9] Log the per-run counts from `apply_decisions`: the line currently reads
+      `apply run complete` with no numbers, so a run failing on every ticket is indistinguishable
+      from a run with nothing to do.
 - [ ] T106 [US9] Confirm the applier's EventBridge schedule is firing and its failures are visible:
       a run that writes nothing because every ticket is malformed currently looks identical to a
       run with nothing to do.
