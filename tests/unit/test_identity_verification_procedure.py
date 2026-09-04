@@ -18,6 +18,11 @@ def steps() -> list[dict]:
     return json.loads(PROCEDURE.read_text())["steps"]
 
 
+def _branch_for(step: dict, outcome: str) -> dict:
+    """The branch handling one outcome, found by what it is for rather than its position."""
+    return next(b for b in step["branches"] if outcome in b["condition"]["condition"])
+
+
 def _tools(steps: list[dict]) -> list[str]:
     """Every tool named anywhere in the procedure, including inside branches."""
     found = []
@@ -43,7 +48,7 @@ def test_verify_identity_runs_last_and_once(steps):
 
 
 def test_a_misheard_email_is_spelled_out_rather_than_guessed(steps):
-    recovery = steps[3]["branches"][0]
+    recovery = _branch_for(steps[3], "NOT_MATCHED")
     instruction = recovery["steps"][0]["instruction"].lower()
     assert "letter by letter" in instruction
     assert "do not suggest a correction" in instruction
@@ -53,7 +58,7 @@ def test_a_misheard_email_is_spelled_out_rather_than_guessed(steps):
 def test_an_ambiguous_date_is_clarified_by_naming_the_month(steps):
     """ "11 6 1994" is two different days. Naming the month in words is the only way to ask
     that does not depend on which order the caller assumes."""
-    clarify = steps[8]["branches"][0]["steps"][0]["instruction"].lower()
+    clarify = _branch_for(steps[8], "AMBIGUOUS")["steps"][0]["instruction"].lower()
     assert "month in words" in clarify
     assert "not about whether it is right" in clarify
 
@@ -61,10 +66,11 @@ def test_an_ambiguous_date_is_clarified_by_naming_the_month(steps):
 def test_the_failing_path_does_not_explain_itself(steps):
     """FR-004. The per-factor checks are an oracle by design; the final refusal is not."""
     final = steps[-1]
+    # Selected by what the branch is for, not by position: a branch added at the front for an
+    # outage should not silently move the assertion onto a different outcome.
+    refusing = [b["steps"] for b in final["branches"] if "LOCKED" in b["condition"]["condition"]]
     refusals = " ".join(
-        s.get("instruction", "")
-        for outcome in [b["steps"] for b in final["branches"][1:]] + [final["fallback"]]
-        for s in outcome
+        s.get("instruction", "") for outcome in refusing + [final["fallback"]] for s in outcome
     ).lower()
     assert "never say why" in refusals
     assert "never say which detail" in refusals
@@ -78,6 +84,22 @@ def test_both_decisions_survive_the_backend_being_down(steps):
             assert "retry" not in [s["type"] for s in fallback]
             text = " ".join(s.get("instruction", "") for s in fallback)
             assert "nothing has changed" in text.lower()
+
+
+def test_an_outage_is_never_reported_as_a_failed_check(steps):
+    """The handlers answer 200 with SERVICE_UNAVAILABLE in the body, so an outage arrives as
+    a result rather than as a tool failure. Without a branch for it the agent is left reading
+    a status it has no instruction for, next to instructions about details not matching."""
+    for step in steps:
+        if step["type"] != "branch":
+            continue
+        unavailable = [
+            b for b in step["branches"] if "SERVICE_UNAVAILABLE" in b["condition"]["condition"]
+        ]
+        assert unavailable, "a branch with no outage path"
+        said = unavailable[0]["steps"][0]["instruction"].lower()
+        assert "nothing has changed" in said
+        assert "do not say whether any detail" in said
 
 
 def test_the_removed_factor_is_asked_for_nowhere(steps):

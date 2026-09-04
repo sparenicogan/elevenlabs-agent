@@ -28,6 +28,18 @@
         {
           "condition": {
             "type": "llm",
+            "condition": "the tool returned status SERVICE_UNAVAILABLE"
+          },
+          "steps": [
+            {
+              "type": "tell",
+              "instruction": "Tell the caller the check could not be completed just now and nothing has changed on the account. Do not say whether any detail they gave was right \u2014 you do not know. Offer to have a colleague call them back."
+            }
+          ]
+        },
+        {
+          "condition": {
+            "type": "llm",
             "condition": "check_factor returned NOT_MATCHED"
           },
           "steps": [
@@ -68,6 +80,18 @@
         {
           "condition": {
             "type": "llm",
+            "condition": "the tool returned status SERVICE_UNAVAILABLE"
+          },
+          "steps": [
+            {
+              "type": "tell",
+              "instruction": "Tell the caller the check could not be completed just now and nothing has changed on the account. Do not say whether any detail they gave was right \u2014 you do not know. Offer to have a colleague call them back."
+            }
+          ]
+        },
+        {
+          "condition": {
+            "type": "llm",
             "condition": "check_factor returned AMBIGUOUS"
           },
           "steps": [
@@ -100,6 +124,18 @@
     {
       "type": "branch",
       "branches": [
+        {
+          "condition": {
+            "type": "llm",
+            "condition": "the tool returned status SERVICE_UNAVAILABLE"
+          },
+          "steps": [
+            {
+              "type": "tell",
+              "instruction": "Tell the caller the check could not be completed just now and nothing has changed on the account. Do not say whether any detail they gave was right \u2014 you do not know. Offer to have a colleague call them back."
+            }
+          ]
+        },
         {
           "condition": {
             "type": "llm",
