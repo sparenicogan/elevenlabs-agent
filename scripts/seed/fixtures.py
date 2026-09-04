@@ -17,6 +17,8 @@ fixtures do not go stale between rehearsals.
 import hashlib
 from datetime import date, timedelta
 
+from src.domain.verification import Factor, lookup_key
+
 TODAY = date.today()
 
 # Deterministic 7-digit payment references. Random-looking but stable across seed runs, so a
@@ -696,6 +698,11 @@ def _contact(company: dict, source: dict) -> dict:
         },
         "phone": source.get("phone", phone),
         "email": source["email"],
+        # Indexed forms. Written here rather than derived at query time because a GSI can
+        # only be searched on a stored value, and a caller says "oh four four" where the
+        # record says "+41 44".
+        "phone_lookup": lookup_key(Factor.PHONE, source.get("phone", phone)),
+        "email_lookup": lookup_key(Factor.EMAIL, source["email"]),
         "account_status": "ACTIVE",
         "preferred_language": company["language"],
         # One identifier per thing, across the whole stack. The company's HubSpot id is the

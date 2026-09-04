@@ -25,6 +25,7 @@ from src.domain.verification import (
     check_factors,
     fingerprint,
     is_enumerating,
+    lookup_key,
 )
 
 IDENTITY_TABLE = "customer-identity"
@@ -103,10 +104,8 @@ def _verify(conversation_id: str, body: dict) -> dict:
         required_count=settings.required_factor_count,
     )
 
-    # Distinct wrong values, not failed calls. The agent resends every factor it has
-    # gathered, so one mistyped answer arrives on every subsequent turn; counting calls
-    # would exhaust a three-strike allowance three turns after a single typo, however
-    # correct everything the caller says afterwards is.
+    # Distinct wrong values per field, not failed calls and not a total across fields. Three
+    # answers offered together that cannot be matched is one failed attempt, not three.
     wrong_count = conversation_state.record_wrong_values(
         conversation_id, _wrong_fingerprints(supplied, outcome)
     )
@@ -194,25 +193,26 @@ def _display_fields(record: dict) -> dict[str, str]:
     return {f: str(record[f]) for f in fields if record.get(f) is not None}
 
 
-def _wrong_fingerprints(supplied: dict[Factor, str], outcome) -> set[str]:
+def _wrong_fingerprints(supplied: dict[Factor, str], outcome) -> dict[str, str]:
     """
     Fingerprints only the answers that did not match.
 
     supplied: this attempt's answers.
     outcome:  the rule's decision, which knows internally which factors mismatched.
 
-    Returns: fingerprints of the wrong values, so the lockout counts how many different
-             things a caller has tried rather than how many times they were told no.
+    Returns: field name to fingerprint, for the wrong values only, so the lockout counts how
+             many different things a caller has tried for one field rather than how many
+             times they were told no.
 
     The mismatched set is used here and nowhere else. It never reaches a response: telling a
     caller which answer failed is precisely the oracle the gate exists to deny them (FR-004).
     """
     if not outcome.mismatched_factors:
-        return set()
+        return {}
 
     salt = secrets.get("verification/attempt-salt")
     return {
-        fingerprint(factor, supplied[factor], salt)
+        factor.value: fingerprint(factor, supplied[factor], salt)
         for factor in outcome.mismatched_factors
         if factor in supplied
     }
@@ -319,11 +319,11 @@ def _resolve_contact(body: dict, supplied: dict[Factor, str]) -> str | None:
     whichever record is chosen.
     """
     for factor, index, attribute in (
-        (Factor.EMAIL, "email-index", "email"),
-        (Factor.PHONE, "phone-index", "phone"),
+        (Factor.EMAIL, "email-index", "email_lookup"),
+        (Factor.PHONE, "phone-index", "phone_lookup"),
     ):
         if factor in supplied:
-            resolved = _lookup(index, attribute, supplied[factor])
+            resolved = _lookup(factor, index, attribute, supplied[factor])
             if resolved:
                 return resolved
 
@@ -331,23 +331,29 @@ def _resolve_contact(body: dict, supplied: dict[Factor, str]) -> str | None:
     return candidate.strip() if isinstance(candidate, str) and candidate.strip() else None
 
 
-def _lookup(index: str, attribute: str, value: str) -> str | None:
+def _lookup(factor: Factor, index: str, attribute: str, value: str) -> str | None:
     """
     Finds a customer by one of the identifiers they might quote.
 
+    factor:    which identifier, so it is normalised the way the comparison normalises it.
     index:     the secondary index to query.
-    attribute: its hash key.
+    attribute: its hash key, which holds the normalised form.
     value:     what the caller said.
 
     Returns: the contact id, or None when nothing matches — which is deliberately
              indistinguishable downstream from an answer that matched nothing, since a
              response that distinguished them would say whether an address is on file.
+
+    More than one hit resolves nobody. Normalisation merges addresses that differ only by a
+    hyphen, and picking one of two people arbitrarily would let a caller be checked against a
+    record that is not theirs.
     """
-    normalised = value.strip().casefold() if attribute == "email" else value.strip()
     hits = dynamo.query(
-        IDENTITY_TABLE, index=index, KeyConditionExpression=Key(attribute).eq(normalised)
+        IDENTITY_TABLE,
+        index=index,
+        KeyConditionExpression=Key(attribute).eq(lookup_key(factor, value)),
     )
-    return hits[0]["contact_id"] if hits else None
+    return hits[0]["contact_id"] if len(hits) == 1 else None
 
 
 def _stored_factors(record: dict) -> dict[Factor, str]:

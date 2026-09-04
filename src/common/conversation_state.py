@@ -251,42 +251,48 @@ def record_factor_attempts(
     return {field: len(values) for field, values in seen.items()}, offered_something_new
 
 
-def record_wrong_values(conversation_id: str, fingerprints: set[str]) -> int:
+def record_wrong_values(conversation_id: str, fingerprints: dict[str, str]) -> int:
     """
-    Records the distinct wrong values a caller has offered, and returns how many there are.
+    Records the distinct wrong values a caller has offered, and returns the worst field.
 
     conversation_id: the call.
-    fingerprints:    fingerprints of the values that did not match, from
+    fingerprints:    field name to the fingerprint of the value that did not match, from
                      verification.fingerprint. Never the values themselves.
 
-    Returns: how many distinct wrong values this call has now seen.
+    Returns: the largest number of distinct wrong values offered for any one field.
 
     Distinct values rather than failed calls, and this is the difference between a fair
     lockout and a hostile one. The agent resends every factor it has gathered, so one
     mistyped email arrives on every subsequent turn. Counting calls exhausts a three-strike
     allowance three turns after a single typo, however correct everything the caller says
     afterwards is.
+
+    Per field, and worst-field rather than total, for the same reason. A caller who gives
+    their email, phone and date of birth in one breath and cannot be found offers three wrong
+    values at once — that is one failed attempt, not three, and counting it as three locked
+    an honest caller on his opening sentence during the first voice test. Someone working
+    through three different emails is the case this exists to stop, and that still trips it.
     """
-    if not fingerprints:
-        record = dynamo.get(_TABLE, {"conversation_id": conversation_id}) or {}
-        return len(record.get("wrong_values") or [])
-
     record = dynamo.get(_TABLE, {"conversation_id": conversation_id}) or {}
-    seen = set(record.get("wrong_values") or [])
-    seen |= fingerprints
+    seen = {field: set(values) for field, values in (record.get("wrong_values") or {}).items()}
 
-    dynamo.upsert(
-        _TABLE,
-        {"conversation_id": conversation_id},
-        UpdateExpression=(
-            "SET wrong_values = :wrong, started_at = if_not_exists(started_at, :now)"
-        ),
-        ExpressionAttributeValues={
-            ":wrong": sorted(seen),
-            ":now": datetime.now(UTC).isoformat(),
-        },
-    )
-    return len(seen)
+    if fingerprints:
+        for field, value in fingerprints.items():
+            seen.setdefault(field, set()).add(value)
+
+        dynamo.upsert(
+            _TABLE,
+            {"conversation_id": conversation_id},
+            UpdateExpression=(
+                "SET wrong_values = :wrong, started_at = if_not_exists(started_at, :now)"
+            ),
+            ExpressionAttributeValues={
+                ":wrong": {field: sorted(values) for field, values in seen.items()},
+                ":now": datetime.now(UTC).isoformat(),
+            },
+        )
+
+    return max((len(values) for values in seen.values()), default=0)
 
 
 def recent_conversations(customer_id: str, limit: int = 50) -> list[dict]:

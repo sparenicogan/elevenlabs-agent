@@ -423,7 +423,7 @@ class TestResendingIsNotRetrying:
                 factor(Factor.PHONE, RECORD["phone"]),
             ],
         )
-        assert stubs["wrong"].call_args.args[1] == set()
+        assert stubs["wrong"].call_args.args[1] == {}
 
     def test_the_same_wrong_value_fingerprints_identically_every_turn(self, stubs):
         """Which is what makes the set converge rather than grow. One typo is one strike,
@@ -461,3 +461,69 @@ class TestResendingIsNotRetrying:
             ],
         )
         assert result["status"] == "VERIFIED"
+
+
+def _queried_values(stubs) -> list:
+    """Every value the handler looked a caller up by, across all its index queries."""
+    return [
+        c.kwargs["KeyConditionExpression"].get_expression()["values"][1]
+        for c in stubs["query"].call_args_list
+        if "KeyConditionExpression" in c.kwargs
+    ]
+
+
+class TestTheFirstVoiceCall:
+    """The regression that motivated all of this. Every earlier test was text; the first
+    spoken call locked an honest caller on his opening sentence.
+
+    He spelled his address aloud, the transcript lost the hyphen in "alpina-tech", and the
+    phone number he then recited correctly could not rescue it because the lookup was
+    querying a formatted string. With no record resolved, all three of his answers -- two of
+    them right -- were scored wrong, and three wrong values was the whole allowance.
+    """
+
+    def test_an_email_missing_a_hyphen_still_finds_him(self, stubs):
+        """ "klaus.mueller@alpinatech.ch" is what a spelled-out address transcribes to."""
+        from src.domain.verification import Factor, lookup_key
+
+        call(stubs, [factor(Factor.EMAIL, "klaus.mueller@alpinatech.ch")])
+        assert lookup_key(Factor.EMAIL, RECORD["email"]) in _queried_values(stubs)
+
+    def test_a_spoken_phone_number_still_finds_him(self, stubs):
+        """He said "044 501 22 18"; the record says "+41 44 501 22 18". The comparison always
+        knew these were the same number. The lookup did not."""
+        from src.domain.verification import Factor, lookup_key
+
+        call(stubs, [factor(Factor.PHONE, "044-501-2218")])
+        assert lookup_key(Factor.PHONE, RECORD["phone"]) in _queried_values(stubs)
+
+    def test_two_people_sharing_a_normalised_address_resolve_nobody(self, stubs):
+        """Dropping hyphens merges addresses that were distinct. Picking one of them would
+        check a caller against someone else's record."""
+        stubs["query"].return_value = [{"contact_id": "859557757171"}, {"contact_id": "859999"}]
+        call(stubs, [factor(Factor.EMAIL, "klaus.mueller@alpinatech.ch")])
+        stubs["get"].assert_not_called()
+
+    def test_three_answers_that_resolve_nobody_is_one_failed_attempt(self, stubs):
+        """Not three. This is what locked him: a caller who gives email, phone and date of
+        birth in one breath and cannot be found has failed once."""
+        from src.domain.verification import Factor
+
+        stubs["query"].return_value = []
+        stubs["get"].return_value = None
+        call(
+            stubs,
+            [
+                factor(Factor.EMAIL, "klaus.mueller@alpinatech.ch"),
+                factor(Factor.PHONE, "044-501-2218"),
+                factor(Factor.DATE_OF_BIRTH, "1974-03-12"),
+            ],
+        )
+        wrong = stubs["wrong"].call_args.args[1]
+        assert set(wrong) == {"email", "phone", "date_of_birth"}
+        assert max(len({v}) for v in wrong.values()) == 1
+
+    def test_working_through_three_addresses_still_locks(self, stubs):
+        """The behaviour the counter exists for, unaffected by the fix."""
+        stubs["wrong"].return_value = 3
+        assert call(stubs, [factor(Factor.EMAIL, "guess@x.ch")])["status"] == "LOCKED"
