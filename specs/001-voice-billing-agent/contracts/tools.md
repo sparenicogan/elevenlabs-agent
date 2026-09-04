@@ -75,6 +75,7 @@ tell you right now", never as an answer (FR-011).
   "covers_invoice": true,                // present only on MATCH
   "requires_human_allocation": true,
   "address_discrepancy": true,           // present only on MATCH
+  "payer_address": "Alte Landstrasse 88, 8702 Zollikon",  // MATCH, and only when it differs
   "missing_fields": ["claimed_execution_date"] }  // INSUFFICIENT only
 ```
 
@@ -82,8 +83,11 @@ tell you right now", never as an answer (FR-011).
   recorded date, never after (FR-010a, FR-010b).
 - `NO_MATCH` when a supplied value differs; `INSUFFICIENT` when a field is absent or more than one
   candidate payment fits.
-- Never returns the stored amount, date, reference, or payer address (FR-010). `address_discrepancy`
-  is a boolean, not the address.
+- Never returns the stored amount, date or reference (FR-010).
+- Returns `payer_address` only on a MATCH and only when it differs from the address on file. By
+  then the caller has proved who they are and proved the payment is theirs by stating its amount
+  and exact date, so it cannot be fished for — and asking whether it is a typo without saying
+  what it is asks someone to confirm what they cannot see. The address on file is never returned.
 - Never returns `MATCH` for a payment that is not in a settled state (FR-010d).
 
 ## `propose_allocation`

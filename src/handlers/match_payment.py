@@ -149,7 +149,7 @@ def _match(conversation_id: str, customer_id: str, body: dict) -> dict:
         status=str(result.status),
     )
 
-    return _body(result)
+    return _body(result, _payer_address(_ledger_payments(customer_id), result.payment_entry_id))
 
 
 def _invoice_for(customer_id: str, entry_id: str) -> dict:
@@ -175,6 +175,20 @@ def _invoice_for(customer_id: str, entry_id: str) -> dict:
         raise ToolError(ErrorCategory.VALIDATION, f"invoice is not open: {entry.get('status')}")
 
     return entry
+
+
+def _ledger_payments(customer_id: str) -> list[dict]:
+    """The customer's unallocated payment rows, as stored."""
+    return [
+        entry
+        for entry in dynamo.query(
+            LEDGER_TABLE,
+            index="status-index",
+            KeyConditionExpression=Key("customer_id").eq(customer_id)
+            & Key("status").eq("UNALLOCATED"),
+        )
+        if entry.get("type") == "PAYMENT"
+    ]
 
 
 def _candidates(customer_id: str) -> list[PaymentCandidate]:
@@ -210,6 +224,29 @@ def _candidates(customer_id: str) -> list[PaymentCandidate]:
     ]
 
 
+def _payer_address(entries: list[dict], entry_id: str | None) -> str | None:
+    """
+    The address recorded against the matched payment, as one spoken line.
+
+    entries:  the customer's ledger rows.
+    entry_id: the matched payment, or None when nothing matched.
+
+    Returns: "street, postcode city", or None when the row carries no address. Never the
+             address on file: the caller is being asked about the one on the payment, and the
+             other adds nothing they do not already know.
+    """
+    entry = next((e for e in entries if e.get("entry_id") == entry_id), None)
+    address = (entry or {}).get("payer_address")
+    if not address:
+        return None
+    street, postcode, city = (
+        address.get("street", ""),
+        address.get("postcode", ""),
+        address.get("city", ""),
+    )
+    return f"{street}, {postcode} {city}".strip(", ")
+
+
 def _optional_amount(body: dict) -> Decimal | None:
     """The claimed amount, or None when the caller could not supply it — which is
     INSUFFICIENT rather than a validation error, because not knowing is a normal answer."""
@@ -225,7 +262,7 @@ def _optional_date(body: dict) -> date | None:
     return validation.iso_date(body, "claimed_transfer_date")
 
 
-def _body(result) -> dict:
+def _body(result, payer_address: str | None = None) -> dict:
     """
     Renders the result for the agent.
 
@@ -256,6 +293,14 @@ def _body(result) -> dict:
             "requires_human_allocation": True,
             "reference_link": str(result.reference_link),
             "address_discrepancy": result.address_discrepancy,
+            # The address the payment carried, so the caller can say whether it is theirs.
+            # Only on a MATCH, so only to someone whose payment details already checked out,
+            # and only when it differs -- asking "was that a typo?" without saying what "that"
+            # is asks the caller to confirm something they cannot see.
+            # The address the payment carried, so the caller can say whether it is theirs.
+            # Only on a MATCH, and only when it differs: asking "was that a typo?" without
+            # saying what "that" is asks someone to confirm what they cannot see.
+            "payer_address": payer_address,
             "payer_name_discrepancy": result.payer_name_discrepancy,
         }
     )

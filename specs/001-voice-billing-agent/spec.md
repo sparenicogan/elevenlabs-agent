@@ -382,6 +382,10 @@ evidence on the escalation, promises human correction, and writes nothing to the
 3. **Given** the caller answers, **When** the agent responds, **Then** the answer is recorded as
    evidence against the conversation, the agent says a person will take care of the correction, and
    no address field is changed by the agent.
+2a. **Given** the payment is confirmed and under review, **When** the agent raises the
+   discrepancy, **Then** it reads out the address recorded on the payment, because a caller
+   cannot say whether an address is a typo without hearing it. The address on file is never read
+   out, and neither is anything else stored.
 4. **Given** the escalation ticket already exists for the allocation review, **When** the discrepancy
    is recorded, **Then** it is attached to that same ticket rather than creating a second one.
 5. **Given** any identity or financial field, **When** a conflict is found, **Then** the backend
