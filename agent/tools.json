@@ -2,7 +2,7 @@
   {
     "type": "webhook",
     "name": "verify_identity",
-    "description": "Check identifying details the caller has given. Returns VERIFIED, PARTIALLY_VERIFIED, FAILED or LOCKED, and how many factors are confirmed. It never says which detail was wrong and never returns the expected answer. Disclose no financial information of any kind until it returns VERIFIED.",
+    "description": "Check the identifying details the caller has given. Returns VERIFIED, PARTIALLY_VERIFIED, FAILED or LOCKED, and how many factors are confirmed. It never says which detail was wrong and never returns the expected answer. Disclose no financial information of any kind until it returns VERIFIED.",
     "response_timeout_secs": 5,
     "force_pre_tool_speech": true,
     "pre_tool_speech": "auto",
@@ -47,6 +47,46 @@
                 "value"
               ]
             }
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "check_factor",
+    "description": "Check one identifying detail on its own, so a misheard answer can be corrected while the caller is still on that question. Returns MATCHED, NOT_MATCHED, or AMBIGUOUS with the two possible readings when a spoken date could mean two different days. It never returns the stored value and never decides anything: verify_identity makes the decision, and this does not move the caller past it.",
+    "response_timeout_secs": 5,
+    "force_pre_tool_speech": false,
+    "pre_tool_speech": "auto",
+    "api_schema": {
+      "url": "/tools/check-factor",
+      "method": "POST",
+      "request_headers": {},
+      "request_body_schema": {
+        "type": "object",
+        "required": [
+          "conversation_id",
+          "field",
+          "value"
+        ],
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "dynamic_variable": "system__conversation_id"
+          },
+          "field": {
+            "type": "string",
+            "description": "Which detail this is.",
+            "enum": [
+              "email",
+              "phone",
+              "date_of_birth"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "description": "Exactly what the caller said, not corrected or reformatted."
           }
         }
       }

@@ -86,7 +86,7 @@ def _verify(conversation_id: str, body: dict) -> dict:
         conversation_id, contact_id, supplied, settings
     )
     if enumerated:
-        return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, None, False)
+        return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, False)
 
     # An unknown customer is carried through the rule with an empty record rather than
     # returned early, so "no such customer" produces the same response as wrong answers and
@@ -96,7 +96,7 @@ def _verify(conversation_id: str, body: dict) -> dict:
 
     if record and _is_locked(record):
         log.info("verification locked", conversation_id=conversation_id, status="LOCKED")
-        return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, None, False)
+        return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, False)
 
     outcome = check_factors(
         supplied=supplied,
@@ -125,7 +125,7 @@ def _verify(conversation_id: str, body: dict) -> dict:
             status="LOCKED",
             attempt=wrong_count,
         )
-        return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, None, False)
+        return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, False)
 
     candidate = body.get("candidate_customer_id")
     if candidate and contact_id and candidate.strip() and candidate.strip() != contact_id:
@@ -162,7 +162,6 @@ def _verify(conversation_id: str, body: dict) -> dict:
         outcome.status,
         outcome.confirmed_count,
         outcome.required_count,
-        outcome.next_factor_hint,
         outcome.personal_satisfied,
     )
 
@@ -436,13 +435,12 @@ def _record_attempt(record: dict, outcome, max_attempts: int, wrong_count: int) 
     )
 
 
-def _body(status, confirmed: int, required: int, hint, personal: bool) -> dict:
+def _body(status, confirmed: int, required: int, personal: bool) -> dict:
     """Builds the response defined in contracts/tools.md."""
     return {
         "status": str(status),
         "factors_confirmed": confirmed,
         "factors_required": required,
-        "next_factor_hint": str(hint) if hint else None,
         "personal_factor_satisfied": personal,
     }
 

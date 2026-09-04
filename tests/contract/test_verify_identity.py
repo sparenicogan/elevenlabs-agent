@@ -111,13 +111,11 @@ class TestVerification:
         call(stubs, [factor(Factor.EMAIL, RECORD["email"])])
         stubs["set_verification"].assert_not_called()
 
-    def test_the_response_carries_a_field_name_and_never_a_value(self, stubs):
+    def test_the_response_never_carries_a_stored_value(self, stubs):
+        """It no longer suggests what to ask for either: the procedure fixes the order, and a
+        backend hint would be a second voice contradicting it."""
         result = call(stubs, [factor(Factor.CUSTOMER_ID, RECORD["account_id"])])
-        assert result["next_factor_hint"] in {
-            "email",
-            "phone",
-            "date_of_birth",
-        }
+        assert "next_factor_hint" not in result
         echoed_back = {RECORD["account_id"], RECORD["contact_id"]}
         for field, stored_value in RECORD.items():
             if stored_value in echoed_back or field == "failed_verification_attempts":

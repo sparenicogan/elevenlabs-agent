@@ -1522,3 +1522,49 @@ reacting to a failure.
 example in the prompt was found and deleted; this was the second source and the stronger one,
 because an enum in a function schema is a list of valid choices rather than prose the model
 may or may not weigh.
+
+### 12.47 The backend stops suggesting what to ask next
+
+**Decision.** `ASK_ORDER`, `_next_hint` and `next_factor_hint` are removed. The response says
+how many factors are confirmed and whether a personal one is among them, and nothing about
+what to ask for.
+
+**Cost.** A caller who cannot produce the detail being asked for no longer has the backend
+steering them to one they can. That guidance now has to live in the procedure, which is a
+fixed order rather than an adaptive one.
+
+**Why.** The procedure decides the sequence. A hint in the tool response is a second voice
+telling the agent something different, and when two sources disagree the model picks — which
+is the failure mode this whole line of work exists to remove. Deleting the hint also removes
+a response field that had to be checked for leaking a value; a field that does not exist
+cannot leak.
+
+### 12.48 One detail at a time, then the decision
+
+**Decision.** A `check_factor` endpoint checks a single detail and returns MATCHED,
+NOT_MATCHED, or AMBIGUOUS. The procedure asks for each detail, checks it, recovers if it did
+not land, and calls `verify_identity` only once everything is gathered. `verify_identity`
+still makes the decision and is unchanged.
+
+**Cost.** Real, and bought deliberately: `check_factor` tells the caller which detail failed,
+which is the enumeration oracle the final verification refuses to be. Someone can now confirm
+whether an address is on file. Four round trips instead of one, too.
+
+**Why.** A voice call loses things a text one does not, and it loses them per detail. A Swiss
+surname arrives misspelled; the caller is asked to spell it while still on that question, and
+the call recovers. Checked only at the end, the same call fails with nothing to point at.
+The bar itself has not moved: knowing an email exists says nothing about who is holding the
+phone, and the full set is still required.
+
+### 12.49 An ambiguous date is a question about the sentence
+
+**Decision.** `ambiguous_date()` detects a spoken date that could be read two ways and the
+procedure asks which was meant, naming the month in words. Detected before the record is
+read.
+
+**Cost.** An extra exchange whenever both numbers are twelve or under.
+
+**Why.** "11 6 1994" is the 11th of June or the 6th of November and the string does not say
+which. Guessing is wrong half the time, silently. Because the check runs before anything is
+looked up, asking reveals nothing about the caller — it is a question about what was written
+down, which is why it can be asked every time it applies.

@@ -110,6 +110,78 @@ resource "aws_lambda_permission" "verify_identity" {
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
 }
 
+# --- check_factor --------------------------------------------------------------------
+# Reads the identity table to say whether one detail landed, so a misheard name or an
+# ambiguous date can be corrected while the caller is still on that question. Reads only:
+# the lockout counter and the decision both belong to verify_identity.
+
+data "aws_iam_policy_document" "check_factor" {
+  source_policy_documents = [data.aws_iam_policy_document.deny_ledger_writes.json]
+
+  statement {
+    effect    = "Allow"
+    actions   = ["dynamodb:GetItem", "dynamodb:Query"]
+    resources = [aws_dynamodb_table.customer_identity.arn, "${aws_dynamodb_table.customer_identity.arn}/index/*"]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+    resources = [aws_dynamodb_table.conversations.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
+    resources = [aws_kms_key.identity.arn, aws_kms_key.data.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.tool_api_key.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["ssm:GetParametersByPath"]
+    resources = ["arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.project}/policy"]
+  }
+}
+
+module "check_factor" {
+  source = "./modules/lambda"
+
+  name         = "check-factor"
+  project      = var.project
+  handler      = "src.handlers.check_factor.handler"
+  package_path = local.lambda_package
+  environment  = local.common_environment
+  policy_json  = data.aws_iam_policy_document.check_factor.json
+}
+
+resource "aws_apigatewayv2_integration" "check_factor" {
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.check_factor.invoke_arn
+  payload_format_version = "2.0"
+  timeout_milliseconds   = 5000
+}
+
+resource "aws_apigatewayv2_route" "check_factor" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /tools/check-factor"
+  target    = "integrations/${aws_apigatewayv2_integration.check_factor.id}"
+}
+
+resource "aws_lambda_permission" "check_factor" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.check_factor.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
+}
+
 # --- get_account_context -----------------------------------------------------------
 # Reads the ledger and the identity record, but only after the conversation is verified.
 # No write permission anywhere: this handler answers questions, it does not change anything.
