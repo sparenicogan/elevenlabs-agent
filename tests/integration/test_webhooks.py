@@ -135,7 +135,13 @@ class TestPostCall:
         body = response.json()
         assert body["status"] == "OK"
         # Every step ran. A partial list means one of them raised.
-        assert set(body["completed"]) == {"transcript", "metrics", "summary", "preferences"}
+        assert set(body["completed"]) == {
+            "transcript",
+            "metrics",
+            "summary",
+            "preferences",
+            "transfer",
+        }
 
     def test_a_forged_signature_is_rejected(self, endpoint, webhook_secret):
         payload = {"conversation_id": f"itest_{uuid.uuid4().hex[:10]}"}
