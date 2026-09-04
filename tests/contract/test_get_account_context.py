@@ -217,3 +217,27 @@ class TestSummary:
         stubs["get"].return_value = {"summary_text": "x" * 5000}
         result = call(stubs)
         assert len(result["summary_text"]) == 2000
+
+
+class TestASettledInvoiceIsStillDiscussable:
+    """A caller disputing a line on something they have already paid is the ordinary case for
+    a credit. With only open invoices in the response, the agent had no charge to attach one
+    to and escalated a request it could have handled."""
+
+    def test_paid_invoices_are_returned_too(self, stubs):
+        result = call(stubs)
+        assert "recent_invoices" in result
+
+    def test_they_are_kept_apart_from_what_is_owed(self, stubs):
+        """A settled invoice must never count towards the outstanding total."""
+        result = call(stubs)
+        for invoice in result["recent_invoices"]:
+            assert invoice["status"] not in ("OPEN", "OVERDUE")
+        assert result["open_invoice_count"] == len(result["open_invoices"])
+
+    def test_the_newest_settled_invoice_comes_first(self, stubs):
+        """ "my latest invoice" is what a caller says, so it is what the agent should reach
+        for first."""
+        recent = call(stubs)["recent_invoices"]
+        dates = [i["issued_date"] for i in recent]
+        assert dates == sorted(dates, reverse=True)

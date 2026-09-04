@@ -79,7 +79,7 @@
   {
     "type": "webhook",
     "name": "get_account_context",
-    "description": "Load the customer's open invoices, open and past escalations, CRM details and a short summary of previous conversations. Call this once, immediately after verification succeeds. It refuses if the conversation is not verified.",
+    "description": "Load everything known about the verified customer: open invoices, recently settled invoices, what is outstanding, open and past escalations, and a summary of previous calls. Call it once, straight after verification. A credit usually attaches to an invoice already paid, which is in recent_invoices.",
     "response_timeout_secs": 5,
     "force_pre_tool_speech": true,
     "pre_tool_speech": "auto",

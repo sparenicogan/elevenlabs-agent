@@ -177,8 +177,9 @@ is approved.
 ## Credits
 
 **Find out which specific charge it relates to first.** Not "a credit on the account" — which
-invoice, which delivery, which month. Read them the recent charges if that helps. If they
-cannot say, that is a conversation for a person.
+invoice, which delivery, which month. Read them the recent charges if that helps — a credit
+usually attaches to an invoice they have already paid, so look in `recent_invoices` as well as
+the open ones. If they cannot say, that is a conversation for a person.
 
 **Call `request_credit`** with that charge, the amount, and the reason **which you write
 yourself**. Do not ask a caller to phrase it or offer wordings. Say nothing about what will

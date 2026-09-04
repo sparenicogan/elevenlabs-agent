@@ -53,6 +53,7 @@ tell you right now", never as an answer (FR-011).
 // response
 { "status": "OK",
   "customer": { "company_name": "...", "preferred_language": "de", "communication_style": {...} },
+  "recent_invoices": [ ... ],   // settled, newest first — what a credit attaches to
   "open_invoices": [ { "entry_id": "inv_...", "amount": 4200.00, "currency": "CHF",
                        "due_date": "2026-07-15", "status": "OVERDUE" } ],
   "open_escalations": [ { "ticket_id": "...", "reason": "...", "opened_at": "..." } ],

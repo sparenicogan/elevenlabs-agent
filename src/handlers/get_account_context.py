@@ -80,7 +80,7 @@ def _context_for(conversation_id: str, customer_id: str, display: dict) -> dict:
              ledger and are always present; CRM fields come from HubSpot and may be absent.
     """
     settings = policy_module.load()
-    invoices = _open_invoices(customer_id)
+    invoices, recent = _invoices(customer_id)
     crm, escalations = _crm_context(display)
 
     log.info(
@@ -99,6 +99,10 @@ def _context_for(conversation_id: str, customer_id: str, display: dict) -> dict:
         },
         "open_invoices": invoices[:MAX_INVOICES],
         "open_invoice_count": len(invoices),
+        # Settled invoices too, newest first. A caller disputing a line on something they have
+        # already paid is the ordinary case for a credit, and with only open invoices the
+        # agent had no charge to attach one to and escalated a request it could have handled.
+        "recent_invoices": recent[:MAX_INVOICES],
         "total_outstanding": _total(invoices),
         "open_escalations": [t for t in escalations if t.get("open")],
         "past_escalations": [t for t in escalations if not t.get("open")],
@@ -107,16 +111,16 @@ def _context_for(conversation_id: str, customer_id: str, display: dict) -> dict:
     }
 
 
-def _open_invoices(customer_id: str) -> list[dict]:
+def _invoices(customer_id: str) -> tuple[list[dict], list[dict]]:
     """
-    Reads the customer's unsettled invoices, oldest due date first.
+    Reads the customer's invoices.
 
     customer_id: the verified customer.
 
-    Returns: one dict per open or overdue invoice, carrying the identifiers the agent needs
-             to discuss it and the numbers it may read aloud. A failure raises rather than
-             returning an empty list — an empty list must mean 'nothing owed', never 'could
-             not tell' (Principle III).
+    Returns: (open or overdue, oldest due date first) and (settled, newest issued first).
+             Both carry the identifiers the agent needs to discuss an invoice and the numbers
+             it may read aloud. A failure raises rather than returning empty lists — an empty
+             list must mean 'nothing owed', never 'could not tell' (Principle III).
     """
     entries = dynamo.query(
         LEDGER_TABLE,
@@ -124,8 +128,8 @@ def _open_invoices(customer_id: str) -> list[dict]:
         KeyConditionExpression=Key("customer_id").eq(customer_id),
     )
 
-    invoices = [
-        {
+    def shape(e: dict) -> dict:
+        return {
             "entry_id": e["entry_id"],
             "invoice_number": e.get("invoice_number"),
             "amount": float(e["amount"]),
@@ -134,10 +138,15 @@ def _open_invoices(customer_id: str) -> list[dict]:
             "due_date": e.get("due_date"),
             "status": e["status"],
         }
-        for e in entries
-        if e.get("type") == "INVOICE" and e.get("status") in OPEN_STATUSES
-    ]
-    return sorted(invoices, key=lambda i: i.get("due_date") or "")
+
+    all_invoices = [shape(e) for e in entries if e.get("type") == "INVOICE"]
+    outstanding = [i for i in all_invoices if i["status"] in OPEN_STATUSES]
+    settled = [i for i in all_invoices if i["status"] not in OPEN_STATUSES]
+
+    return (
+        sorted(outstanding, key=lambda i: i.get("due_date") or ""),
+        sorted(settled, key=lambda i: i.get("issued_date") or "", reverse=True),
+    )
 
 
 def _total(invoices: list[dict]) -> float:
