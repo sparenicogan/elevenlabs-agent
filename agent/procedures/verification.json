@@ -36,7 +36,8 @@
             "instruction": "Tell the caller you could not complete the check just now, that nothing about their account has changed, and offer to have a colleague call them back. Do not say whether any detail they gave was right or wrong -- you do not know."
           }
         ]
-      }
+      },
+      "tool_id": "tool_0501m1k7fffvff48d1wxdvn8qbcz"
     },
     {
       "type": "branch",
