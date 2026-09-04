@@ -467,39 +467,6 @@ tickets carry a note saying they were applied, and running the applier again wri
 ---
 
 
-### User Story 10 - Telling an unauthorised caller who to ask (Priority: P10)
-
-Someone rings about a company's account and is not a listed contact. They cannot be verified and
-will not be, however genuine they are. Today the agent tells them to have an authorised person add
-them, and then cannot say who that person is — which leaves them with an instruction they cannot
-follow. The agent may give the name of a contact on the account, and nothing else.
-
-**Why this priority**: A rule that cannot be acted on is worse than no rule. A caller who works at
-the company already knows who handles their invoices; refusing the name buys nothing and strands a
-legitimate colleague. What must never be given is anything that helps impersonate that person.
-
-**Independent Test**: Call as someone who is not a listed contact, name the company, ask who can
-authorise you, and confirm you are given a name and nothing else — no email, no phone number, no
-job title, no financial fact.
-
-**Acceptance Scenarios**:
-
-1. **Given** a caller who has failed verification or is not a listed contact, **When** they ask who
-   can add them, **Then** the agent gives one name — a single contact on the account, not a list.
-   One is enough to act on, and a list is a staff directory.
-2. **Given** the same caller, **When** the name is given, **Then** nothing else about that person is
-   given: not an email, not a phone number, not a date of birth, not a job title, not a location.
-3. **Given** the same caller, **When** they ask anything financial, **Then** they get nothing —
-   naming a contact does not verify them and moves no gate.
-4. **Given** a caller who names a company with no account, **When** they ask who to speak to,
-   **Then** the answer does not distinguish that from a company whose contacts cannot be found, so
-   the endpoint cannot be used to discover which companies are customers.
-5. **Given** a caller works through several company names in one call, **When** the pattern is
-   detected, **Then** a risk signal is recorded and the call is escalated.
-
----
-
-
 ## Requirements *(mandatory)*
 
 ### Disclosure and verification

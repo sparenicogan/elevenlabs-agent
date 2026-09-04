@@ -315,21 +315,6 @@ writes nothing.
       a run that writes nothing because every ticket is malformed currently looks identical to a
       run with nothing to do.
 
-## Phase 10c: User Story 10 — Telling an unauthorised caller who to ask (Priority: P10)
-
-**Goal**: A caller who cannot be verified leaves knowing who at their own company can add them.
-
-**Independent test**: Call as a non-contact, name the company, ask who can authorise you, and get
-a name and nothing else.
-
-- [ ] T110 [US10] Add `authorised_contacts` to `src/handlers/create_escalation.py` or its own
-      endpoint: company name in, contact first and last names out, nothing else. The prompt has
-      promised this since the start and no tool has ever provided it.
-- [ ] T111 [P] [US10] Write the contract tests: only names are returned, an unknown company is
-      indistinguishable from one whose contacts cannot be found, and no financial field appears.
-- [ ] T112 [US10] Record a risk signal when a caller tries several company names in one call, and
-      escalate.
-
 ## Phase 11: Polish & Cross-Cutting
 
 - [ ] T095 [P] Verify no identity field reaches any log by asserting the allowlist in `tests/unit/test_log_scrubbing.py` and reviewing a real call's log output (FR-029, SC-002)
