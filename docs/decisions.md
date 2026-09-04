@@ -1641,3 +1641,56 @@ action succeeded unless the tool said so".
 
 "Which you will arrange now" was part of it. A promise in the future tense reads as discharged
 once spoken.
+
+### 12.52 The stories are validated by talking to the agent
+
+**Decision.** `scripts/validation/run.py` runs each user story against the deployed agent as a
+simulated caller and writes `docs/validation/usN.md`: the whole transcript, the tools actually
+called, and each acceptance check with a verdict. It exits non-zero when any check fails.
+
+**Cost.** It consumes ElevenLabs simulation credits, mutates real fixtures, and is not
+deterministic — the same scenario can pass and then fail.
+
+**Why.** Nothing else exercises the prompt. Unit tests exercise rules, contract tests exercise
+handlers with the world stubbed out, integration tests call endpoints directly; none had ever
+seen a sentence the agent says. Two of the six stories failed on the first run and both were
+prompt gaps rather than backend faults, which is exactly the class of thing no other layer can
+find.
+
+The transcript goes in whole rather than summarised, because a summary of a conversation is an
+opinion about it and the point of the file is that somebody else can form their own.
+
+### 12.53 Two prompt gaps the validation found
+
+**Decision.** The prompt now says that "my latest invoice" is an answer — the first entry in
+`recent_invoices` — and that asking for a human requires neither verification nor a stated
+reason.
+
+**Cost.** None; both were omissions.
+
+**Why.** In US3 the agent had `INV-2026-0020` in front of it and asked the caller for an
+invoice number three times, then escalated a credit it could have requested. The prompt said to
+look in `recent_invoices` and never said that "the most recent one" resolves to the first
+entry, so the agent treated a perfectly good answer as insufficient.
+
+In US5 a caller asked for a person and was made to verify first, then asked three times what
+the call was about. The prompt said "asking for a human is always enough. Do not talk them out
+of it" — and asking a third time is talking someone out of it by attrition. It now says to ask
+once and transfer either way, and that the unverified handoff exists precisely so that someone
+who wants a person gets one whether or not we know who they are.
+
+### 12.54 One check still fails, and it is a tendency
+
+**Decision.** Recorded rather than fixed: the agent does not reliably promise the callback
+before transferring.
+
+**Cost.** A transfer that drops the call takes an unmade promise with it, and the post-call
+reconciliation is the only backstop.
+
+**Why.** The rule is in the prompt, in bold, with the sentence to say. On the validated run the
+agent said "they will have the details of our conversation so you won't need to repeat
+yourself" and never mentioned a callback. That is §12.33 again, and the honest options are to
+move the line into the `create_escalation` response where it is present at the moment of
+speaking — which is what §12.34 tried and §12.35 reverted, and which should not be done again
+without asking — or to accept it, knowing the post-call handler records the callback anyway
+when a transfer fails.
