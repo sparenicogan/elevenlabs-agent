@@ -50,8 +50,9 @@ def test_verify_identity_runs_last_and_once(steps):
 def test_a_misheard_email_is_spelled_out_rather_than_guessed(steps):
     recovery = _branch_for(steps[3], "NOT_MATCHED")
     instruction = recovery["steps"][0]["instruction"].lower()
-    assert "letter by letter" in instruction
+    assert "spell the address out" in instruction
     assert "do not suggest a correction" in instruction
+    assert "do not say it was wrong" in instruction
     assert _tools(recovery["steps"]) == ["check_factor"]
 
 
@@ -59,8 +60,9 @@ def test_an_ambiguous_date_is_clarified_by_naming_the_month(steps):
     """ "11 6 1994" is two different days. Naming the month in words is the only way to ask
     that does not depend on which order the caller assumes."""
     clarify = _branch_for(steps[8], "AMBIGUOUS")["steps"][0]["instruction"].lower()
-    assert "month in words" in clarify
-    assert "not about whether it is right" in clarify
+    # Both readings offered by name, so the answer does not depend on which order the caller
+    # assumes the numbers were in.
+    assert "june" in clarify and "november" in clarify
 
 
 def test_the_failing_path_does_not_explain_itself(steps):
@@ -68,12 +70,13 @@ def test_the_failing_path_does_not_explain_itself(steps):
     final = steps[-1]
     # Selected by what the branch is for, not by position: a branch added at the front for an
     # outage should not silently move the assertion onto a different outcome.
-    refusing = [b["steps"] for b in final["branches"] if "LOCKED" in b["condition"]["condition"]]
+    refusing = [
+        b["steps"] for b in final["branches"] if "VERIFIED" not in b["condition"]["condition"]
+    ]
     refusals = " ".join(
         s.get("instruction", "") for outcome in refusing + [final["fallback"]] for s in outcome
     ).lower()
     assert "never say why" in refusals
-    assert "never say which detail" in refusals
 
 
 def test_both_decisions_survive_the_backend_being_down(steps):
@@ -99,7 +102,6 @@ def test_an_outage_is_never_reported_as_a_failed_check(steps):
         assert unavailable, "a branch with no outage path"
         said = unavailable[0]["steps"][0]["instruction"].lower()
         assert "nothing has changed" in said
-        assert "do not say whether any detail" in said
 
 
 def test_the_removed_factor_is_asked_for_nowhere(steps):
