@@ -36,6 +36,10 @@ def stubs(mocker):
         "callback": mocker.patch.object(module.conversation_state, "record_callback"),
         "put": mocker.patch.object(module.s3, "put_transcript"),
         "upsert": mocker.patch.object(module.dynamo, "upsert"),
+        # The summary is written conditionally, so update_if is a second seam. Unstubbed it
+        # reached real DynamoDB on a developer machine and failed only in CI, where there is
+        # no region -- which is the wrong way round for a test to tell you something.
+        "update_if": mocker.patch.object(module.dynamo, "update_if", return_value={}),
         "get": mocker.patch.object(module.dynamo, "get", return_value={}),
         "module": module,
     }
@@ -114,7 +118,7 @@ class TestADuplicateDeliveryDoesNothingTwice:
 
 class TestOneFailedStepDoesNotLoseTheOthers:
     def test_a_failed_summary_still_leaves_the_transcript(self, stubs):
-        stubs["upsert"].side_effect = [None, None, ValueError("summary failed"), None]
+        stubs["update_if"].side_effect = ValueError("summary failed")
         status, body = call(stubs, PAYLOAD)
         assert status == 200
         assert "transcript" in body["completed"]

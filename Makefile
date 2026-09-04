@@ -15,8 +15,13 @@ lint:
 	uv run python scripts/check_no_secrets.py
 	terraform -chdir=infra/terraform fmt -check -recursive
 
+# Run with no AWS environment at all, which is what CI has. An unstubbed adapter then fails
+# here instead of quietly reaching real DynamoDB on a machine that happens to be logged in --
+# and passing, which is the worse outcome of the two.
 test:
-	uv run pytest tests/unit tests/contract
+	env -u AWS_PROFILE -u AWS_REGION -u AWS_DEFAULT_REGION -u AWS_ACCESS_KEY_ID \
+	    -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
+	    uv run pytest tests/unit tests/contract
 
 # Runs against the deployed stack. Needs AWS credentials, and mutates the disputed payment
 # before putting it back, so do not run it mid-rehearsal.
