@@ -10,11 +10,9 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from boto3.dynamodb.conditions import Key
-
 from src.adapters import dynamo, secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import auth, conversation_state
+from src.common import auth, conversation_state, identity
 from src.common import logging as log
 from src.common.conversation_state import VerificationStatus as ConversationVerification
 from src.domain import policy as policy_module
@@ -25,7 +23,6 @@ from src.domain.verification import (
     check_factors,
     fingerprint,
     is_enumerating,
-    lookup_key,
 )
 
 IDENTITY_TABLE = "customer-identity"
@@ -40,8 +37,8 @@ def handler(event: dict, _context: Any = None) -> dict:
     """
     Evaluates a caller's identifying answers and records the outcome for the conversation.
 
-    event: API Gateway proxy event. Body carries conversation_id and a list of
-           {field, value} factors, per contracts/tools.md.
+    event: API Gateway proxy event. Body carries conversation_id and one flat string field per
+           identifying detail, per contracts/tools.md.
 
     Returns: an API Gateway response whose body is the verification status, the confirmed
              and required counts, and the next field to ask for. Never a stored value, and
@@ -77,7 +74,7 @@ def _verify(conversation_id: str, body: dict) -> dict:
     Returns: the response body defined in contracts/tools.md.
     """
     settings = policy_module.load()
-    supplied = _parse_factors(body.get("factors") or [])
+    supplied = _parse_factors(body)
     contact_id = _resolve_contact(body, supplied)
 
     # Checked before the answers are evaluated. A caller working through values must not be
@@ -279,20 +276,25 @@ def _check_for_enumeration(
     return True, offered_new
 
 
-def _parse_factors(factors: list) -> dict[Factor, str]:
+def _parse_factors(body: dict) -> dict[Factor, str]:
     """
     Turns the wire format into the rule's input.
 
-    factors: list of {field, value} as sent by the agent.
+    body: the request, carrying one flat string field per detail.
 
-    Returns: factor to spoken value. Unrecognised field names are dropped, not rejected.
+    Returns: factor to spoken value. Absent and blank fields are dropped, not rejected — a
+             caller who could not produce one is a normal outcome, not a malformed request.
+
+    Flat fields rather than a list of {field, value} objects. The nested shape was correct and
+    the model could not reliably produce it: on a real call it sent the whole array as a JSON
+    string, with one entry carrying "field" twice, after all three details had already matched
+    individually. There is nothing to serialise now, so there is nothing to get wrong.
     """
     parsed: dict[Factor, str] = {}
-    for item in factors:
-        field = SUPPORTED_FACTORS.get(str(item.get("field", "")).strip().lower())
-        value = item.get("value")
-        if field and isinstance(value, str) and value.strip():
-            parsed[field] = value
+    for name, factor in SUPPORTED_FACTORS.items():
+        value = body.get(name)
+        if isinstance(value, str) and value.strip():
+            parsed[factor] = value
     return parsed
 
 
@@ -317,42 +319,14 @@ def _resolve_contact(body: dict, supplied: dict[Factor, str]) -> str | None:
     else, because doing so grants nothing: three correct factors are still required against
     whichever record is chosen.
     """
-    for factor, index, attribute in (
-        (Factor.EMAIL, "email-index", "email_lookup"),
-        (Factor.PHONE, "phone-index", "phone_lookup"),
-    ):
+    for factor in (Factor.EMAIL, Factor.PHONE):
         if factor in supplied:
-            resolved = _lookup(factor, index, attribute, supplied[factor])
+            resolved = identity.lookup_contact(factor, supplied[factor])
             if resolved:
                 return resolved
 
     candidate = body.get("candidate_customer_id")
     return candidate.strip() if isinstance(candidate, str) and candidate.strip() else None
-
-
-def _lookup(factor: Factor, index: str, attribute: str, value: str) -> str | None:
-    """
-    Finds a customer by one of the identifiers they might quote.
-
-    factor:    which identifier, so it is normalised the way the comparison normalises it.
-    index:     the secondary index to query.
-    attribute: its hash key, which holds the normalised form.
-    value:     what the caller said.
-
-    Returns: the contact id, or None when nothing matches — which is deliberately
-             indistinguishable downstream from an answer that matched nothing, since a
-             response that distinguished them would say whether an address is on file.
-
-    More than one hit resolves nobody. Normalisation merges addresses that differ only by a
-    hyphen, and picking one of two people arbitrarily would let a caller be checked against a
-    record that is not theirs.
-    """
-    hits = dynamo.query(
-        IDENTITY_TABLE,
-        index=index,
-        KeyConditionExpression=Key(attribute).eq(lookup_key(factor, value)),
-    )
-    return hits[0]["contact_id"] if len(hits) == 1 else None
 
 
 def _stored_factors(record: dict) -> dict[Factor, str]:

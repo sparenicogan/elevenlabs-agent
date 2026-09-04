@@ -112,11 +112,39 @@ class TestMatching:
         assert result["requires_human_allocation"] is True
 
     def test_an_address_on_the_payment_record_is_reported_as_a_discrepancy(self, stubs):
-        """A payer address is only stored when it differs, so its presence is the mismatch —
-        and the response carries a boolean, never the address."""
+        """A payer address is only stored when it differs, so its presence is the mismatch."""
+        assert call(stubs)["address_discrepancy"] is True
+
+    def test_the_address_is_returned_so_the_caller_can_recognise_it(self, stubs):
+        """Asking "did you move, or is that a typo?" without saying what the address is asks
+        someone to confirm what they cannot see. By this point they have proved who they are
+        and proved the payment is theirs by stating its amount and exact date."""
+        assert call(stubs)["payer_address"] == "Zollikon"
+
+    def test_a_full_address_is_spoken_as_one_line(self, stubs):
+        stubs["query"].return_value = [
+            {
+                **PAYMENT,
+                "payer_address": {
+                    "street": "Alte Landstrasse 88",
+                    "postcode": "8702",
+                    "city": "Zollikon",
+                },
+            }
+        ]
+        assert call(stubs)["payer_address"] == "Alte Landstrasse 88, 8702 Zollikon"
+
+    def test_no_address_is_returned_when_there_is_nothing_to_ask_about(self, stubs):
+        """It is only ever the answer to a question the agent is about to ask."""
+        stubs["query"].return_value = [{k: v for k, v in PAYMENT.items() if k != "payer_address"}]
         result = call(stubs)
-        assert result["address_discrepancy"] is True
-        assert "Zollikon" not in json.dumps(result)
+        assert result["address_discrepancy"] is False
+        assert result["payer_address"] is None
+
+    def test_the_address_on_file_is_never_returned(self, stubs):
+        """Only the one on the payment. The caller already knows their own address, and the
+        question is whether the payment carries it."""
+        assert "Industriestrasse" not in json.dumps(call(stubs))
 
     def test_a_transfer_date_inside_the_tolerance_matches(self, stubs):
         result = call(stubs, transfer_date="2026-07-24")

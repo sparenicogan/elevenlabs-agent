@@ -160,7 +160,7 @@ class TestOne_IdentityStoreDown:
             "verify_identity",
             {
                 "conversation_id": "c1",
-                "factors": [{"field": "email", "value": "klaus.mueller@alpina-tech.ch"}],
+                "email": "klaus.mueller@alpina-tech.ch",
             },
         )
         assert_safe_failure(result)
@@ -171,7 +171,7 @@ class TestOne_IdentityStoreDown:
         break_it(wired, "verify_identity", "dynamo", "query")
         result = invoke(
             "verify_identity",
-            {"conversation_id": "c1", "factors": [{"field": "email", "value": "a@b.ch"}]},
+            {"conversation_id": "c1", "email": "a@b.ch"},
         )
         assert "FAILED" not in json.dumps(result)
 

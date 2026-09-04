@@ -38,7 +38,9 @@ def lookup_contact(factor: Factor, value: str) -> str | None:
     hits = dynamo.query(
         TABLE, index=index, KeyConditionExpression=Key(attribute).eq(lookup_key(factor, value))
     )
-    return hits[0]["contact_id"] if len(hits) == 1 else None
+    # A row with no contact_id resolves nobody, the same as no row at all. An index whose
+    # projection changes should degrade to "not found" rather than raise on a live call.
+    return str(hits[0]["contact_id"]) if len(hits) == 1 and hits[0].get("contact_id") else None
 
 
 def load_record(contact_id: str) -> dict | None:

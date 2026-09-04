@@ -252,10 +252,36 @@ class TestDateHandling:
         )
         assert result.status is VerificationStatus.VERIFIED
 
-    def test_an_unparseable_date_is_a_wrong_answer_not_a_crash(self):
+    def test_an_unreadable_date_does_not_crash_and_does_not_verify(self):
         result = check(
             {
                 Factor.DATE_OF_BIRTH: "sometime in the seventies",
+                Factor.EMAIL: "buchhaltung@meier-bau.ch",
+                Factor.CUSTOMER_ID: "445909044455",
+            }
+        )
+        assert result.status is not VerificationStatus.VERIFIED
+
+    def test_an_unreadable_date_does_not_discard_the_answers_that_matched(self):
+        """A caller gave a correct email and phone and was told nothing was confirmed, because
+        a date we could not parse was counted as a wrong answer and any mismatch fails the whole
+        set. Unreadable is not wrong: it tells us nothing about the caller either way."""
+        result = check(
+            {
+                Factor.DATE_OF_BIRTH: "sometime in the seventies",
+                Factor.EMAIL: "buchhaltung@meier-bau.ch",
+                Factor.CUSTOMER_ID: "445909044455",
+            }
+        )
+        assert result.confirmed_count == 2
+        assert result.status is VerificationStatus.PARTIALLY_VERIFIED
+
+    def test_a_wrong_date_is_still_a_wrong_answer(self):
+        """The distinction is only about readability. A date we can read and that does not
+        match is a mismatch, and still fails the attempt."""
+        result = check(
+            {
+                Factor.DATE_OF_BIRTH: "01/01/1990",
                 Factor.EMAIL: "buchhaltung@meier-bau.ch",
                 Factor.CUSTOMER_ID: "445909044455",
             }
