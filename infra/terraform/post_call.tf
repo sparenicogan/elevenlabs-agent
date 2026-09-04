@@ -10,6 +10,8 @@ data "aws_iam_policy_document" "post_call" {
     resources = [
       aws_dynamodb_table.conversations.arn,
       aws_dynamodb_table.customer_summaries.arn,
+      # The language a call actually happened in, remembered for the next one.
+      aws_dynamodb_table.customer_identity.arn,
     ]
   }
 
@@ -22,7 +24,7 @@ data "aws_iam_policy_document" "post_call" {
   statement {
     effect    = "Allow"
     actions   = ["kms:Decrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
-    resources = [aws_kms_key.data.arn]
+    resources = [aws_kms_key.data.arn, aws_kms_key.identity.arn]
   }
 
   statement {

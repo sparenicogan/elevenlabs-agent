@@ -21,11 +21,13 @@ from src.adapters import dynamo, s3, secrets
 from src.adapters.errors import ErrorCategory, ToolError
 from src.common import conversation_state
 from src.common import logging as log
+from src.domain import locale
 from src.domain import metrics as metrics_domain
 from src.domain import policy as policy_module
 from src.domain import summary as summary_domain
 
 CONVERSATIONS_TABLE = "conversations"
+IDENTITY_TABLE = "customer-identity"
 SUMMARIES_TABLE = "customer-summaries"
 
 # How far out of date a signed request may be. Long enough for a slow delivery, short enough
@@ -70,6 +72,7 @@ def handler(event: dict, _context: Any = None) -> dict:
         "transcript": lambda: _store_transcript(conversation_id, payload),
         "metrics": lambda: _store_metrics(conversation_id, payload),
         "summary": lambda: _regenerate_summary(conversation_id, payload),
+        "preferences": lambda: _persist_preferences(payload),
         "transfer": lambda: _reconcile_transfer(conversation_id, payload),
     }
 
@@ -261,6 +264,37 @@ def _regenerate_summary(conversation_id: str, payload: dict) -> None:
             ":sources": ([conversation_id] + sources)[:20],
         },
     )
+
+
+def _persist_preferences(payload: dict) -> None:
+    """
+    Remembers the language a call actually happened in.
+
+    payload: the post-call payload.
+
+    Returns: nothing. Skipped when nobody was verified, and skipped when the language did not
+             change — a write on every call would rewrite the same value all day.
+
+    Stored against the contact rather than the company: two people at one customer may prefer
+    different languages, and greeting the second in the first one's is the kind of small
+    wrongness that makes an agent feel automated.
+    """
+    contact_id = payload.get("contact_id")
+    if not contact_id:
+        return
+
+    language = locale.normalise((payload.get("metadata") or {}).get("language"))
+    record = dynamo.get(IDENTITY_TABLE, {"contact_id": str(contact_id)}) or {}
+    if record.get("preferred_language") == language:
+        return
+
+    dynamo.upsert(
+        IDENTITY_TABLE,
+        {"contact_id": str(contact_id)},
+        UpdateExpression="SET preferred_language = :language",
+        ExpressionAttributeValues={":language": language},
+    )
+    log.info("preferred language updated", language=language, status="OK")
 
 
 def _reconcile_transfer(conversation_id: str, payload: dict) -> None:

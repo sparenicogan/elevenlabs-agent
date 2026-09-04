@@ -210,18 +210,18 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Tests for User Story 6
 
-- [ ] T074 [P] [US6] Write tests in `tests/unit/test_conversation_init.py`: a known number yields its stored language, an unknown number yields German, and the response never carries a name or any account fact (FR-033a, FR-033b)
-- [ ] T075 [P] [US6] Write locale rendering tests in `tests/unit/test_locale.py` asserting amounts and dates follow convention while staying numerically exact (FR-037)
+- [x] T074 [P] [US6] Write tests in `tests/unit/test_conversation_init.py`: a known number yields its stored language, an unknown number yields German, and the response never carries a name or any account fact (FR-033a, FR-033b)
+- [x] T075 [P] [US6] Write locale rendering tests in `tests/unit/test_locale.py` asserting amounts and dates follow convention while staying numerically exact (FR-037)
 
 ### Implementation for User Story 6
 
-- [ ] T076 [US6] Implement `src/handlers/conversation_init.py` per contracts/webhooks.md: resolve `caller_id` via the `phone-index`, return the candidate id as a `secret__` dynamic variable and the greeting language, and nothing else
-- [ ] T077 [P] [US6] Write `agent/prompt/de.md` as the full translation of the English prompt, not a summary of it
-- [ ] T078 [P] [US6] Write `agent/prompt/fr.md`
-- [ ] T079 [P] [US6] Write `agent/prompt/it.md`
-- [ ] T080 [US6] Enable the language detection system tool for DE/FR/IT/EN in `agent/agent.json` and require every tool-driven statement and escalation message to stay in the caller's language (FR-033)
-- [ ] T081 [US6] Add the adaptation rules to all four prompts in `agent/prompt/`: adjust pace, sentence length, vocabulary, and confirmation frequency from the observed conversation only, never from assumptions about the person, and offer to slow down, simplify, or switch (FR-034, FR-035)
-- [ ] T082 [US6] Persist `preferred_language` and `communication_style` to `customer_identity` from `src/handlers/post_call.py` when the caller switches language or asks for a different style (FR-036)
+- [x] T076 [US6] Implement `src/handlers/conversation_init.py` per contracts/webhooks.md: resolve `caller_id` via the `phone-index`, return the candidate id as a `secret__` dynamic variable and the greeting language, and nothing else
+- [x] T077 [P] [US6] Write `agent/prompt/de.md` as the full translation of the English prompt, not a summary of it
+- [x] T078 [P] [US6] Write `agent/prompt/fr.md`
+- [x] T079 [P] [US6] Write `agent/prompt/it.md`
+- [x] T080 [US6] Enable the language detection system tool for DE/FR/IT/EN in `agent/agent.json` and require every tool-driven statement and escalation message to stay in the caller's language (FR-033)
+- [x] T081 [US6] Add the adaptation rules to all four prompts in `agent/prompt/`: adjust pace, sentence length, vocabulary, and confirmation frequency from the observed conversation only, never from assumptions about the person, and offer to slow down, simplify, or switch (FR-034, FR-035)
+- [x] T082 [US6] Persist `preferred_language` and `communication_style` to `customer_identity` from `src/handlers/post_call.py` when the caller switches language or asks for a different style (FR-036)
 
 ---
 
