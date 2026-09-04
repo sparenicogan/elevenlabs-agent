@@ -311,7 +311,7 @@ writes nothing.
 - [x] T106a [US9] Log the per-run counts from `apply_decisions`: the line currently reads
       `apply run complete` with no numbers, so a run failing on every ticket is indistinguishable
       from a run with nothing to do.
-- [ ] T106 [US9] Confirm the applier's EventBridge schedule is firing and its failures are visible:
+- [x] T106 [US9] Confirm the applier's EventBridge schedule is firing and its failures are visible:
       a run that writes nothing because every ticket is malformed currently looks identical to a
       run with nothing to do.
 

@@ -19,7 +19,15 @@ from src.adapters import secrets
 from src.adapters.errors import ErrorCategory, ToolError
 from src.common import auth, conversation_state, identity, validation
 from src.common import logging as log
-from src.domain.verification import Factor, ambiguous_date, check_factors
+from src.domain import policy as policy_module
+from src.domain.risk import RiskSignal, SignalType
+from src.domain.verification import (
+    Factor,
+    ambiguous_date,
+    check_factors,
+    fingerprint,
+    is_enumerating,
+)
 
 CHECKABLE = {Factor.EMAIL, Factor.PHONE, Factor.DATE_OF_BIRTH}
 
@@ -40,10 +48,11 @@ def handler(event: dict, _context: Any = None) -> dict:
         field = str(validation.require(body, "field"))
         value = str(validation.require(body, "value")).strip()
 
+        settings = policy_module.load()
         if field not in {f.value for f in CHECKABLE}:
             raise ToolError(ErrorCategory.VALIDATION, f"not a checkable field: {field}")
 
-        return _response(200, _check(conversation_id, Factor(field), value))
+        return _response(200, _check(conversation_id, Factor(field), value, settings))
 
     except ToolError as error:
         log.error(
@@ -54,16 +63,25 @@ def handler(event: dict, _context: Any = None) -> dict:
         return _response(200, error.to_response())
 
 
-def _check(conversation_id: str, factor: Factor, value: str) -> dict:
+def _check(conversation_id: str, factor: Factor, value: str, settings) -> dict:
     """
     Decides what to tell the agent about one answer.
 
     conversation_id: the call.
     factor:          which detail.
     value:           what the caller said.
+    settings:        policy, for the guessing allowance.
 
     Returns: the response body.
     """
+    # Counted here as well as at the final check. A caller offered three different dates of
+    # birth through this endpoint and tripped nothing, because only verify_identity was
+    # counting and they never reached it. Checking each detail separately is what made that
+    # possible, so it is what has to count.
+    if _is_guessing(conversation_id, factor, value, settings):
+        log.info("conversation locked", conversation_id=conversation_id, status="LOCKED")
+        return {"status": "LOCKED", "field": factor.value}
+
     # Asked before anything is looked up, because it is a question about the sentence rather
     # than about the caller. A date nobody can read two ways is not clarified.
     if factor is Factor.DATE_OF_BIRTH:
@@ -76,13 +94,15 @@ def _check(conversation_id: str, factor: Factor, value: str) -> dict:
                 "field": factor.value,
             }
 
-    contact_id = identity.lookup_contact(factor, value) if factor in identity.INDEXES else None
-    if contact_id:
-        # Remembered so a date of birth, which no index can answer, has a record to be
-        # checked against later in the call.
-        conversation_state.set_resolved_contact(conversation_id, contact_id)
-    else:
-        contact_id = conversation_state.resolved_contact(conversation_id)
+    # Whoever the first identifier resolved to is who the rest of this call is checked
+    # against. Re-resolving on every detail let a caller give one person's email and another
+    # person's phone and be told both matched, because each was compared against a different
+    # record. The final check would still have refused them, but MATCHED said otherwise.
+    contact_id = conversation_state.resolved_contact(conversation_id)
+    if not contact_id and factor in identity.INDEXES:
+        contact_id = identity.lookup_contact(factor, value)
+        if contact_id:
+            conversation_state.set_resolved_contact(conversation_id, contact_id)
 
     matched = _compares(contact_id, factor, value)
     log.info(
@@ -92,6 +112,47 @@ def _check(conversation_id: str, factor: Factor, value: str) -> dict:
         status="MATCHED" if matched else "NOT_MATCHED",
     )
     return {"status": "MATCHED" if matched else "NOT_MATCHED", "field": factor.value}
+
+
+def _is_guessing(conversation_id: str, factor: Factor, value: str, settings) -> bool:
+    """
+    Records the value and decides whether the caller has moved to trying possibilities.
+
+    conversation_id: the call.
+    factor:          which detail.
+    value:           what the caller said.
+    settings:        policy, for the allowance.
+
+    Returns: whether this field has now exceeded it.
+
+    Per field and by distinct value, matching verify_identity: correcting a mistyped email
+    must not consume the allowance for a date of birth, and the same wrong answer repeated is
+    one attempt however many times it arrives.
+    """
+    salt = secrets.get("verification/attempt-salt")
+    counts, _ = conversation_state.record_factor_attempts(
+        conversation_id, {factor.value: fingerprint(factor, value, salt)}
+    )
+
+    offending = is_enumerating(
+        {Factor(field): count for field, count in counts.items()},
+        settings.guessing_max_distinct_values,
+    )
+    if not offending:
+        return False
+
+    conversation_state.record_risk_signal(
+        RiskSignal(
+            signal_type=SignalType.SUSPECTED_GUESSING,
+            evidence=(
+                f"{counts[offending.value]} distinct values offered for {offending.value}, "
+                f"allowance is {settings.guessing_max_distinct_values}"
+            ),
+            conversation_id=conversation_id,
+            customer_id=conversation_state.resolved_contact(conversation_id),
+        )
+    )
+    return True
 
 
 def _compares(contact_id: str | None, factor: Factor, value: str) -> bool:

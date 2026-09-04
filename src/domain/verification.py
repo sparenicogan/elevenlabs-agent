@@ -155,6 +155,21 @@ def _normalise_phone(value: str) -> str:
     return digits[-PHONE_SIGNIFICANT_DIGITS:]
 
 
+# Punctuation a caller names rather than pronounces. Spaces are required around each, so an
+# address containing the letters is untouched: "aldotata@x.ch" and "cat@x.ch" survive.
+# Hyphen maps to a hyphen and is then stripped with the ones separating spelled letters, which
+# is what makes "alpina hyphen tech" and "alpinatech" the same address.
+_SPOKEN_PUNCTUATION = {
+    "dot": ".",
+    "period": ".",
+    "point": ".",
+    "at": "@",
+    "hyphen": "-",
+    "dash": "-",
+    "underscore": "_",
+}
+
+
 def _normalise_email(value: str) -> str:
     """
     Reduces an email to the form a spoken one can be compared against.
@@ -174,8 +189,8 @@ def _normalise_email(value: str) -> str:
     and would otherwise make every spelled-out address unreadable.
     """
     spoken = f" {value.strip().casefold()} "
-    for word, symbol in ((" dot ", "."), (" at ", "@")):
-        spoken = spoken.replace(word, symbol)
+    for word, symbol in _SPOKEN_PUNCTUATION.items():
+        spoken = spoken.replace(f" {word} ", symbol)
     return re.sub(r"[\s-]", "", spoken)
 
 

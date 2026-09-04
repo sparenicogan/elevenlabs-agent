@@ -25,7 +25,17 @@ def stubs(mocker):
     from src.handlers import check_factor as module
 
     mocker.patch.object(module.secrets, "get", return_value=API_KEY)
+    mocker.patch.object(
+        module.policy_module,
+        "load",
+        return_value=mocker.Mock(guessing_max_distinct_values=2),
+    )
     return {
+        # Distinct values offered per field this call. Empty unless a test seeds guessing.
+        "attempts": mocker.patch.object(
+            module.conversation_state, "record_factor_attempts", return_value=({}, True)
+        ),
+        "signal": mocker.patch.object(module.conversation_state, "record_risk_signal"),
         "lookup": mocker.patch.object(
             module.identity, "lookup_contact", return_value=RECORD["contact_id"]
         ),
@@ -61,8 +71,17 @@ class TestEmail:
     def test_resolving_is_remembered_for_the_rest_of_the_call(self, stubs):
         """A date of birth cannot be looked up, so checking one needs a record already
         in hand."""
+        stubs["resolved"].return_value = None
         call(stubs, "email", RECORD["email"])
         stubs["remember"].assert_called_once_with("conv_1", RECORD["contact_id"])
+
+    def test_the_first_record_resolved_is_the_one_the_call_is_checked_against(self, stubs):
+        """A caller gave one person's email and another person's phone and was told both
+        matched, because each was compared against a different record. Whoever the first
+        identifier resolved to is who the rest of the call is about."""
+        call(stubs, "phone", "+41 44 407 76 73")
+        stubs["lookup"].assert_not_called()
+        stubs["remember"].assert_not_called()
 
     def test_it_never_returns_the_stored_value(self, stubs):
         stubs["lookup"].return_value = None
@@ -107,3 +126,36 @@ class TestItDecidesNothing:
 
     def test_a_bad_api_key_is_refused(self, stubs):
         assert call(stubs, "email", RECORD["email"], api_key="wrong")["status"] != "MATCHED"
+
+
+class TestGuessing:
+    """A caller offered three different dates of birth through this endpoint and tripped
+    nothing, because only verify_identity was counting attempts and they never reached it.
+    Checking each detail separately is what made that possible, so it is what has to count."""
+
+    def test_a_third_distinct_value_for_one_field_locks_the_call(self, stubs):
+        stubs["attempts"].return_value = ({"date_of_birth": 3}, True)
+        assert call(stubs, "date_of_birth", "3rd of November, 1974")["status"] == "LOCKED"
+
+    def test_it_locks_before_the_answer_is_evaluated(self, stubs):
+        """A caller working through values must not learn whether the one that stopped them
+        was right."""
+        stubs["attempts"].return_value = ({"date_of_birth": 3}, True)
+        call(stubs, "date_of_birth", RECORD["date_of_birth"])
+        stubs["load"].assert_not_called()
+
+    def test_a_risk_signal_is_raised(self, stubs):
+        stubs["attempts"].return_value = ({"email": 3}, True)
+        call(stubs, "email", "guess@x.ch")
+        assert stubs["signal"].call_args.args[0].signal_type == "SUSPECTED_GUESSING"
+
+    def test_correcting_one_field_does_not_spend_another_fields_allowance(self, stubs):
+        """Counted per field, matching verify_identity. An unusual surname already means more
+        to correct than most people have."""
+        stubs["attempts"].return_value = ({"email": 2, "date_of_birth": 1}, True)
+        assert call(stubs, "date_of_birth", RECORD["date_of_birth"])["status"] == "MATCHED"
+
+    def test_every_value_offered_is_recorded_even_when_it_matches(self, stubs):
+        """Otherwise a caller alternates a right answer with wrong ones and never trips it."""
+        call(stubs, "email", RECORD["email"])
+        assert stubs["attempts"].called

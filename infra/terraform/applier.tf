@@ -6,9 +6,10 @@
 data "aws_iam_policy_document" "apply_decisions" {
   statement {
     effect = "Allow"
-    # Writes credit notes and reads the history it re-checks them against. No DeleteItem:
-    # a credit is reversed by a compensating entry, never by removing the record.
-    actions   = ["dynamodb:PutItem", "dynamodb:Query", "dynamodb:GetItem"]
+    # Writes credit notes, moves accepted payments to ALLOCATED, and reads the history it
+    # re-checks both against. No DeleteItem: an entry is reversed by a compensating one, never
+    # by removing the record.
+    actions   = ["dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:GetItem"]
     resources = [aws_dynamodb_table.ledger.arn, "${aws_dynamodb_table.ledger.arn}/index/*"]
   }
 
