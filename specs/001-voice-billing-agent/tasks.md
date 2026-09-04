@@ -256,12 +256,12 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Tests for User Story 8
 
-- [ ] T092 [P] [US8] Write tests in `tests/unit/test_discrepancy.py`: the flag is not exposed before a MATCH, the explanation appends to the existing ticket rather than creating a second, and no address write occurs (FR-031, FR-031a, FR-031b)
+- [x] T092 [P] [US8] Write tests in `tests/unit/test_discrepancy.py`: the flag is not exposed before a MATCH, the explanation appends to the existing ticket rather than creating a second, and no address write occurs (FR-031, FR-031a, FR-031b)
 
 ### Implementation for User Story 8
 
-- [ ] T093 [US8] Accept the `discrepancy` field in `src/handlers/create_escalation.py` and append it to the ticket named by `existing_ticket_id`
-- [ ] T094 [US8] Add the discrepancy step to every prompt in `agent/prompt/`: only after the payment is confirmed, ask whether the company moved or the record has a typo, say a person will correct it, and never offer or confirm either address value
+- [x] T093 [US8] Accept the `discrepancy` field in `src/handlers/create_escalation.py` and append it to the ticket named by `existing_ticket_id`
+- [x] T094 [US8] Add the discrepancy step to every prompt in `agent/prompt/`: only after the payment is confirmed, ask whether the company moved or the record has a typo, say a person will correct it, and never offer or confirm either address value
 
 ---
 
@@ -303,10 +303,10 @@ writes nothing.
       counted as `already_applied` and silently does nothing.
 - [x] T103 [P] [US9] Write `tests/contract/test_apply_decisions.py` cases for a ticket closed with
       no outcome, and for Canceled by customer, neither of which is currently covered.
-- [ ] T104 [US9] Write `tests/integration/test_applier.py`: raise a real request, mark the ticket
+- [x] T104 [US9] Write `tests/integration/test_applier.py`: raise a real request, mark the ticket
       Accepted, run the applier, and assert the ledger entry, the note on the ticket, and that a
       second run writes nothing.
-- [ ] T105 [P] [US9] Assert the ledger Deny holds, in `tests/integration/test_iam.py`, using
+- [x] T105 [P] [US9] Assert the ledger Deny holds, in `tests/integration/test_iam.py`, using
       `iam:SimulatePrincipalPolicy` against every agent-facing role.
 - [x] T106a [US9] Log the per-run counts from `apply_decisions`: the line currently reads
       `apply run complete` with no numbers, so a run failing on every ticket is indistinguishable

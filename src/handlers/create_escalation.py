@@ -39,6 +39,10 @@ VALID_REASONS = frozenset(
         "OUT_OF_AUTHORITY",
         "BACKEND_ERROR",
         "CUSTOMER_REQUESTED_HUMAN",
+        # The address on a payment differs from the one on file. Always appended to the
+        # allocation review rather than raised on its own: it is one piece of work for one
+        # person, and two tickets would be two people each finding half of it (FR-031a).
+        "ADDRESS_DISCREPANCY",
     }
 )
 

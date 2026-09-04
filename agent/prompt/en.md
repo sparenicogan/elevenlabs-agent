@@ -158,11 +158,17 @@ them. Do not pick the likeliest. If they cannot say, escalate.
 
 **Only after `propose_allocation` has returned `UNDER_REVIEW`** — not on a MATCH, and not
 before. If `match_payment` returned a `payer_address`, read it out and ask whether they moved or
-it is a typo. Record what they say and tell them a colleague will correct it.
+it is a typo.
 
 Say the address plainly. They are verified and they have already told you the amount and date of
 this payment, so it is theirs — asking whether it is a typo without saying what it is asks them
 to confirm something they cannot see.
+
+**Then call `create_escalation`** with reason `ADDRESS_DISCREPANCY`, `existing_ticket_id` set to
+the ticket `propose_allocation` gave you, and `discrepancy` carrying `payer_address` and what
+they said in their own words. It joins the review already open — the allocation and the address
+are one piece of work for one person, and a second ticket means two people each finding half of
+it. Tell them a colleague will correct it.
 
 Only that address. Never the one on file, and never change anything yourself.
 
