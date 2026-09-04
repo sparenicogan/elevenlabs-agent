@@ -265,13 +265,63 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ---
 
+## Phase 4b: User Story 2 — Spoken dates (Priority: P2)
+
+**Goal**: A date a caller can say is a date the system can read.
+
+**Independent test**: Call and give a date of birth as "the twelfth of March nineteen seventy-four"
+and confirm verification succeeds.
+
+- [ ] T107 [US2] Extend `DATE_FORMATS` in `src/domain/verification.py` to the forms a transcript
+      actually produces: month named in words, ordinal days, two-digit and apostrophe years,
+      comma-separated. Only numeric formats parse today, so no spoken date is ever readable.
+- [ ] T108 [P] [US2] Write the cases in `tests/unit/test_verification.py` from the real call:
+      "12 March '74", "12th of March, 1974", "the twelfth of March 1974".
+- [ ] T109 [US2] Separate unreadable from wrong in `check_factors`: an answer that could not be
+      parsed must not discard the factors that already matched. On the failing call two correct
+      answers were reported as zero confirmed.
+
+## Phase 10b: User Story 9 — A human decision reaches the ledger (Priority: P9)
+
+**Goal**: The only path by which money moves. A colleague accepts a ticket, the applier re-runs the
+rules against the ledger as it stands now, and writes only what still passes.
+
+**Independent test**: Raise a credit on a call, set Request outcome to Accepted, wait for the
+applier, and confirm the ledger entry exists, the ticket carries an applied note, and a second run
+writes nothing.
+
+- [x] T102 [US9] Fix the customer id property mismatch: the CRM property is `aws_customer_id` and
+      both `src/adapters/hubspot.py` and `src/handlers/apply_decisions.py` read `customer_id`, so
+      the applier fails on every accepted ticket. Set it when raising the ticket in
+      `src/handlers/request_credit.py`, which never writes it under either name.
+- [x] T103a [US9] Write the payment and the invoices it settles into `related_entry_id` as a list
+      in `src/handlers/propose_allocation.py`. It carries only the payment today, so the applier
+      cannot know what to allocate it against.
+- [x] T103b [US9] Apply accepted allocations in `src/handlers/apply_decisions.py`: move the payment
+      to ALLOCATED against every invoice named, conditional on it still being UNALLOCATED, and
+      refuse with a note when the payment does not cover them. Today an allocation ticket is
+      counted as `already_applied` and silently does nothing.
+- [x] T103 [P] [US9] Write `tests/contract/test_apply_decisions.py` cases for a ticket closed with
+      no outcome, and for Canceled by customer, neither of which is currently covered.
+- [ ] T104 [US9] Write `tests/integration/test_applier.py`: raise a real request, mark the ticket
+      Accepted, run the applier, and assert the ledger entry, the note on the ticket, and that a
+      second run writes nothing.
+- [ ] T105 [P] [US9] Assert the ledger Deny holds, in `tests/integration/test_iam.py`, using
+      `iam:SimulatePrincipalPolicy` against every agent-facing role.
+- [x] T106a [US9] Log the per-run counts from `apply_decisions`: the line currently reads
+      `apply run complete` with no numbers, so a run failing on every ticket is indistinguishable
+      from a run with nothing to do.
+- [ ] T106 [US9] Confirm the applier's EventBridge schedule is firing and its failures are visible:
+      a run that writes nothing because every ticket is malformed currently looks identical to a
+      run with nothing to do.
+
 ## Phase 11: Polish & Cross-Cutting
 
 - [ ] T095 [P] Verify no identity field reaches any log by asserting the allowlist in `tests/unit/test_log_scrubbing.py` and reviewing a real call's log output (FR-029, SC-002)
 - [ ] T096 [P] Verify the `src/adapters/hubspot.py` field allowlist against a real ticket and interaction record — no date of birth, verification answer, or payment detail (FR-028, SC-002)
 - [ ] T097 [P] Tighten per-Lambda IAM in `infra/terraform/iam.tf` so only `verify_identity` and `conversation_init` can read `customer_identity` (Principle X)
 - [ ] T098 [P] Verify the lifecycle rules in `infra/terraform/s3.tf` and `infra/terraform/logs.tf` match FR-038a: transcripts 90 days, metadata and metrics 10 years, audit 10 years
-- [ ] T099 Run the full quickstart.md validation for all eight user stories and fix what it surfaces
+- [ ] T099 Run the full quickstart.md validation for all nine user stories and fix what it surfaces
 - [ ] T100 Write `README.md`: architecture, the trust boundary between agent and backend, how to run the tests, and an honest statement of what is out of scope (SMS, payment links, auto-reconciliation) and what is proven by tests rather than demonstrated live
 - [ ] T101 Record the 3–5 minute Loom: the golden path plus one failure path, using the pre-recording checklist in quickstart.md
 

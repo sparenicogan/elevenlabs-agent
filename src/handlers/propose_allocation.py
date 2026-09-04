@@ -117,7 +117,7 @@ def _propose(conversation_id: str, customer_id: str, display: dict, body: dict) 
             f"payment not allocatable from {outcome.previous_status}",
         )
 
-    ticket_id = _raise_ticket(conversation_id, display, invoice, payment)
+    ticket_id = _raise_ticket(conversation_id, customer_id, display, invoice, payment)
 
     audit.write(
         audit.AuditEvent(
@@ -195,16 +195,21 @@ def _open_review(display: dict, payment_id: str) -> str | None:
         raise ToolError(ErrorCategory.INTERNAL, "no company id, cannot check open reviews")
 
     for ticket in hubspot.get_pending_requests(str(company_id)):
-        if str(ticket.get("related_entry_id") or "") == payment_id:
+        # The payment is the first entry; the rest are the invoices it settles.
+        entries = str(ticket.get("related_entry_id") or "").split(",")
+        if entries and entries[0].strip() == payment_id:
             return str(ticket["id"])
     return None
 
 
-def _raise_ticket(conversation_id: str, display: dict, invoice: dict, payment: dict) -> str | None:
+def _raise_ticket(
+    conversation_id: str, customer_id: str, display: dict, invoice: dict, payment: dict
+) -> str | None:
     """
     Creates the ticket a person will work from.
 
     conversation_id: the call, so the reviewer can find the recording.
+    customer_id:     the company, so the applier can read the ledger it is keyed by.
     display:         company name and HubSpot ids from verification.
     invoice:         the invoice being settled.
     payment:         the payment being proposed.
@@ -242,9 +247,12 @@ def _raise_ticket(conversation_id: str, display: dict, invoice: dict, payment: d
                     + ("To check: " + "; ".join(discrepancies) + ".\n" if discrepancies else "")
                     + "The agent has no authority to allocate. Please confirm or reject."
                 ),
-                # The payment this review is about, as a property rather than prose: it is
-                # what the next caller's "already in process" check matches on.
-                "related_entry_id": payment["entry_id"],
+                # The payment first, then what it settles. A list because the applier needs
+                # both to act: which payment to move, and which invoices to move it against.
+                # Comma-separated because the CRM field is text; the payment stays first so
+                # the next caller's "already in process" check can read it without parsing.
+                "related_entry_id": f"{payment['entry_id']},{invoice['entry_id']}",
+                "aws_customer_id": customer_id,
                 "hs_pipeline_stage": "1",
                 "hs_ticket_priority": "HIGH",
             },

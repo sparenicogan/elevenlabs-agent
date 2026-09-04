@@ -22,7 +22,7 @@ CHARGE = {
 
 TICKET = {
     "id": "8801",
-    "customer_id": "446019693775",
+    "aws_customer_id": "446019693775",
     "related_entry_id": "inv_00982_004",
     "credit_amount": "40.00",
     "request_outcome": "Accepted",
@@ -48,6 +48,9 @@ def stubs(mocker):
         ),
         "query": mocker.patch.object(module.dynamo, "query", return_value=[dict(CHARGE)]),
         "put": mocker.patch.object(module.dynamo, "put_if_absent", return_value=True),
+        "update": mocker.patch.object(
+            module.dynamo, "update_if", return_value={"status": "ALLOCATED"}
+        ),
         "note": mocker.patch.object(module.hubspot, "append_note"),
         "audit": mocker.patch.object(module.audit, "write"),
         "module": module,
@@ -111,6 +114,71 @@ class TestTheRulesRunAgain:
         assert "Not applied" in stubs["note"].call_args.args[1]
 
 
+PAYMENT = {
+    "customer_id": "446019693775",
+    "entry_id": "pay_1",
+    "type": "PAYMENT",
+    "amount": Decimal("-1420.00"),
+    "status": "UNALLOCATED",
+}
+
+ALLOCATION = {
+    "id": "9901",
+    "aws_customer_id": "446019693775",
+    "related_entry_id": "pay_1,inv_00982_004",
+    "request_outcome": "Accepted",
+}
+
+
+class TestAllocations:
+    """The other half of the loop. Until this existed an accepted allocation ticket was counted
+    as already applied and silently did nothing, so the golden path ended at a ticket nobody
+    could action without opening the table."""
+
+    def test_an_accepted_allocation_moves_the_payment(self, stubs):
+        stubs["accepted"].return_value = [dict(ALLOCATION)]
+        stubs["query"].return_value = [dict(CHARGE), dict(PAYMENT)]
+        assert stubs["module"].handler()["applied"] == 1
+        kwargs = stubs["update"].call_args.kwargs
+        assert kwargs["ExpressionAttributeValues"][":new"] == "ALLOCATED"
+        assert kwargs["ExpressionAttributeValues"][":invoices"] == ["inv_00982_004"]
+
+    def test_the_move_is_conditional_so_a_second_run_writes_nothing(self, stubs):
+        stubs["accepted"].return_value = [dict(ALLOCATION)]
+        stubs["query"].return_value = [dict(CHARGE), dict(PAYMENT)]
+        stubs["module"].handler()
+        kwargs = stubs["update"].call_args.kwargs
+        assert kwargs["ExpressionAttributeValues"][":expected"] == "UNALLOCATED"
+
+    def test_a_payment_already_allocated_is_not_moved_again(self, stubs):
+        stubs["accepted"].return_value = [dict(ALLOCATION)]
+        stubs["query"].return_value = [dict(CHARGE), dict(PAYMENT)]
+        stubs["update"].return_value = None
+        counts = stubs["module"].handler()
+        assert counts["already_applied"] == 1
+        stubs["audit"].assert_not_called()
+
+    def test_a_payment_that_does_not_cover_the_invoice_is_refused(self, stubs):
+        """A person accepting a ticket says they are content for it to happen, not that the
+        numbers add up."""
+        stubs["accepted"].return_value = [dict(ALLOCATION)]
+        stubs["query"].return_value = [dict(CHARGE), {**PAYMENT, "amount": Decimal("-100.00")}]
+        assert stubs["module"].handler()["refused"] == 1
+        stubs["update"].assert_not_called()
+        assert "does not cover" in stubs["note"].call_args.args[1]
+
+    def test_an_invoice_no_longer_on_the_account_is_refused(self, stubs):
+        stubs["accepted"].return_value = [dict(ALLOCATION)]
+        stubs["query"].return_value = [dict(PAYMENT)]
+        assert stubs["module"].handler()["refused"] == 1
+        stubs["update"].assert_not_called()
+
+    def test_a_ticket_naming_no_invoice_fails_rather_than_guessing(self, stubs):
+        stubs["accepted"].return_value = [{**ALLOCATION, "related_entry_id": "pay_1"}]
+        stubs["query"].return_value = [dict(CHARGE), dict(PAYMENT)]
+        assert stubs["module"].handler()["failed"] == 1
+
+
 class TestRunTwice:
     def test_the_ledger_id_comes_from_the_ticket_so_a_rerun_writes_nothing(self, stubs):
         stubs["module"].handler()
@@ -120,6 +188,24 @@ class TestRunTwice:
         stubs["put"].return_value = False
         assert stubs["module"].handler()["already_applied"] == 1
         stubs["audit"].assert_not_called()
+
+
+class TestDecisionsThatAreNotApprovals:
+    """Rejected, Canceled by customer, and closed-without-an-outcome never reach the applier at
+    all: the CRM search asks for Accepted, so an outcome it does not understand cannot become a
+    ledger write by accident. Asserted on the query rather than on a branch, because there is no
+    branch — which is the point."""
+
+    def test_only_accepted_tickets_are_ever_fetched(self):
+        import inspect
+
+        from src.adapters import hubspot
+
+        source = inspect.getsource(hubspot.get_accepted_requests)
+        assert '"propertyName": "request_outcome"' in source
+        assert '"value": "Accepted"' in source
+        assert "Rejected" not in source
+        assert "Canceled" not in source
 
 
 class TestOneBadTicket:
