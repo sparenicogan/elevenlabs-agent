@@ -10,6 +10,7 @@ Run: make scenarios
 """
 
 from collections import defaultdict
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -204,9 +205,13 @@ def _verification_block(company: dict) -> str:
             if phone
             else "**none on file**"
         )
+        # Written out in words as well as ISO. Reading "1969-11-09" off a script and saying it
+        # aloud means deciding whether it is the ninth of November or the eleventh of
+        # September, and a tester guessing wrong looks exactly like the agent being broken.
+        born = date.fromisoformat(contact["date_of_birth"])
         lines.append(
             f"| {contact['first_name']} {contact['last_name']} | `{contact['email']}` "
-            f"| {spoken} | `{contact['date_of_birth']}` |"
+            f"| {spoken} | **{born.day} {born:%B} {born.year}** (`{contact['date_of_birth']}`) |"
         )
 
     lines.append("")
@@ -271,6 +276,11 @@ def _financial_block(entries: list[dict]) -> str:
     return "\n".join(parts)
 
 
+def _primary(company: dict) -> dict:
+    """The first contact listed for a company, which is the one the narrative is written about."""
+    return next(c for c in fixtures.CONTACTS if c["account_id"] == company["customer_id"])
+
+
 def render() -> str:
     """
     Builds the whole document.
@@ -307,7 +317,9 @@ def render() -> str:
             f"*{narrative['story']}* · speaks **{company['language']}** · "
             f"`{company['customer_id']}`",
             "",
-            f"**Contact**: {company['first_name']} {company['last_name']}, {company['email']}",
+            # The primary contact moved off the company record when contacts became one list.
+            f"**Contact**: {_primary(company)['first_name']} {_primary(company)['last_name']}, "
+            f"{_primary(company)['email']}",
             "",
             "### The situation",
             "",

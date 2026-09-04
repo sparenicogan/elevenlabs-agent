@@ -21,9 +21,36 @@ from enum import StrEnum
 # +41 44 123 45 67, 044 123 45 67 and 0041441234567 the same number — which they are.
 PHONE_SIGNIFICANT_DIGITS = 9
 
+# Returned when a date cannot be read at all. Distinct from a wrong answer: a caller whose
+# date we failed to parse has not told us anything, and must not be scored as mistaken.
+UNPARSEABLE_DATE = "\x00unparseable"
+
 # Date formats a spoken date might be transcribed into. ISO first because that is what the
 # record holds and what the agent is instructed to produce.
-DATE_FORMATS = ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y")
+DATE_FORMATS = (
+    "%Y-%m-%d",
+    "%d.%m.%Y",
+    "%d/%m/%Y",
+    "%d-%m-%Y",
+    # Spoken forms. A caller says "the twenty-fifth of July, nineteen sixty-nine" and the
+    # transcript writes "25th of July, 1969" -- which matched nothing until these existed, so
+    # every date said aloud was scored as a wrong answer.
+    "%d %B %Y",
+    "%d %b %Y",
+    "%B %d %Y",
+    "%b %d %Y",
+    "%d %B %y",
+    "%d %b %y",
+)
+
+# Words a caller says that a date parser cannot. Ordinals only: "twenty-fifth" is a day,
+# whereas spelled-out years are written as digits by every transcriber we have seen.
+_SPOKEN_DAYS = {
+    "first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6, "seventh": 7,
+    "eighth": 8, "ninth": 9, "tenth": 10, "eleventh": 11, "twelfth": 12, "thirteenth": 13,
+    "fourteenth": 14, "fifteenth": 15, "sixteenth": 16, "seventeenth": 17, "eighteenth": 18,
+    "nineteenth": 19, "twentieth": 20, "thirtieth": 30,
+}
 
 
 class Factor(StrEnum):
@@ -135,15 +162,33 @@ def _normalise_email(value: str) -> str:
     return re.sub(r"[\s-]", "", spoken)
 
 
+def _spoken_to_digits(value: str) -> str:
+    """
+    Strips the parts of a spoken date that a parser cannot read.
+
+    value: the date as transcribed.
+
+    Returns: the same date with ordinals, filler words and punctuation removed, so
+             "the 25th of July, 1969" becomes "25 July 1969".
+    """
+    text = value.strip().casefold().replace(",", " ").replace("'", "")
+    for word, day in _SPOKEN_DAYS.items():
+        text = re.sub(rf"\b(twenty[- ])?{word}\b", str(day + (20 if "twenty" in text else 0)), text)
+    text = re.sub(r"\b(\d{1,2})(st|nd|rd|th)\b", r"\1", text)
+    text = re.sub(r"\b(the|of|on)\b", " ", text)
+    return " ".join(text.split())
+
+
 def _normalise_date(value: str) -> str:
     """Parses a spoken-then-transcribed date into ISO form, or returns a sentinel that can
-    never equal a stored date so an unparseable answer is simply wrong, not an exception."""
-    for fmt in DATE_FORMATS:
-        try:
-            return datetime.strptime(value.strip(), fmt).date().isoformat()
-        except ValueError:
-            continue
-    return "\x00unparseable"
+    never equal a stored date so an unreadable answer is never mistaken for a matching one."""
+    for candidate in (value.strip(), _spoken_to_digits(value)):
+        for fmt in DATE_FORMATS:
+            try:
+                return datetime.strptime(candidate, fmt).date().isoformat()
+            except ValueError:
+                continue
+    return UNPARSEABLE_DATE
 
 
 def ambiguous_date(value: str) -> tuple[str, str] | None:
@@ -238,11 +283,20 @@ def check_factors(
     """
     confirmed: set[Factor] = set()
     mismatched: set[Factor] = set()
+    unreadable: set[Factor] = set()
 
     for factor, value in supplied.items():
         # An unknown customer has no stored values, so every answer is wrong — which is
         # exactly how a wrong answer against a known customer looks. The gate must not
         # reveal whether a customer exists.
+        if factor is Factor.DATE_OF_BIRTH and _normalise_date(value) == UNPARSEABLE_DATE:
+            # Unreadable is not wrong. A date we could not parse tells us nothing about the
+            # caller, and counting it as a mismatch discards the answers they got right --
+            # which is how a caller with a correct email and phone was told zero were
+            # confirmed. Neither confirmed nor mismatched: simply not yet answered.
+            unreadable.add(factor)
+            continue
+
         if factor in stored and _matches(factor, value, stored[factor]):
             confirmed.add(factor)
         else:

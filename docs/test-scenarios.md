@@ -1,6 +1,6 @@
 # Test scenarios
 
-**Generated 2026-09-03** by `make scenarios` from `scripts/seed/fixtures.py`.
+**Generated 2026-09-04** by `make scenarios` from `scripts/seed/fixtures.py`.
 
 Every figure here is relative to when the fixtures were last seeded, so regenerate
 this after `make seed` rather than trusting an old copy. All data is synthetic.
@@ -27,23 +27,23 @@ Customer ID (the company, shared by all of them) — `445909044455`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
-| Klaus Mueller | `klaus.mueller@alpina-tech.ch` | `+41 44 501 22 18` — say `0445012218` | `1974-03-12` |
-| Thomas Weber | `thomas.weber@alpina-tech.ch` | `+41 44 407 76 73` — say `0444077673` | `1981-09-03` |
-| Anna Schmidt | `anna.schmidt@alpina-tech.ch` | `+41 44 529 67 90` — say `0445296790` | `1995-09-28` |
+| Klaus Mueller | `klaus.mueller@alpina-tech.ch` | `+41 44 501 22 18` — say `0445012218` | **12 March 1974** (`1974-03-12`) |
+| Thomas Weber | `thomas.weber@alpina-tech.ch` | `+41 44 407 76 73` — say `0444077673` | **3 September 1981** (`1981-09-03`) |
+| Anna Schmidt | `anna.schmidt@alpina-tech.ch` | `+41 44 529 67 90` — say `0445296790` | **28 September 1995** (`1995-09-28`) |
 
 Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
-**History**: 7 invoices from 2024-08-04 to 2026-08-06.
+**History**: 7 invoices from 2024-08-05 to 2026-08-07.
 
 **Outstanding: CHF 4,200.00**
 
 | Invoice | Issued | Due | Amount | Status | Payment reference |
 |---|---|---|---|---|---|
-| `INV-2026-0013` | 2026-06-20 | 2026-07-20 | CHF 4,200.00 | OVERDUE | `5028686` |
+| `INV-2026-0013` | 2026-06-21 | 2026-07-21 | CHF 4,200.00 | OVERDUE | `5028686` |
 
-**Unallocated payment on record** — CHF 4,200.00, sent 2026-07-27, no reference. These are the two values the caller must supply, and the agent must never read them out.
+**Unallocated payment on record** — CHF 4,200.00, sent 2026-07-28, no reference. These are the two values the caller must supply, and the agent must never read them out.
 
 ### What the agent should do
 
@@ -67,15 +67,15 @@ Customer ID (the company, shared by all of them) — `446019693775`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
-| Marco Rossi | `marco.rossi@ticino-ind.ch` | `+41 91 604 77 31` — say `0916047731` | `1981-11-02` |
-| Lucia Ferrari | `lucia.ferrari@ticino-ind.ch` | `+41 91 175 57 85` — say `0911755785` | `1965-08-26` |
-| Giovanni Bianchi | `giovanni.bianchi@ticino-ind.ch` | `+41 91 622 26 54` — say `0916222654` | `1980-07-03` |
+| Marco Rossi | `marco.rossi@ticino-ind.ch` | `+41 91 604 77 31` — say `0916047731` | **2 November 1981** (`1981-11-02`) |
+| Lucia Ferrari | `lucia.ferrari@ticino-ind.ch` | `+41 91 175 57 85` — say `0911755785` | **26 August 1965** (`1965-08-26`) |
+| Giovanni Bianchi | `giovanni.bianchi@ticino-ind.ch` | `+41 91 622 26 54` — say `0916222654` | **3 July 1980** (`1980-07-03`) |
 
 Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
-**History**: 4 invoices from 2025-07-10 to 2026-07-25.
+**History**: 4 invoices from 2025-07-11 to 2026-07-26.
 
 **Nothing outstanding.** Every invoice is paid.
 
@@ -101,15 +101,15 @@ Customer ID (the company, shared by all of them) — `445900025039`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
-| Charles Lavigne | `charles.lavigne@apex-capital.ch` | `+41 22 918 40 65` — say `0229184065` | `1969-07-25` |
-| Olivier Lefevre | `olivier.lefevre@apex-capital.ch` | `+41 22 501 32 58` — say `0225013258` | `1967-10-20` |
-| Veronique Champagne | `veronique.champagne@apex-capital.ch` | `+41 22 996 82 59` — say `0229968259` | `1994-07-14` |
+| Charles Lavigne | `charles.lavigne@apex-capital.ch` | `+41 22 918 40 65` — say `0229184065` | **25 July 1969** (`1969-07-25`) |
+| Olivier Lefevre | `olivier.lefevre@apex-capital.ch` | `+41 22 501 32 58` — say `0225013258` | **20 October 1967** (`1967-10-20`) |
+| Veronique Champagne | `veronique.champagne@apex-capital.ch` | `+41 22 996 82 59` — say `0229968259` | **14 July 1994** (`1994-07-14`) |
 
 Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
-**History**: 5 invoices from 2024-10-13 to 2026-07-13.
+**History**: 5 invoices from 2024-10-14 to 2026-07-14.
 
 **Nothing outstanding.** Every invoice is paid.
 
@@ -137,15 +137,15 @@ Customer ID (the company, shared by all of them) — `446087611588`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
-| Martin Keller | `martin.keller@precision-systems.ch` | **none on file** | `1988-01-19` |
-| Julia Fischer | `julia.fischer@precision-systems.ch` | `+41 31 933 51 72` — say `0319335172` | `1967-05-26` |
-| Daniel Zimmermann | `daniel.zimmermann@precision-systems.ch` | `+41 31 441 85 59` — say `0314418559` | `1979-07-03` |
+| Martin Keller | `martin.keller@precision-systems.ch` | `None` — say `0None` | **19 January 1988** (`1988-01-19`) |
+| Julia Fischer | `julia.fischer@precision-systems.ch` | `+41 31 933 51 72` — say `0319335172` | **26 May 1967** (`1967-05-26`) |
+| Daniel Zimmermann | `daniel.zimmermann@precision-systems.ch` | `+41 31 441 85 59` — say `0314418559` | **3 July 1979** (`1979-07-03`) |
 
 Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
-**History**: 3 invoices from 2026-02-05 to 2026-08-01.
+**History**: 3 invoices from 2026-02-06 to 2026-08-02.
 
 **Nothing outstanding.** Every invoice is paid.
 
@@ -171,23 +171,23 @@ Customer ID (the company, shared by all of them) — `445941470419`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
-| Andrea Colombo | `andrea.colombo@heritage-mfg.ch` | `+41 91 233 08 54` — say `0912330854` | `1971-05-30` |
-| Francesca Rizzo | `francesca.rizzo@heritage-mfg.ch` | `+41 91 138 17 48` — say `0911381748` | `1964-09-26` |
-| Carlo Moretti | `carlo.moretti@heritage-mfg.ch` | `+41 91 990 57 10` — say `0919905710` | `1988-12-16` |
+| Andrea Colombo | `andrea.colombo@heritage-mfg.ch` | `+41 91 233 08 54` — say `0912330854` | **30 May 1971** (`1971-05-30`) |
+| Francesca Rizzo | `francesca.rizzo@heritage-mfg.ch` | `+41 91 138 17 48` — say `0911381748` | **26 September 1964** (`1964-09-26`) |
+| Carlo Moretti | `carlo.moretti@heritage-mfg.ch` | `+41 91 990 57 10` — say `0919905710` | **16 December 1988** (`1988-12-16`) |
 
 Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
-**History**: 7 invoices from 2024-05-26 to 2026-07-29.
+**History**: 7 invoices from 2024-05-27 to 2026-07-30.
 
 **Outstanding: CHF 11,390.00**
 
 | Invoice | Issued | Due | Amount | Status | Payment reference |
 |---|---|---|---|---|---|
-| `INV-2026-0010` | 2026-05-08 | 2026-06-07 | CHF 4,850.00 | OVERDUE | `4714499` |
-| `INV-2026-0014` | 2026-06-21 | 2026-07-21 | CHF 3,600.00 | OVERDUE | `5133415` |
-| `INV-2026-0021` | 2026-07-29 | 2026-08-28 | CHF 2,940.00 | OVERDUE | `5866518` |
+| `INV-2026-0010` | 2026-05-09 | 2026-06-08 | CHF 4,850.00 | OVERDUE | `4714499` |
+| `INV-2026-0014` | 2026-06-22 | 2026-07-22 | CHF 3,600.00 | OVERDUE | `5133415` |
+| `INV-2026-0021` | 2026-07-30 | 2026-08-29 | CHF 2,940.00 | OVERDUE | `5866518` |
 
 ### What the agent should do
 
@@ -211,15 +211,15 @@ Customer ID (the company, shared by all of them) — `446043304132`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
-| Raphael Mueller | `raphael.mueller@nexus-consulting.ch` | `+41 31 776 15 09` — say `0317761509` | `1985-09-14` |
-| Felix Graber | `felix.graber@nexus-consulting.ch` | `+41 31 746 49 22` — say `0317464922` | `1996-09-19` |
-| Beatrice Fuchs | `beatrice.fuchs@nexus-consulting.ch` | `+41 31 585 99 28` — say `0315859928` | `1979-07-24` |
+| Raphael Mueller | `raphael.mueller@nexus-consulting.ch` | `+41 31 776 15 09` — say `0317761509` | **14 September 1985** (`1985-09-14`) |
+| Felix Graber | `felix.graber@nexus-consulting.ch` | `+41 31 746 49 22` — say `0317464922` | **19 September 1996** (`1996-09-19`) |
+| Beatrice Fuchs | `beatrice.fuchs@nexus-consulting.ch` | `+41 31 585 99 28` — say `0315859928` | **24 July 1979** (`1979-07-24`) |
 
 Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
-**History**: 4 invoices from 2025-01-31 to 2026-07-04.
+**History**: 4 invoices from 2025-02-01 to 2026-07-05.
 
 **Nothing outstanding.** Every invoice is paid.
 
@@ -245,15 +245,15 @@ Customer ID (the company, shared by all of them) — `446069714152`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
-| Stephane Richard | `stephane.richard@innovatech.ch` | `+41 21 340 62 77` — say `0213406277` | `1979-12-08` |
-| Luc Martin | `luc.martin@innovatech.ch` | `+41 21 325 98 34` — say `0213259834` | `1971-11-09` |
-| Claire Moreau | `claire.moreau@innovatech.ch` | `+41 21 288 56 40` — say `0212885640` | `1970-04-10` |
+| Stephane Richard | `stephane.richard@innovatech.ch` | `+41 21 340 62 77` — say `0213406277` | **8 December 1979** (`1979-12-08`) |
+| Luc Martin | `luc.martin@innovatech.ch` | `+41 21 325 98 34` — say `0213259834` | **9 November 1971** (`1971-11-09`) |
+| Claire Moreau | `claire.moreau@innovatech.ch` | `+41 21 288 56 40` — say `0212885640` | **10 April 1970** (`1970-04-10`) |
 
 Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
-**History**: 6 invoices from 2024-04-06 to 2026-07-17.
+**History**: 6 invoices from 2024-04-07 to 2026-07-18.
 
 **Nothing outstanding.** Every invoice is paid.
 
@@ -279,21 +279,21 @@ Customer ID (the company, shared by all of them) — `445925214417`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
-| Sandra Hoffmann | `sandra.hoffmann@synergy-sol.ch` | `+41 61 285 93 40` — say `0612859340` | `1983-02-21` |
-| Peter Bauer | `peter.bauer@synergy-sol.ch` | `+41 61 118 36 90` — say `0611183690` | `1980-03-03` |
-| Michael Lang | `michael.lang@synergy-sol.ch` | `+41 61 574 53 10` — say `0615745310` | `1968-09-27` |
+| Sandra Hoffmann | `sandra.hoffmann@synergy-sol.ch` | `+41 61 285 93 40` — say `0612859340` | **21 February 1983** (`1983-02-21`) |
+| Peter Bauer | `peter.bauer@synergy-sol.ch` | `+41 61 118 36 90` — say `0611183690` | **3 March 1980** (`1980-03-03`) |
+| Michael Lang | `michael.lang@synergy-sol.ch` | `+41 61 574 53 10` — say `0615745310` | **27 September 1968** (`1968-09-27`) |
 
 Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
-**History**: 3 invoices from 2025-10-28 to 2026-08-12.
+**History**: 3 invoices from 2025-10-29 to 2026-08-13.
 
 **Outstanding: CHF 3,120.00**
 
 | Invoice | Issued | Due | Amount | Status | Payment reference |
 |---|---|---|---|---|---|
-| `INV-2026-0025` | 2026-08-12 | 2026-09-11 | CHF 3,120.00 | OPEN | `6285434` |
+| `INV-2026-0025` | 2026-08-13 | 2026-09-12 | CHF 3,120.00 | OPEN | `6285434` |
 
 ### What the agent should do
 
@@ -317,15 +317,15 @@ Customer ID (the company, shared by all of them) — `445925214416`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
-| Marie Rousseau | `marie.rousseau@lumina-analytics.ch` | `+41 22 447 31 86` — say `0224473186` | `1990-06-17` |
-| Pierre Bernard | `pierre.bernard@lumina-analytics.ch` | `+41 22 488 39 54` — say `0224883954` | `1990-04-20` |
-| Jean Dupont | `jean.dupont@lumina-analytics.ch` | `+41 22 928 84 82` — say `0229288482` | `1962-02-11` |
+| Marie Rousseau | `marie.rousseau@lumina-analytics.ch` | `+41 22 447 31 86` — say `0224473186` | **17 June 1990** (`1990-06-17`) |
+| Pierre Bernard | `pierre.bernard@lumina-analytics.ch` | `+41 22 488 39 54` — say `0224883954` | **20 April 1990** (`1990-04-20`) |
+| Jean Dupont | `jean.dupont@lumina-analytics.ch` | `+41 22 928 84 82` — say `0229288482` | **11 February 1962** (`1962-02-11`) |
 
 Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
-**History**: 3 invoices from 2026-04-16 to 2026-08-09.
+**History**: 3 invoices from 2026-04-17 to 2026-08-10.
 
 **Nothing outstanding.** Every invoice is paid.
 
@@ -351,22 +351,22 @@ Customer ID (the company, shared by all of them) — `446082282723`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
-| Francois Hubert | `francois.hubert@digital-frontier.ch` | `+41 26 512 70 24` — say `0265127024` | `1976-10-03` |
-| Isabelle Deschamps | `isabelle.deschamps@digital-frontier.ch` | `+41 26 160 27 29` — say `0261602729` | `1986-01-03` |
-| Eric Leclerc | `eric.leclerc@digital-frontier.ch` | `+41 26 957 62 71` — say `0269576271` | `1991-10-01` |
+| Francois Hubert | `francois.hubert@digital-frontier.ch` | `+41 26 512 70 24` — say `0265127024` | **3 October 1976** (`1976-10-03`) |
+| Isabelle Deschamps | `isabelle.deschamps@digital-frontier.ch` | `+41 26 160 27 29` — say `0261602729` | **3 January 1986** (`1986-01-03`) |
+| Eric Leclerc | `eric.leclerc@digital-frontier.ch` | `+41 26 957 62 71` — say `0269576271` | **1 October 1991** (`1991-10-01`) |
 
 Any of them verifies with **their own** email, phone or date of birth, plus the customer ID. Three factors, at least one personal. Somebody not in this table gets nowhere, whatever they claim about working here.
 
 ### What is true of the account
 
-**History**: 4 invoices from 2025-07-30 to 2026-07-07.
+**History**: 4 invoices from 2025-07-31 to 2026-07-08.
 
 **Outstanding: CHF 7,700.00**
 
 | Invoice | Issued | Due | Amount | Status | Payment reference |
 |---|---|---|---|---|---|
-| `INV-2026-0011` | 2026-05-14 | 2026-06-13 | CHF 4,520.00 | OVERDUE | `4819228` |
-| `INV-2026-0017` | 2026-07-07 | 2026-08-06 | CHF 3,180.00 | OVERDUE | `5447602` |
+| `INV-2026-0011` | 2026-05-15 | 2026-06-14 | CHF 4,520.00 | OVERDUE | `4819228` |
+| `INV-2026-0017` | 2026-07-08 | 2026-08-07 | CHF 3,180.00 | OVERDUE | `5447602` |
 
 ### What the agent should do
 

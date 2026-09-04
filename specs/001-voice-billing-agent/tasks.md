@@ -272,12 +272,12 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 **Independent test**: Call and give a date of birth as "the twelfth of March nineteen seventy-four"
 and confirm verification succeeds.
 
-- [ ] T107 [US2] Extend `DATE_FORMATS` in `src/domain/verification.py` to the forms a transcript
+- [x] T107 [US2] Extend `DATE_FORMATS` in `src/domain/verification.py` to the forms a transcript
       actually produces: month named in words, ordinal days, two-digit and apostrophe years,
       comma-separated. Only numeric formats parse today, so no spoken date is ever readable.
-- [ ] T108 [P] [US2] Write the cases in `tests/unit/test_verification.py` from the real call:
+- [x] T108 [P] [US2] Write the cases in `tests/unit/test_verification.py` from the real call:
       "12 March '74", "12th of March, 1974", "the twelfth of March 1974".
-- [ ] T109 [US2] Separate unreadable from wrong in `check_factors`: an answer that could not be
+- [x] T109 [US2] Separate unreadable from wrong in `check_factors`: an answer that could not be
       parsed must not discard the factors that already matched. On the failing call two correct
       answers were reported as zero confirmed.
 
