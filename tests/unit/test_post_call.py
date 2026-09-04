@@ -172,3 +172,28 @@ class TestTheCallbackBackstop:
             {**PAYLOAD, "analysis": {"transfer_attempted": True, "transfer_result": "FAILED"}},
         )
         stubs["callback"].assert_not_called()
+
+
+class TestTheAdaptersAreCalledCorrectly:
+    """Every adapter is mocked in the tests above, which is what makes them fast and is also
+    what let a wrong keyword reach production. The webhook returned 500 on its first real
+    delivery because upsert was passed a condition, which only update_if takes."""
+
+    def test_upsert_refuses_a_condition_rather_than_passing_it_to_boto(self):
+        import pytest as _pytest
+
+        from src.adapters import dynamo
+
+        with _pytest.raises(TypeError, match="use update_if"):
+            dynamo.upsert("conversations", {"conversation_id": "c"}, condition="x")
+
+    def test_the_summary_is_written_conditionally(self):
+        """Two calls ending at once must not overwrite each other's work: the loser reads
+        again and re-folds rather than winning by arriving second."""
+        import inspect
+
+        from src.handlers import post_call
+
+        source = inspect.getsource(post_call._regenerate_summary)
+        assert "update_if" in source
+        assert "version = :expected" in source

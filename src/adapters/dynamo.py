@@ -139,6 +139,12 @@ def upsert(table: str, key: dict[str, Any], **kwargs: Any) -> dict | None:
     silently discard the write — verification status being the case that matters, since
     discarding it looks identical to the disclosure gate working.
     """
+    if "condition" in kwargs:
+        # Caught here rather than by boto three frames down, where it reads as an unknown
+        # parameter and says nothing about which function was wanted. This cost a 500 on a
+        # deployed webhook that every offline test passed, because the adapter was mocked.
+        raise TypeError("upsert takes no condition; use update_if for a conditional write")
+
     try:
         response = _table(table).update_item(Key=key, ReturnValues="ALL_NEW", **kwargs)
         return response.get("Attributes")
