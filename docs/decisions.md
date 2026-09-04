@@ -1568,3 +1568,49 @@ read.
 which. Guessing is wrong half the time, silently. Because the check runs before anything is
 looked up, asking reveals nothing about the caller — it is a question about what was written
 down, which is why it can be asked every time it applies.
+
+### 12.50 Structured procedures reverted; the prompt drives verification again
+
+**Decision.** The `identity-verification` procedure is deleted, the compiled workflow is
+cleared, and the prompt drives the verification sequence directly. The per-detail checks stay:
+the prompt tells the agent to call `check_factor` after each answer and `verify_identity` once
+at the end.
+
+**Cost.** The sequence is a tendency again. Nothing prevents the agent asking for two details
+at once or calling `verify_identity` early — the exact class of failure §12.44 set out to make
+impossible.
+
+**Why.** It made behaviour *less* controllable, not more, and the failure was not one we could
+fix from our side.
+
+When a procedure started, `start_procedure` returned "Follow the step instructions from the
+`<current-active-structured-procedure>` section of your system prompt." The agent then spoke
+that section aloud to the caller — and the section it spoke was **fabricated**. It carried the
+correct procedure id and name, both of which were in the tool result, and invented the steps:
+ask for the primary contact's full name, then phone, then email, with `step_5` and `step_6`
+markers. Our procedure asks for email first and has no name step at all.
+
+The strings "full name", "primary contact", `step_5` and `step_6` appear nowhere in the agent:
+not the prompt, not the 35 compiled workflow nodes, not the subgraphs, not the knowledge base,
+and not in either the draft or published procedure. Both of those are correct.
+
+It happened on both calls where the procedure fired and on none of the six where it did not.
+The agent then followed its own invention, insisting on a name nobody had asked for, and
+abandoned it the moment the caller said it was not in the procedure.
+
+Two lesser problems came with it. The trigger is a model decision — `start_procedure` is a tool
+the model chooses to call — so the sequence was only deterministic once something
+non-deterministic had happened. And it fired a turn late, after the caller answered a question
+that was not asked.
+
+**What is kept.** The per-detail checks, which were the genuinely good part. Verification was
+failing on transcription, not on callers being wrong: a hyphen dropped from a domain, a Swiss
+surname misheard, a date that reads two ways. Checking each detail as it arrives means a
+misheard answer is corrected while the caller is still on that question. That works from the
+prompt, because it is one tool call after each answer rather than a sequence to enforce.
+
+**What this says about the wider argument.** §12.33 held that prompt rules are tendencies and
+that things which must never happen should be impossible. That still holds — the disclosure
+gate is server-side and unaffected by any of this. What was wrong was the assumption that the
+platform's procedure mechanism was the way to make conversational sequence a control. On this
+account, at this time, it introduced a failure worse than the ones it prevented.
