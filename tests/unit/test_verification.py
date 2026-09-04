@@ -295,3 +295,33 @@ class TestNameIsNotAFactor:
         volunteered name confirms nothing and costs nothing."""
         result = check({Factor.EMAIL: "buchhaltung@meier-bau.ch"})
         assert result.confirmed_count == 1
+
+
+class TestSpokenEmails:
+    """What a transcript carries when a caller is asked to spell their address. Every one of
+    these is a real value sent by the agent on a call that failed."""
+
+    def _key(self, value: str) -> str:
+        from src.domain.verification import Factor, lookup_key
+
+        return lookup_key(Factor.EMAIL, value)
+
+    def test_a_spelled_out_address_reaches_the_stored_one(self):
+        assert self._key(
+            "S-T-E-P-H-A-N-E dot R-I-C-H-A-R-D @ I-N-N-O-V-A-T-E-C-H dot C-H"
+        ) == self._key("stephane.richard@innovatech.ch")
+
+    def test_the_at_sign_may_also_be_spoken(self):
+        assert self._key("k-l-a-u-s at a-l-p-i-n-a dot c-h") == self._key("klaus@alpina.ch")
+
+    def test_a_domain_hyphen_the_transcript_dropped_still_matches(self):
+        """The first voice test: "alpina-tech.ch" came through as "alpinatech.ch"."""
+        assert self._key("klaus.mueller@alpinatech.ch") == self._key("klaus.mueller@alpina-tech.ch")
+
+    def test_two_different_addresses_still_differ(self):
+        assert self._key("klaus@alpina.ch") != self._key("marco@alpina.ch")
+
+    def test_the_conversion_happens_before_the_spacing_is_stripped(self):
+        """Otherwise "dot" is glued into the address it was separating, and the local part
+        becomes "stephanedotrichard"."""
+        assert "dot" not in self._key("S-T-E-P-H-A-N-E dot R-I-C-H-A-R-D @ x dot c-h")

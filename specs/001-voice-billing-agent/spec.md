@@ -485,7 +485,8 @@ job title, no financial fact.
 **Acceptance Scenarios**:
 
 1. **Given** a caller who has failed verification or is not a listed contact, **When** they ask who
-   can add them, **Then** the agent gives the name of a contact on the account.
+   can add them, **Then** the agent gives one name — a single contact on the account, not a list.
+   One is enough to act on, and a list is a staff directory.
 2. **Given** the same caller, **When** the name is given, **Then** nothing else about that person is
    given: not an email, not a phone number, not a date of birth, not a job title, not a location.
 3. **Given** the same caller, **When** they ask anything financial, **Then** they get nothing —

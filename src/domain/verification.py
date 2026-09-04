@@ -115,15 +115,24 @@ def _normalise_email(value: str) -> str:
     """
     Reduces an email to the form a spoken one can be compared against.
 
-    Case goes, because nobody speaks capitals. Hyphens go because a caller spelling an
-    address aloud says "alpina tech", and the transcript reliably loses the hyphen —
-    "klaus.mueller@alpinatech.ch" for "klaus.mueller@alpina-tech.ch" is what locked out the
-    first voice test. Dots are kept: they separate a real name and callers do say them.
+    Case goes, because nobody speaks capitals. Spoken punctuation becomes real punctuation:
+    asked to spell an address, a caller says "S-T-E-P-H-A-N-E dot R-I-C-H-A-R-D at
+    I-N-N-O-V-A-T-E-C-H dot C-H", and that is what the transcript carries. The words are
+    converted first, then the spacing and hyphens that separate spelled letters are removed —
+    in that order, or "dot" would be glued into the address it was separating.
 
-    This is deliberately narrow rather than a fuzzy match. Two addresses differing only by a
-    hyphen now collide, which is why an ambiguous lookup resolves nobody.
+    Hyphens go for a second reason: the transcript reliably loses the one in a domain like
+    "alpina-tech.ch", which is what locked out the first voice test.
+
+    Deliberately narrow rather than a fuzzy match. Two addresses differing only by a hyphen
+    now collide, which is why an ambiguous lookup resolves nobody. An address whose local part
+    genuinely contains the word "dot" or "at" also collides, which is rare enough to accept
+    and would otherwise make every spelled-out address unreadable.
     """
-    return value.strip().casefold().replace("-", "")
+    spoken = f" {value.strip().casefold()} "
+    for word, symbol in ((" dot ", "."), (" at ", "@")):
+        spoken = spoken.replace(word, symbol)
+    return re.sub(r"[\s-]", "", spoken)
 
 
 def _normalise_date(value: str) -> str:
