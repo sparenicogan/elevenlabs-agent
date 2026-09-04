@@ -260,6 +260,7 @@ def _raise_request(
             ),
             "credit_amount": float(decision.credit_amount),
             "related_entry_id": entry_id,
+            "aws_customer_id": customer_id,
             "hs_pipeline_stage": "1",
             "hs_ticket_priority": "HIGH",
         },

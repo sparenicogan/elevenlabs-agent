@@ -29,9 +29,10 @@ ALLOWED_TICKET_FIELDS = frozenset(
         "request_outcome",
         "credit_amount",
         "related_entry_id",
-        # The company the charge belongs to. The applier needs it to read the ledger, which
-        # is keyed by customer: a ticket that cannot name its customer cannot be applied.
-        "customer_id",
+        # The company the charge belongs to. The applier needs it to read the ledger, which is
+        # keyed by customer: a ticket that cannot name its customer cannot be applied. Named
+        # aws_customer_id in the CRM to keep it distinct from HubSpot's own record ids.
+        "aws_customer_id",
     }
 )
 

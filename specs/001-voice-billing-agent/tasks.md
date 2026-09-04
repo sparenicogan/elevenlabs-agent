@@ -290,30 +290,45 @@ rules against the ledger as it stands now, and writes only what still passes.
 applier, and confirm the ledger entry exists, the ticket carries an applied note, and a second run
 writes nothing.
 
-- [ ] T102 [US9] Fix the customer id property mismatch: the CRM property is `aws_customer_id` and
+- [x] T102 [US9] Fix the customer id property mismatch: the CRM property is `aws_customer_id` and
       both `src/adapters/hubspot.py` and `src/handlers/apply_decisions.py` read `customer_id`, so
       the applier fails on every accepted ticket. Set it when raising the ticket in
       `src/handlers/request_credit.py`, which never writes it under either name.
-- [ ] T103a [US9] Write the payment and the invoices it settles into `related_entry_id` as a list
+- [x] T103a [US9] Write the payment and the invoices it settles into `related_entry_id` as a list
       in `src/handlers/propose_allocation.py`. It carries only the payment today, so the applier
       cannot know what to allocate it against.
-- [ ] T103b [US9] Apply accepted allocations in `src/handlers/apply_decisions.py`: move the payment
+- [x] T103b [US9] Apply accepted allocations in `src/handlers/apply_decisions.py`: move the payment
       to ALLOCATED against every invoice named, conditional on it still being UNALLOCATED, and
       refuse with a note when the payment does not cover them. Today an allocation ticket is
       counted as `already_applied` and silently does nothing.
-- [ ] T103 [P] [US9] Write `tests/contract/test_apply_decisions.py` cases for a ticket closed with
+- [x] T103 [P] [US9] Write `tests/contract/test_apply_decisions.py` cases for a ticket closed with
       no outcome, and for Canceled by customer, neither of which is currently covered.
 - [ ] T104 [US9] Write `tests/integration/test_applier.py`: raise a real request, mark the ticket
       Accepted, run the applier, and assert the ledger entry, the note on the ticket, and that a
       second run writes nothing.
 - [ ] T105 [P] [US9] Assert the ledger Deny holds, in `tests/integration/test_iam.py`, using
       `iam:SimulatePrincipalPolicy` against every agent-facing role.
-- [ ] T106a [US9] Log the per-run counts from `apply_decisions`: the line currently reads
+- [x] T106a [US9] Log the per-run counts from `apply_decisions`: the line currently reads
       `apply run complete` with no numbers, so a run failing on every ticket is indistinguishable
       from a run with nothing to do.
 - [ ] T106 [US9] Confirm the applier's EventBridge schedule is firing and its failures are visible:
       a run that writes nothing because every ticket is malformed currently looks identical to a
       run with nothing to do.
+
+## Phase 10c: User Story 10 — Telling an unauthorised caller who to ask (Priority: P10)
+
+**Goal**: A caller who cannot be verified leaves knowing who at their own company can add them.
+
+**Independent test**: Call as a non-contact, name the company, ask who can authorise you, and get
+a name and nothing else.
+
+- [ ] T110 [US10] Add `authorised_contacts` to `src/handlers/create_escalation.py` or its own
+      endpoint: company name in, contact first and last names out, nothing else. The prompt has
+      promised this since the start and no tool has ever provided it.
+- [ ] T111 [P] [US10] Write the contract tests: only names are returned, an unknown company is
+      indistinguishable from one whose contacts cannot be found, and no financial field appears.
+- [ ] T112 [US10] Record a risk signal when a caller tries several company names in one call, and
+      escalate.
 
 ## Phase 11: Polish & Cross-Cutting
 

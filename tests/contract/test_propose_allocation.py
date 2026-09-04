@@ -105,10 +105,19 @@ class TestTheGoldenPath:
         call(stubs)
         stubs["ledger_write"].assert_not_called()
 
-    def test_the_ticket_names_the_payment_so_the_next_caller_can_be_told(self, stubs):
+    def test_the_ticket_names_the_payment_and_what_it_settles(self, stubs):
+        """The payment first, so the next caller's check reads it without parsing; the invoices
+        after it, so the applier knows what to allocate the payment against."""
         call(stubs)
         properties = stubs["ticket"].call_args.args[0]
-        assert properties["related_entry_id"] == "pay_00417_disputed"
+        assert properties["related_entry_id"] == "pay_00417_disputed,inv_00417_006"
+        assert properties["aws_customer_id"] == "445909044455"
+
+    def test_a_colleagues_open_review_is_matched_on_the_payment_not_the_whole_list(self, stubs):
+        stubs["pending"].return_value = [
+            {"id": "TICKET-COLLEAGUE", "related_entry_id": "pay_00417_disputed,inv_other"}
+        ]
+        assert call(stubs)["status"] == "ALREADY_UNDER_REVIEW"
 
     def test_an_audit_event_records_both_states_and_the_rule(self, stubs):
         event = stubs["audit"].call_args.args[0] if stubs["audit"].called else None

@@ -55,7 +55,7 @@ def handler(_event: dict | None = None, _context: Any = None) -> dict:
             counts["failed"] += 1
             log.error("could not apply ticket", ticket_id=ticket.get("id"), error_detail=str(error))
 
-    log.info("apply run complete", **counts)
+    log.info("apply run complete", **{k: str(v) for k, v in counts.items()})
     return counts
 
 
@@ -63,17 +63,17 @@ def _apply(ticket: dict) -> str:
     """
     Applies one accepted ticket.
 
-    ticket: an accepted request, with customer_id, related_entry_id and credit_amount.
+    ticket: an accepted request, with aws_customer_id, related_entry_id and credit_amount.
 
     Returns: which counter to increment — "applied", "already_applied" or "refused".
     """
+    # A credit carries an amount; an allocation does not. The two are told apart by that
+    # rather than by a type field, because the amount is what the credit rules need anyway.
     if ticket.get("credit_amount") in (None, ""):
-        # An accepted allocation. A person moves those in the ledger themselves; the agent
-        # never had authority over them and neither does this.
-        return "already_applied"
+        return _allocate(ticket)
 
     ticket_id = str(ticket["id"])
-    customer_id = str(ticket["customer_id"])
+    customer_id = str(ticket["aws_customer_id"])
     entry_id = str(ticket["related_entry_id"])
     amount = Decimal(str(ticket["credit_amount"]))
 
@@ -138,6 +138,91 @@ def _apply(ticket: dict) -> str:
         "credit applied", ticket_id=ticket_id, customer_id=customer_id, entry_id=f"cn_{ticket_id}"
     )
     return "applied"
+
+
+def _allocate(ticket: dict) -> str:
+    """
+    Moves an accepted payment against the invoices it settles.
+
+    ticket: an accepted allocation, whose related_entry_id lists the payment first and then
+            the invoices it covers.
+
+    Returns: which counter to increment.
+
+    The payment is re-read and the arithmetic re-checked. A person accepting a ticket says they
+    are content for it to happen, not that the numbers add up — and by the time they look, the
+    invoices may have been settled some other way.
+    """
+    ticket_id = str(ticket["id"])
+    customer_id = str(ticket["aws_customer_id"])
+    entries = [e.strip() for e in str(ticket["related_entry_id"]).split(",") if e.strip()]
+    payment_id, invoice_ids = entries[0], entries[1:]
+
+    if not invoice_ids:
+        raise ValueError(f"ticket {ticket_id} names no invoice to allocate against")
+
+    ledger = dynamo.query(LEDGER_TABLE, KeyConditionExpression=Key("customer_id").eq(customer_id))
+    by_id = {str(e["entry_id"]): e for e in ledger}
+    payment = by_id.get(payment_id)
+    invoices = [by_id[i] for i in invoice_ids if i in by_id]
+
+    if not payment or len(invoices) != len(invoice_ids):
+        return _refuse(ticket_id, "the payment or an invoice is no longer on the account")
+
+    covered = sum(abs(Decimal(str(i["amount"]))) for i in invoices)
+    if abs(Decimal(str(payment["amount"]))) < covered:
+        return _refuse(ticket_id, "the payment does not cover the invoices named on it")
+
+    moved = dynamo.update_if(
+        LEDGER_TABLE,
+        {"customer_id": customer_id, "entry_id": payment_id},
+        # Only from UNALLOCATED, so a second run and a concurrent applier both write once.
+        condition="#s = :expected",
+        UpdateExpression=(
+            "SET #s = :new, allocated_to = :invoices, source_ticket_id = :ticket, "
+            "decision_source = :source, approval_status = :approval"
+        ),
+        ExpressionAttributeNames={"#s": "status"},
+        ExpressionAttributeValues={
+            ":expected": "UNALLOCATED",
+            ":new": "ALLOCATED",
+            ":invoices": invoice_ids,
+            ":ticket": ticket_id,
+            ":source": "HUMAN_ACCEPTED",
+            ":approval": "APPROVED",
+        },
+    )
+
+    if moved is None:
+        return "already_applied"
+
+    audit.write(
+        audit.AuditEvent(
+            action="apply_allocation",
+            previous_state="UNALLOCATED",
+            new_state="ALLOCATED",
+            authorizing_rule="human_accepted_allocation",
+            customer_id=customer_id,
+            conversation_id="",
+            agent_version=AGENT_VERSION,
+            risk_result="NOT_EVALUATED",
+            human_approval_required=True,
+            entry_id=payment_id,
+            ticket_id=ticket_id,
+        )
+    )
+    hubspot.append_note(ticket_id, f"Allocated {payment_id} to {', '.join(invoice_ids)}.")
+    log.info(
+        "allocation applied", ticket_id=ticket_id, customer_id=customer_id, entry_id=payment_id
+    )
+    return "applied"
+
+
+def _refuse(ticket_id: str, why: str) -> str:
+    """Writes the refusal where a person will read it, and applies nothing."""
+    hubspot.append_note(ticket_id, f"Not applied. {why[0].upper()}{why[1:]}. Nothing was changed.")
+    log.info("accepted ticket refused on recheck", ticket_id=ticket_id, rule_applied=why)
+    return "refused"
 
 
 def _revalidate(customer_id: str, entry_id: str, amount: Decimal):
