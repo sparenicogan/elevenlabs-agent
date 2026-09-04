@@ -233,18 +233,18 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ### Tests for User Story 7
 
-- [ ] T083 [P] [US7] Write tests in `tests/unit/test_post_call.py`: HMAC validation including timestamp window, duplicate delivery creating nothing twice, and a failure in one step not rolling back earlier steps (FR-024, FR-025)
-- [ ] T084 [P] [US7] Write summary tests in `tests/unit/test_summary.py`: stays within `summary_max_chars` across ten successive regenerations, and contains no verification answer, date of birth, or payment credential (SC-008, FR-029)
-- [ ] T085 [P] [US7] Write metrics tests in `tests/unit/test_metrics.py` asserting all nine derived rates in FR-043 can be computed from stored fields
+- [x] T083 [P] [US7] Write tests in `tests/unit/test_post_call.py`: HMAC validation including timestamp window, duplicate delivery creating nothing twice, and a failure in one step not rolling back earlier steps (FR-024, FR-025)
+- [x] T084 [P] [US7] Write summary tests in `tests/unit/test_summary.py`: stays within `summary_max_chars` across ten successive regenerations, and contains no verification answer, date of birth, or payment credential (SC-008, FR-029)
+- [x] T085 [P] [US7] Write metrics tests in `tests/unit/test_metrics.py` asserting all nine derived rates in FR-043 can be computed from stored fields
 
 ### Implementation for User Story 7
 
-- [ ] T086 [US7] Implement HMAC validation in `src/handlers/post_call.py` per contracts/webhooks.md, rejecting a timestamp outside the 30-minute window
-- [ ] T087 [US7] Implement transcript persistence to S3 in `src/handlers/post_call.py` at the key layout in data-model.md
-- [ ] T088 [US7] Implement metrics persistence to `conversations` in `src/handlers/post_call.py`, writing every FR-042 field
-- [ ] T089 [US7] Implement summary regeneration in `src/handlers/post_call.py`: summarise the prior summary plus this call, cap at `summary_max_chars`, write with a version check, and record provenance (FR-039a)
-- [ ] T090 [US7] Implement transfer reconciliation in `src/handlers/post_call.py` as the backstop for a failed transfer that ended the call (FR-020, research D4)
-- [ ] T091 [US7] Write the metrics derivation queries in `scripts/metrics.py` as CloudWatch Logs Insights and DynamoDB queries producing the nine rates (FR-043)
+- [x] T086 [US7] Implement HMAC validation in `src/handlers/post_call.py` per contracts/webhooks.md, rejecting a timestamp outside the 30-minute window
+- [x] T087 [US7] Implement transcript persistence to S3 in `src/handlers/post_call.py` at the key layout in data-model.md
+- [x] T088 [US7] Implement metrics persistence to `conversations` in `src/handlers/post_call.py`, writing every FR-042 field
+- [x] T089 [US7] Implement summary regeneration in `src/handlers/post_call.py`: summarise the prior summary plus this call, cap at `summary_max_chars`, write with a version check, and record provenance (FR-039a)
+- [x] T090 [US7] Implement transfer reconciliation in `src/handlers/post_call.py` as the backstop for a failed transfer that ended the call (FR-020, research D4)
+- [x] T091 [US7] Write the metrics derivation queries in `scripts/metrics.py` as CloudWatch Logs Insights and DynamoDB queries producing the nine rates (FR-043)
 
 ---
 
