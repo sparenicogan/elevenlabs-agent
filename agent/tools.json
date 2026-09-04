@@ -81,7 +81,8 @@
             "enum": [
               "email",
               "phone",
-              "date_of_birth"
+              "date_of_birth",
+              "customer_id"
             ]
           },
           "value": {

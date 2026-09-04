@@ -53,7 +53,10 @@ def test_a_misheard_email_is_spelled_out_rather_than_guessed(steps):
     assert "spell the address out" in instruction
     assert "do not suggest a correction" in instruction
     assert "do not say it was wrong" in instruction
-    assert _tools(recovery["steps"]) == ["check_factor"]
+    # And if the spelled-out address still does not land, something readable off paper. With
+    # three factors required and three asked, one bad transcription otherwise ends the call.
+    assert _tools(recovery["steps"]) == ["check_factor", "check_factor"]
+    assert "customer number" in json.dumps(recovery["steps"]).lower()
 
 
 def test_an_ambiguous_date_is_clarified_by_naming_the_month(steps):

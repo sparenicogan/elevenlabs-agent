@@ -51,6 +51,28 @@
               "type": "tool_call",
               "tool_name": "check_factor",
               "instruction": "Check the spelled-out email. Send field 'email' and the spelled value."
+            },
+            {
+              "type": "branch",
+              "branches": [
+                {
+                  "condition": {
+                    "type": "llm",
+                    "condition": "check_factor returned NOT_MATCHED again"
+                  },
+                  "steps": [
+                    {
+                      "type": "ask",
+                      "instruction": "Ask for the customer number instead, and say it is on the top right of any invoice. Do not say the address was wrong."
+                    },
+                    {
+                      "type": "tool_call",
+                      "tool_name": "check_factor",
+                      "instruction": "Check it. Send field 'customer_id' and the number as the caller said it."
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
