@@ -8,8 +8,6 @@ long before the metadata about it does.
 import pathlib
 import re
 
-import pytest
-
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 TERRAFORM = ROOT / "infra" / "terraform"
 
@@ -29,13 +27,13 @@ class TestTheCrmHoldsNothingPersonal:
         salesperson would not already have put there."""
         from src.adapters.hubspot import ALLOWED_CONTACT_FIELDS
 
-        assert ALLOWED_CONTACT_FIELDS <= {
+        assert {
             "firstname",
             "lastname",
             "company",
             "hs_object_id",
             "email",
-        }
+        } >= ALLOWED_CONTACT_FIELDS
         assert "date_of_birth" not in ALLOWED_CONTACT_FIELDS
 
     def test_stripping_happens_at_the_boundary_not_the_call_site(self):
