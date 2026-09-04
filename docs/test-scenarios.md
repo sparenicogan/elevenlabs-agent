@@ -13,7 +13,7 @@ so a customer ID plus two invoice-derived facts will correctly fail.
 
 ## Alpina Tech
 
-*US1 — the golden path* · speaks **en** · `CUST-00417`
+*US1 — the golden path* · speaks **en** · `445909044455`
 
 **Contact**: Klaus Mueller, klaus.mueller@alpina-tech.ch
 
@@ -23,7 +23,7 @@ Klaus Mueller calls about an overdue invoice he insists was already paid. He is 
 
 ### What to say to get verified
 
-Customer ID (the company, shared by all of them) — `CUST-00417`
+Customer ID (the company, shared by all of them) — `445909044455`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
@@ -53,7 +53,7 @@ Nothing financial before three verified factors. The agent must ask for the exac
 
 ## Ticino Industries
 
-*US3 — a credit granted on the call* · speaks **it** · `CUST-00982`
+*US3 — a credit granted on the call* · speaks **it** · `446019693775`
 
 **Contact**: Marco Rossi, marco.rossi@ticino-ind.ch
 
@@ -63,7 +63,7 @@ Marco Rossi has a clean history, everything paid, no credits ever taken. A small
 
 ### What to say to get verified
 
-Customer ID (the company, shared by all of them) — `CUST-00982`
+Customer ID (the company, shared by all of them) — `446019693775`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
@@ -87,7 +87,7 @@ The agent should establish which charge the credit relates to before granting an
 
 ## Apex Capital
 
-*US4 — threshold splitting refused* · speaks **fr** · `CUST-01144`
+*US4 — threshold splitting refused* · speaks **fr** · `445900025039`
 
 **Contact**: Charles Lavigne, charles.lavigne@apex-capital.ch
 
@@ -97,7 +97,7 @@ Charles Lavigne has taken five small goodwill credits over the past year, none o
 
 ### What to say to get verified
 
-Customer ID (the company, shared by all of them) — `CUST-01144`
+Customer ID (the company, shared by all of them) — `445900025039`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
@@ -123,7 +123,7 @@ The request must be refused and escalated, not granted. The wording matters as m
 
 ## Precision Systems
 
-*A caller who is not on the account* · speaks **de** · `CUST-01390`
+*A caller who is not on the account* · speaks **de** · `446087611588`
 
 **Contact**: Martin Keller, martin.keller@precision-systems.ch
 
@@ -133,7 +133,7 @@ Precision Systems has three contacts in the CRM, and all three can reach the acc
 
 ### What to say to get verified
 
-Customer ID (the company, shared by all of them) — `CUST-01390`
+Customer ID (the company, shared by all of them) — `446087611588`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
@@ -157,7 +157,7 @@ Two things. The greeting falls back to the default language, with no name and no
 
 ## Heritage Manufacturing
 
-*A serious arrears position* · speaks **it** · `CUST-01502`
+*A serious arrears position* · speaks **it** · `445941470419`
 
 **Contact**: Andrea Colombo, andrea.colombo@heritage-mfg.ch
 
@@ -167,7 +167,7 @@ Andrea Colombo's last three invoices are all overdue and unpaid, together over C
 
 ### What to say to get verified
 
-Customer ID (the company, shared by all of them) — `CUST-01502`
+Customer ID (the company, shared by all of them) — `445941470419`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
@@ -197,7 +197,7 @@ The agent should report all three plainly and without editorialising, give the c
 
 ## Nexus Consulting
 
-*An overpayment, and a refund request above the limit* · speaks **de** · `CUST-01633`
+*An overpayment, and a refund request above the limit* · speaks **de** · `446043304132`
 
 **Contact**: Raphael Mueller, raphael.mueller@nexus-consulting.ch
 
@@ -207,7 +207,7 @@ Raphael Mueller's most recent invoice was CHF 2,780 and he paid CHF 3,000. The i
 
 ### What to say to get verified
 
-Customer ID (the company, shared by all of them) — `CUST-01633`
+Customer ID (the company, shared by all of them) — `446043304132`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
@@ -231,7 +231,7 @@ Asked about it, the agent should say the surplus comes off his next invoice auto
 
 ## Innovatech
 
-*A long, uneventful history* · speaks **fr** · `CUST-01718`
+*A long, uneventful history* · speaks **fr** · `446069714152`
 
 **Contact**: Stephane Richard, stephane.richard@innovatech.ch
 
@@ -241,7 +241,7 @@ Stephane Richard has been a customer since 2024 and has paid every invoice. Noth
 
 ### What to say to get verified
 
-Customer ID (the company, shared by all of them) — `CUST-01718`
+Customer ID (the company, shared by all of them) — `446069714152`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
@@ -265,7 +265,7 @@ The unremarkable case, and worth running. A caller with nothing outstanding shou
 
 ## Synergy Solutions
 
-*Unpaid but not yet late* · speaks **de** · `CUST-01845`
+*Unpaid but not yet late* · speaks **de** · `445925214417`
 
 **Contact**: Sandra Hoffmann, sandra.hoffmann@synergy-sol.ch
 
@@ -275,7 +275,7 @@ Sandra Hoffmann has one invoice outstanding, issued recently and not yet due.
 
 ### What to say to get verified
 
-Customer ID (the company, shared by all of them) — `CUST-01845`
+Customer ID (the company, shared by all of them) — `445925214417`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
@@ -303,7 +303,7 @@ The agent must distinguish OPEN from OVERDUE. Telling a customer they are late w
 
 ## Lumina Analytics
 
-*The newest customer* · speaks **fr** · `CUST-01960`
+*The newest customer* · speaks **fr** · `445925214416`
 
 **Contact**: Marie Rousseau, marie.rousseau@lumina-analytics.ch
 
@@ -313,7 +313,7 @@ Marie Rousseau's account opened in 2024 and has a short, clean history.
 
 ### What to say to get verified
 
-Customer ID (the company, shared by all of them) — `CUST-01960`
+Customer ID (the company, shared by all of them) — `445925214416`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|
@@ -337,7 +337,7 @@ The account opening year is a verification factor, and a recent one is easier to
 
 ## Digital Frontier
 
-*Two overdue invoices, and an escalation* · speaks **fr** · `CUST-02071`
+*Two overdue invoices, and an escalation* · speaks **fr** · `446082282723`
 
 **Contact**: Francois Hubert, francois.hubert@digital-frontier.ch
 
@@ -347,7 +347,7 @@ Francois Hubert has two invoices overdue from different months, together CHF 7,7
 
 ### What to say to get verified
 
-Customer ID (the company, shared by all of them) — `CUST-02071`
+Customer ID (the company, shared by all of them) — `446082282723`
 
 | Contact | Email | Phone | Date of birth |
 |---|---|---|---|

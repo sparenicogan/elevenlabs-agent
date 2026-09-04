@@ -100,9 +100,9 @@ class TestTheGate:
         dynamo.get.return_value = {
             "conversation_id": "conv_1",
             "verification_status": "VERIFIED",
-            "customer_id": "CUST-00417",
+            "customer_id": "445909044455",
         }
-        assert conversation_state.require_verified("conv_1") == "CUST-00417"
+        assert conversation_state.require_verified("conv_1") == "445909044455"
 
     def test_the_customer_is_taken_from_the_record_not_from_the_caller(self, dynamo):
         """There is no parameter a caller could use to name someone else's account: the

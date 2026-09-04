@@ -40,8 +40,8 @@ class TestTheKeyIsDerivedFromTheRequest:
 
 class TestTheKeyRevealsNothing:
     def test_the_inputs_cannot_be_read_out_of_it(self):
-        key = idempotency.key("conv_1", "CUST-00417", "credit")
-        assert "CUST-00417" not in key
+        key = idempotency.key("conv_1", "445909044455", "credit")
+        assert "445909044455" not in key
         assert "conv_1" not in key
 
     def test_it_is_a_fixed_length_however_many_parts_go_in(self):
@@ -72,23 +72,22 @@ class TestTheConditionalWriteIsTheMechanism:
         assert "ConditionalCheckFailedException" in source
         assert "return None" in source
 
-    def test_a_credit_id_is_derived_from_the_request(self):
-        """So the same request writes the same row, and the second write loses its
-        condition rather than creating a second credit."""
+    def test_an_open_request_is_what_stops_a_second_one(self):
+        """A credit is no longer written, so there is no row to collide. What makes the
+        second ask a no-op is the first one still sitting unanswered — which holds across
+        conversations, where a key derived from the call never could."""
         from decimal import Decimal
 
-        from src.handlers.request_credit import _credit_id
+        from src.handlers.request_credit import _matching_request
 
-        first = _credit_id("conv_1", "inv_1", Decimal("40.00"))
-        second = _credit_id("conv_1", "inv_1", Decimal("40.00"))
-        assert first == second
-        assert first.startswith("cn_")
+        open_tickets = [{"id": "8801", "credit_amount": "40.00", "related_entry_id": "inv_1"}]
+        assert _matching_request(open_tickets, "inv_1", Decimal("40.00")) == "8801"
 
-    def test_a_different_amount_is_a_different_credit(self):
+    def test_a_different_amount_is_a_different_request(self):
         from decimal import Decimal
 
-        from src.handlers.request_credit import _credit_id
+        from src.handlers.request_credit import _matching_request
 
-        assert _credit_id("conv_1", "inv_1", Decimal("40.00")) != _credit_id(
-            "conv_1", "inv_1", Decimal("50.00")
-        )
+        open_tickets = [{"id": "8801", "credit_amount": "40.00", "related_entry_id": "inv_1"}]
+        assert _matching_request(open_tickets, "inv_1", Decimal("50.00")) is None
+        assert _matching_request(open_tickets, "inv_2", Decimal("40.00")) is None

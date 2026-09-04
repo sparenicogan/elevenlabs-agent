@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
+
 from src.domain.credit import CreditableEntry, entry_from_ledger, rolling_credit_total
 
 TODAY = date(2026, 9, 3)

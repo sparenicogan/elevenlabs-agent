@@ -58,7 +58,7 @@ def verify(stubs, company="Alpina Tech"):
     """Turns the fixture into a verified conversation."""
     stubs["verified"].side_effect = None
     stubs["verified"].return_value = (
-        "CUST-00417",
+        "445909044455",
         {
             "company_name": company,
             "hubspot_contact_id": "859557757171",

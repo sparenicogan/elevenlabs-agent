@@ -17,8 +17,28 @@ _TIMEOUT_SECONDS = 3.0
 # not merely omitted by convention.
 ALLOWED_CONTACT_FIELDS = frozenset({"firstname", "lastname", "company", "hs_object_id", "email"})
 ALLOWED_TICKET_FIELDS = frozenset(
-    {"subject", "content", "hs_pipeline", "hs_pipeline_stage", "hs_ticket_priority"}
+    {
+        "subject",
+        "content",
+        "hs_pipeline",
+        "hs_pipeline_stage",
+        "hs_ticket_priority",
+        # The three custom properties that make a ticket a financial request rather than
+        # prose. The ceiling is computed from credit_amount, so it must be a field the CRM
+        # can filter and sum, never a number mentioned in the subject line.
+        "request_outcome",
+        "credit_amount",
+        "related_entry_id",
+        # The company the charge belongs to. The applier needs it to read the ledger, which
+        # is keyed by customer: a ticket that cannot name its customer cannot be applied.
+        "customer_id",
+    }
 )
+
+# A request is pending until a person answers it. request_outcome is required to close a
+# ticket, so its absence is what "still open" means here — more reliable than a pipeline
+# stage id, which is configurable per account and would silently drift.
+_UNDECIDED = "NOT_HAS_PROPERTY"
 
 
 def _strip(properties: dict, allowed: frozenset[str]) -> dict:
@@ -159,6 +179,44 @@ def get_contact(contact_id: str) -> dict:
     return _strip(result.get("properties", {}), ALLOWED_CONTACT_FIELDS)
 
 
+def _search_tickets(association: str, object_id: str, undecided_only: bool) -> list[dict]:
+    """
+    Finds tickets associated with one CRM object.
+
+    association:    "contact" or "company", the object type the ticket hangs off.
+    object_id:      that object's HubSpot id.
+    undecided_only: when true, returns only tickets no one has answered yet.
+
+    Returns: one dict per ticket with its id and allowlisted properties. Empty means "none";
+             a failure raises, because a read that could not be completed must never be
+             mistaken for a customer with nothing outstanding.
+
+    One search call rather than an association lookup followed by a GET per ticket. The
+    fan-out mattered: this runs on every verified call, and the account is rate limited
+    across all private apps.
+    """
+    filters = [
+        {"propertyName": f"associations.{association}", "operator": "EQ", "value": object_id}
+    ]
+    if undecided_only:
+        filters.append({"propertyName": "request_outcome", "operator": _UNDECIDED})
+
+    result = _request(
+        "POST",
+        "/crm/v3/objects/tickets/search",
+        {
+            "filterGroups": [{"filters": filters}],
+            "properties": sorted(ALLOWED_TICKET_FIELDS),
+            "limit": 100,
+        },
+    )
+
+    return [
+        {"id": ticket["id"], **_strip(ticket.get("properties") or {}, ALLOWED_TICKET_FIELDS)}
+        for ticket in result.get("results", [])
+    ]
+
+
 def get_open_tickets(contact_id: str) -> list[dict]:
     """
     Lists tickets associated with a contact, for the open and past escalations in the
@@ -166,20 +224,61 @@ def get_open_tickets(contact_id: str) -> list[dict]:
 
     contact_id: HubSpot contact id.
 
-    Returns: one dict per ticket with its id and allowlisted properties. Empty when there
-             are none — an empty list means "none", never "could not tell", because a
-             failure raises instead.
+    Returns: one dict per ticket with its id and allowlisted properties.
     """
-    associations = _request("GET", f"/crm/v3/objects/contacts/{contact_id}/associations/tickets")
+    return _search_tickets("contact", contact_id, undecided_only=False)
 
-    tickets = []
-    for association in associations.get("results", []):
-        ticket = _request(
-            "GET",
-            f"/crm/v3/objects/tickets/{association['id']}"
-            f"?properties={','.join(sorted(ALLOWED_TICKET_FIELDS))}",
-        )
-        tickets.append(
-            {"id": ticket["id"], **_strip(ticket.get("properties", {}), ALLOWED_TICKET_FIELDS)}
-        )
-    return tickets
+
+def get_accepted_requests(modified_since: str) -> list[dict]:
+    """
+    Lists requests a person has accepted, for the applier to act on.
+
+    modified_since: ISO timestamp; tickets untouched since then are not revisited.
+
+    Returns: one dict per accepted ticket with its id and allowlisted properties.
+
+    Bounded by modification date only to keep the search small. Correctness does not depend
+    on it: applying is idempotent, because the ledger entry id is derived from the ticket id
+    and the conditional write refuses a second one.
+    """
+    result = _request(
+        "POST",
+        "/crm/v3/objects/tickets/search",
+        {
+            "filterGroups": [
+                {
+                    "filters": [
+                        {"propertyName": "request_outcome", "operator": "EQ", "value": "Accepted"},
+                        {
+                            "propertyName": "hs_lastmodifieddate",
+                            "operator": "GTE",
+                            "value": modified_since,
+                        },
+                    ]
+                }
+            ],
+            "properties": sorted(ALLOWED_TICKET_FIELDS),
+            "limit": 100,
+        },
+    )
+
+    return [
+        {"id": ticket["id"], **_strip(ticket.get("properties") or {}, ALLOWED_TICKET_FIELDS)}
+        for ticket in result.get("results", [])
+    ]
+
+
+def get_pending_requests(company_id: str) -> list[dict]:
+    """
+    Lists the financial requests still awaiting a decision for a whole company.
+
+    company_id: HubSpot company id.
+
+    Returns: one dict per undecided ticket, with credit_amount and related_entry_id where
+             the ticket carries them.
+
+    Scoped to the company, not the caller, because the credit ceiling belongs to the
+    customer: a colleague who rang this morning has already spent part of it, and a second
+    caller must not be told a payment is unreviewed when a review is already open on it.
+    """
+    return _search_tickets("company", company_id, undecided_only=True)

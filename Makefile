@@ -23,6 +23,12 @@ test:
 test-integration:
 	uv run pytest tests/integration -v
 
+# Drives the deployed agent through ElevenLabs' simulator: the real prompt, the real tools,
+# no voice minutes. Slow — each test is a whole conversation — and it mutates data, so it
+# reseeds around every case. This is the only layer that tests the agent itself.
+test-conversation:
+	uv run pytest tests/conversation -v
+
 deploy:
 	terraform -chdir=infra/terraform init -backend-config=backend.hcl
 	terraform -chdir=infra/terraform apply

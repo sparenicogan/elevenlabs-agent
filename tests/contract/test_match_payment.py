@@ -15,7 +15,7 @@ from src.adapters.errors import ErrorCategory, ToolError
 API_KEY = "test-key"
 
 INVOICE = {
-    "customer_id": "CUST-00417",
+    "customer_id": "445909044455",
     "entry_id": "inv_00417_006",
     "type": "INVOICE",
     "invoice_number": "INV-2026-0013",
@@ -28,7 +28,7 @@ INVOICE = {
 # The golden-path payment: right amount, no reference, and a payer address on record, which
 # is only ever stored when it differs from the customer's.
 PAYMENT = {
-    "customer_id": "CUST-00417",
+    "customer_id": "445909044455",
     "entry_id": "pay_00417_disputed",
     "type": "PAYMENT",
     "amount": Decimal("-4200.00"),
@@ -52,7 +52,7 @@ def stubs(mocker):
     )
     return {
         "verified": mocker.patch.object(
-            module.conversation_state, "verified_context", return_value=("CUST-00417", {})
+            module.conversation_state, "verified_context", return_value=("445909044455", {})
         ),
         "get": mocker.patch.object(module.dynamo, "get", return_value=dict(INVOICE)),
         "query": mocker.patch.object(module.dynamo, "query", return_value=[dict(PAYMENT)]),
@@ -94,7 +94,7 @@ class TestTheGate:
 
     def test_the_customer_is_never_taken_from_the_request(self, stubs):
         call(stubs, customer_id="CUST-99999")
-        assert stubs["get"].call_args.args[1]["customer_id"] == "CUST-00417"
+        assert stubs["get"].call_args.args[1]["customer_id"] == "445909044455"
 
     def test_a_settled_invoice_cannot_be_claimed_against(self, stubs):
         """Matching against a paid invoice would let the same payment be proposed twice."""

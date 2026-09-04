@@ -31,7 +31,7 @@ CANARY_PAYER = "Canary Holdings AG"
 CANARIES = (CANARY_EMAIL, CANARY_PHONE, CANARY_DOB, CANARY_REFERENCE, CANARY_CITY, CANARY_PAYER)
 
 IDENTITY = {
-    "customer_id": "CUST-00417",
+    "customer_id": "445909044455",
     "company_name": "Alpina Tech",
     "first_name": "Klaus",
     "last_name": "Mueller",
@@ -44,7 +44,7 @@ IDENTITY = {
 }
 
 INVOICE = {
-    "customer_id": "CUST-00417",
+    "customer_id": "445909044455",
     "entry_id": "inv_1",
     "type": "INVOICE",
     "invoice_number": "INV-2026-0013",
@@ -55,7 +55,7 @@ INVOICE = {
 }
 
 PAYMENT = {
-    "customer_id": "CUST-00417",
+    "customer_id": "445909044455",
     "entry_id": "pay_1",
     "type": "PAYMENT",
     "amount": Decimal("-4200.00"),
@@ -70,7 +70,7 @@ PAYMENT = {
 TOOLS = {
     "verify_identity": {
         "conversation_id": "conv_1",
-        "factors": [{"field": "customer_id", "value": "CUST-00417"}],
+        "factors": [{"field": "customer_id", "value": "445909044455"}],
     },
     "get_account_context": {"conversation_id": "conv_1"},
     "match_payment": {
@@ -139,7 +139,7 @@ def wired(mocker):
             mocker.patch.object(
                 module.conversation_state,
                 "verified_context",
-                return_value=("CUST-00417", {"company_name": "Alpina Tech"}),
+                return_value=("445909044455", {"company_name": "Alpina Tech"}),
             )
             mocker.patch.object(module.conversation_state, "set_verification")
             mocker.patch.object(module.conversation_state, "record_failed_attempt", return_value=1)

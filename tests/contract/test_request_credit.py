@@ -19,10 +19,11 @@ DISPLAY = {
     "company_name": "Ticino Industries",
     "account_status": "ACTIVE",
     "hubspot_contact_id": "859585377479",
+    "hubspot_company_id": "31household",
 }
 
 INVOICE = {
-    "customer_id": "CUST-00982",
+    "customer_id": "446019693775",
     "entry_id": "inv_00982_004",
     "type": "INVOICE",
     "invoice_number": "INV-2026-0020",
@@ -50,7 +51,7 @@ def stubs(mocker):
         "verified": mocker.patch.object(
             module.conversation_state,
             "verified_context",
-            return_value=("CUST-00982", dict(DISPLAY)),
+            return_value=("446019693775", dict(DISPLAY)),
         ),
         "signals": mocker.patch.object(module.conversation_state, "risk_signals", return_value=[]),
         # Read for the history patterns. Empty unless a test seeds a shape.
@@ -59,8 +60,9 @@ def stubs(mocker):
         ),
         "record_signal": mocker.patch.object(module.conversation_state, "record_risk_signal"),
         "query": mocker.patch.object(module.dynamo, "query", return_value=[dict(INVOICE)]),
-        "put": mocker.patch.object(module.dynamo, "put_if_absent", return_value=True),
-        "interaction": mocker.patch.object(module.hubspot, "log_interaction"),
+        # The company's undecided requests. Empty unless a test seeds one.
+        "pending": mocker.patch.object(module.hubspot, "get_pending_requests", return_value=[]),
+        "ticket": mocker.patch.object(module.hubspot, "create_ticket", return_value="8801"),
         "audit": mocker.patch.object(module.audit, "write"),
         "module": module,
     }
@@ -80,41 +82,50 @@ def call(stubs, amount=40.00, entry_id="inv_00982_004", api_key=API_KEY, **extra
     return json.loads(response["body"])
 
 
-class TestGranting:
-    def test_a_small_credit_on_a_clean_account_is_granted(self, stubs):
+class TestRequesting:
+    def test_a_small_credit_on_a_clean_account_is_permitted(self, stubs):
         result = call(stubs)
-        assert result["status"] == "GRANTED"
+        assert result["status"] == "REQUESTED"
         assert result["rule_applied"] == "within_credit_limits"
 
-    def test_the_credit_note_is_written_against_the_named_charge(self, stubs):
-        call(stubs)
-        item = stubs["put"].call_args.args[1]
-        assert item["type"] == "CREDIT_NOTE"
-        assert item["allocated_to"] == ["inv_00982_004"]
+    def test_nothing_is_granted_only_asked_for(self, stubs):
+        """The agent has no word for a credit it has given, because it cannot give one."""
+        assert call(stubs)["status"] != "GRANTED"
 
-    def test_it_is_stored_negative_because_it_reduces_what_is_owed(self, stubs):
+    def test_the_ledger_is_never_written(self, stubs):
+        """The whole point. This handler reads the ledger and writes a ticket."""
+        module = stubs["module"]
+        assert not hasattr(module.dynamo, "_write_called")
         call(stubs)
-        assert stubs["put"].call_args.args[1]["amount"] == Decimal("-40.00")
+        assert stubs["ticket"].called
+
+    def test_the_ticket_carries_the_numbers_the_next_call_adds_up(self, stubs):
+        """credit_amount and related_entry_id are properties, not prose: the next caller's
+        ceiling is computed by summing them."""
+        call(stubs)
+        properties = stubs["ticket"].call_args.args[0]
+        assert properties["credit_amount"] == 40.00
+        assert properties["related_entry_id"] == "inv_00982_004"
 
     def test_the_callers_reason_is_recorded_in_their_own_words(self, stubs):
         call(stubs, reason="the pallet arrived damaged")
-        assert stubs["put"].call_args.args[1]["reason"] == "the pallet arrived damaged"
+        assert "the pallet arrived damaged" in stubs["ticket"].call_args.args[0]["content"]
 
-    def test_the_audit_event_says_no_human_approved_this(self, stubs):
-        """The only autonomous financial action in the system. The record says so explicitly
-        rather than by omission."""
+    def test_it_is_associated_with_the_company_not_just_the_caller(self, stubs):
+        """A colleague ringing tomorrow has to be able to see it."""
+        call(stubs)
+        assert stubs["ticket"].call_args.kwargs["company_id"] == "31household"
+
+    def test_the_ticket_id_comes_back_so_the_agent_can_name_it(self, stubs):
+        assert call(stubs)["ticket_id"] == "8801"
+
+    def test_the_audit_event_says_a_person_still_has_to_accept_it(self, stubs):
         call(stubs)
         event = stubs["audit"].call_args.args[0]
-        assert event.action == "issue_credit"
-        assert event.human_approval_required is False
+        assert event.action == "request_credit"
+        assert event.new_state == "REQUESTED"
+        assert event.human_approval_required is True
         assert event.authorizing_rule == "within_credit_limits"
-
-    def test_it_is_marked_as_the_agent_acting_alone(self, stubs):
-        assert (
-            stubs["put"].call_args.args[1]["decision_source"] == "AGENT_AUTONOMOUS"
-            if call(stubs)
-            else True
-        )
 
 
 class TestEvaluationCannotBeSkipped:
@@ -125,9 +136,9 @@ class TestEvaluationCannotBeSkipped:
         assert not hasattr(module, "issue_credit")
         assert not hasattr(module, "issue")
 
-    def test_a_refused_request_writes_nothing(self, stubs):
+    def test_a_refused_request_raises_no_ticket(self, stubs):
         call(stubs, amount=101.00)
-        stubs["put"].assert_not_called()
+        stubs["ticket"].assert_not_called()
         stubs["audit"].assert_not_called()
 
     def test_an_unverified_conversation_is_refused_before_the_ledger_is_read(self, stubs):
@@ -155,7 +166,10 @@ class TestRefusals:
         assert call(stubs)["rule_applied"] == "no_such_entry"
 
     def test_a_suspended_account(self, stubs):
-        stubs["verified"].return_value = ("CUST-00982", {**DISPLAY, "account_status": "SUSPENDED"})
+        stubs["verified"].return_value = (
+            "446019693775",
+            {**DISPLAY, "account_status": "SUSPENDED"},
+        )
         assert call(stubs)["rule_applied"] == "account_status"
 
     def test_a_high_risk_caller_is_refused_a_request_that_would_otherwise_pass(self, stubs):
@@ -178,35 +192,70 @@ class TestRefusals:
         assert call(stubs, entry_id="inv_nonexistent")["should_escalate"] is False
 
 
-class TestCalledTwice:
-    def test_the_same_request_produces_the_same_credit_id(self, stubs):
-        """Derived from the conversation, the charge and the amount, so a repeat writes the
-        same row rather than a second one."""
-        first = call(stubs)["credit_entry_id"]
-        second = call(stubs)["credit_entry_id"]
-        assert first == second
+PENDING_40 = {"id": "8801", "credit_amount": "40.00", "related_entry_id": "inv_00982_004"}
 
-    def test_a_repeat_does_not_write_a_second_credit(self, stubs):
-        """put_if_absent returns False when the row exists. The caller is not credited
-        twice for saying the same thing twice (FR-022)."""
-        stubs["put"].return_value = False
+
+class TestAskedTwice:
+    """The open ticket is the idempotency record. There is no hash to collide: what stops a
+    second ticket is that the first one is still sitting there unanswered."""
+
+    def test_a_repeat_returns_the_open_ticket_rather_than_raising_another(self, stubs):
+        stubs["pending"].return_value = [dict(PENDING_40)]
         result = call(stubs)
-        assert result["status"] == "GRANTED"
-        stubs["audit"].assert_not_called()
+        assert result["ticket_id"] == "8801"
+        stubs["ticket"].assert_not_called()
 
-    def test_a_different_amount_is_a_different_request(self, stubs):
-        assert (
-            call(stubs, amount=40.00)["credit_entry_id"]
-            != call(stubs, amount=50.00)["credit_entry_id"]
-        )
+    def test_a_colleague_asking_from_another_call_gets_the_same_answer(self, stubs):
+        """Scoped to the company, so it holds across conversations — which a per-call
+        idempotency key never could."""
+        stubs["pending"].return_value = [dict(PENDING_40)]
+        assert call(stubs, conversation_id="conv_2")["ticket_id"] == "8801"
+        stubs["ticket"].assert_not_called()
+
+    def test_a_different_amount_is_a_new_request(self, stubs):
+        stubs["pending"].return_value = [dict(PENDING_40)]
+        call(stubs, amount=50.00)
+        stubs["ticket"].assert_called_once()
+
+    def test_a_pending_request_spends_the_entry_ceiling(self, stubs):
+        """A credit can never exceed the charge it attaches to. An open request for CHF 40
+        against a CHF 60 charge leaves CHF 20, even though nothing has reached the ledger —
+        which is the case the old ledger-only total got wrong."""
+        stubs["query"].return_value = [{**INVOICE, "amount": Decimal("60.00")}]
+        stubs["pending"].return_value = [dict(PENDING_40)]
+        result = call(stubs, amount=30.00)
+        assert result["status"] == "DENIED_EXCEEDS_ENTRY"
+        stubs["ticket"].assert_not_called()
+
+    def test_pending_requests_count_towards_the_rolling_ceiling(self, stubs):
+        """Five open requests of CHF 99 is CHF 495 of the CHF 500 the year allows, none of it
+        yet in the ledger."""
+        stubs["pending"].return_value = [
+            {"id": str(n), "credit_amount": "99.00", "related_entry_id": f"other_{n}"}
+            for n in range(5)
+        ]
+        result = call(stubs, amount=40.00)
+        assert result["status"] == "DENIED_LIMIT"
+        assert result["rule_applied"] == "credit_max_rolling"
 
 
 class TestDegradation:
-    def test_a_crm_outage_does_not_undo_a_granted_credit(self, stubs):
-        stubs["interaction"].side_effect = ToolError(ErrorCategory.DEPENDENCY_DOWN, "down")
+    def test_a_crm_outage_refuses_rather_than_granting_blind(self, stubs):
+        """The ceiling lives in the CRM now. A read that failed is not a customer who has
+        used no credit, and treating it as one gives the same headroom away twice."""
+        stubs["pending"].side_effect = ToolError(ErrorCategory.DEPENDENCY_DOWN, "down")
         result = call(stubs)
-        assert result["status"] == "GRANTED"
-        stubs["put"].assert_called_once()
+        assert result["status"] == "SERVICE_UNAVAILABLE"
+        stubs["ticket"].assert_not_called()
+
+    def test_a_company_with_no_crm_record_is_refused(self, stubs):
+        """Without a company there is no way to total what is already outstanding."""
+        stubs["verified"].return_value = (
+            "446019693775",
+            {k: v for k, v in DISPLAY.items() if k != "hubspot_company_id"},
+        )
+        assert call(stubs)["status"] == "SERVICE_UNAVAILABLE"
+        stubs["ticket"].assert_not_called()
 
     def test_a_ledger_outage_is_not_reported_as_a_refusal(self, stubs):
         """'Cannot check' is not 'not allowed'. Conflating them would refuse legitimate
@@ -256,11 +305,11 @@ class TestThresholdSplitting:
 
     def test_two_near_limit_credits_are_not_yet_a_pattern(self, stubs):
         stubs["query"].return_value = [dict(INVOICE), *self._near_limit_credits(2)]
-        assert call(stubs)["status"] == "GRANTED"
+        assert call(stubs)["status"] == "REQUESTED"
 
     def test_the_signal_is_recorded_before_the_decision_is_taken(self, stubs):
         """Order matters: a signal detected after the decision could not have influenced it."""
         stubs["query"].return_value = [dict(INVOICE), *self._near_limit_credits(5)]
         call(stubs, amount=80.00)
         assert stubs["record_signal"].called
-        assert stubs["put"].called is False
+        assert stubs["ticket"].called is False

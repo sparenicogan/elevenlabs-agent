@@ -21,7 +21,7 @@ DISPLAY = {
 }
 
 INVOICE = {
-    "customer_id": "CUST-00417",
+    "customer_id": "445909044455",
     "entry_id": "inv_00417_006",
     "type": "INVOICE",
     "invoice_number": "INV-2026-0013",
@@ -31,7 +31,7 @@ INVOICE = {
 }
 
 PAYMENT = {
-    "customer_id": "CUST-00417",
+    "customer_id": "445909044455",
     "entry_id": "pay_00417_disputed",
     "type": "PAYMENT",
     "amount": Decimal("-4200.00"),
@@ -61,14 +61,16 @@ def stubs(mocker):
         "verified": mocker.patch.object(
             module.conversation_state,
             "verified_context",
-            return_value=("CUST-00417", dict(DISPLAY)),
+            return_value=("445909044455", dict(DISPLAY)),
         ),
         "get": mocker.patch.object(
             module.dynamo, "get", side_effect=lambda t, k: entries.get(k["entry_id"])
         ),
-        "update": mocker.patch.object(
-            module.dynamo, "update_if", return_value={"status": "UNDER_REVIEW"}
-        ),
+        # Kept stubbed so that re-introducing a ledger write fails a test rather than
+        # quietly shipping.
+        "ledger_write": mocker.patch.object(module.dynamo, "update_if"),
+        # The company's open reviews. Empty unless a test seeds one.
+        "pending": mocker.patch.object(module.hubspot, "get_pending_requests", return_value=[]),
         "ticket": mocker.patch.object(module.hubspot, "create_ticket", return_value="TICKET-1"),
         "interaction": mocker.patch.object(module.hubspot, "log_interaction"),
         "audit": mocker.patch.object(module.audit, "write"),
@@ -97,13 +99,16 @@ class TestTheGoldenPath:
         assert result["new_status"] == "UNDER_REVIEW"
         assert result["previous_status"] == "UNALLOCATED"
 
-    def test_the_write_is_conditional_on_the_status_not_having_moved(self, stubs):
-        """Two concurrent calls must not both create a review. Only one can observe
-        UNALLOCATED."""
+    def test_the_ledger_is_never_written(self, stubs):
+        """The review is the ticket. The payment stays UNALLOCATED until a person accepts
+        the proposal and the applier moves it."""
         call(stubs)
-        kwargs = stubs["update"].call_args.kwargs
-        assert kwargs["condition"] == "#s = :expected"
-        assert kwargs["ExpressionAttributeValues"][":expected"] == "UNALLOCATED"
+        stubs["ledger_write"].assert_not_called()
+
+    def test_the_ticket_names_the_payment_so_the_next_caller_can_be_told(self, stubs):
+        call(stubs)
+        properties = stubs["ticket"].call_args.args[0]
+        assert properties["related_entry_id"] == "pay_00417_disputed"
 
     def test_an_audit_event_records_both_states_and_the_rule(self, stubs):
         event = stubs["audit"].call_args.args[0] if stubs["audit"].called else None
@@ -142,7 +147,7 @@ class TestOwnership:
     def test_nothing_is_written_when_ownership_fails(self, stubs):
         stubs["entries"].pop("pay_00417_disputed")
         call(stubs)
-        stubs["update"].assert_not_called()
+        stubs["ledger_write"].assert_not_called()
         stubs["ticket"].assert_not_called()
 
 
@@ -165,10 +170,21 @@ class TestCalledTwice:
         stubs["ticket"].assert_not_called()
         stubs["audit"].assert_not_called()
 
-    def test_losing_the_race_is_reported_as_already_under_review(self, stubs):
-        """Another call moved the payment between this one's read and write."""
-        stubs["update"].return_value = None
-        assert call(stubs)["status"] == "ALREADY_UNDER_REVIEW"
+    def test_a_colleague_who_already_asked_is_what_stops_a_second_review(self, stubs):
+        """The case the user asked for: a different caller from the same company rings about
+        the same payment. The ledger still says UNALLOCATED — the open ticket is the only
+        thing that knows."""
+        stubs["pending"].return_value = [
+            {"id": "TICKET-COLLEAGUE", "related_entry_id": "pay_00417_disputed"}
+        ]
+        result = call(stubs)
+        assert result["status"] == "ALREADY_UNDER_REVIEW"
+        assert result["ticket_id"] == "TICKET-COLLEAGUE"
+        stubs["ticket"].assert_not_called()
+
+    def test_an_open_ticket_about_a_different_payment_does_not_block_this_one(self, stubs):
+        stubs["pending"].return_value = [{"id": "TICKET-OTHER", "related_entry_id": "pay_other"}]
+        assert call(stubs)["status"] == "UNDER_REVIEW"
 
     def test_an_allocated_payment_is_already_resolved(self, stubs):
         stubs["entries"]["pay_00417_disputed"] = {**PAYMENT, "status": "ALLOCATED"}
@@ -181,14 +197,21 @@ class TestCalledTwice:
 
 
 class TestCrmDegradation:
-    def test_a_crm_outage_does_not_stop_the_payment_going_under_review(self, stubs):
-        """Losing the ticket is recoverable; failing to move the ledger would mean promising
-        a caller a review that does not exist (FR-025)."""
+    def test_a_crm_outage_is_not_reported_as_a_review(self, stubs):
+        """The ticket is the review. If it was not created then nothing happened anywhere,
+        and the one thing the agent must not do is say a colleague is looking into it."""
         stubs["ticket"].side_effect = ToolError(ErrorCategory.DEPENDENCY_DOWN, "hubspot down")
         result = call(stubs)
-        assert result["status"] == "UNDER_REVIEW"
-        assert result["ticket_id"] is None
-        stubs["update"].assert_called_once()
+        assert result["status"] == "SERVICE_UNAVAILABLE"
+        assert result.get("ticket_id") is None
+        stubs["ledger_write"].assert_not_called()
+
+    def test_an_unreadable_crm_does_not_raise_a_duplicate_review(self, stubs):
+        """If the open reviews cannot be read, a colleague may already have asked. Guessing
+        creates a second review of the same payment."""
+        stubs["pending"].side_effect = ToolError(ErrorCategory.DEPENDENCY_DOWN, "down")
+        assert call(stubs)["status"] == "SERVICE_UNAVAILABLE"
+        stubs["ticket"].assert_not_called()
 
     def test_a_failed_interaction_log_does_not_undo_the_allocation(self, stubs):
         stubs["interaction"].side_effect = ToolError(ErrorCategory.DEPENDENCY_DOWN, "down")

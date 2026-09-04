@@ -17,7 +17,7 @@ API_KEY = "test-key"
 # this row is keyed by the person.
 RECORD = {
     "contact_id": "859557757171",
-    "account_id": "CUST-00417",
+    "account_id": "445909044455",
     "company_name": "Alpina Tech",
     "first_name": "Klaus",
     "last_name": "Mueller",
@@ -316,7 +316,7 @@ class TestGuessing:
 
     def test_a_third_distinct_value_for_one_field_locks_the_call(self, stubs):
         stubs["attempts"].return_value = ({"customer_id": 3}, True)
-        result = call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00003")])
+        result = call(stubs, [factor(Factor.CUSTOMER_ID, "445900000003")])
         assert result["status"] == "LOCKED"
 
     def test_it_locks_before_the_answers_are_evaluated(self, stubs):
@@ -329,7 +329,7 @@ class TestGuessing:
 
     def test_a_risk_signal_is_raised(self, stubs):
         stubs["attempts"].return_value = ({"customer_id": 3}, True)
-        call(stubs, [factor(Factor.CUSTOMER_ID, "CUST-00003")])
+        call(stubs, [factor(Factor.CUSTOMER_ID, "445900000003")])
         signal = stubs["signal"].call_args.args[0]
         assert signal.signal_type == "SUSPECTED_GUESSING"
 

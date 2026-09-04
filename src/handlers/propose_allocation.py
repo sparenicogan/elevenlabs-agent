@@ -66,10 +66,10 @@ def _propose(conversation_id: str, customer_id: str, display: dict, body: dict) 
 
     Returns: the response body from contracts/tools.md.
 
-    Order matters. The ledger moves first, because it is the only authoritative record; the
-    ticket and the CRM log follow. If HubSpot fails afterwards the payment is still under
-    review and a human still finds it, which is the right way round — the reverse would
-    promise a caller a review that does not exist (FR-025).
+    Nothing in the ledger changes. The ticket is the review, so raising it is the action, and
+    a payment stays UNALLOCATED until a person accepts the proposal and the applier writes
+    it. That is also why an open ticket, rather than the payment's status, is what tells a
+    second caller their colleague has already asked (FR-022).
     """
     settings = policy_module.load()
     payment_id = str(validation.require(body, "payment_entry_id"))
@@ -78,6 +78,18 @@ def _propose(conversation_id: str, customer_id: str, display: dict, body: dict) 
     payment = _owned_entry(customer_id, payment_id, "PAYMENT")
     invoice = _owned_entry(customer_id, invoice_id, "INVOICE")
 
+    # Asked and unanswered is the same situation as under review, and it is the only place
+    # that fact is recorded now.
+    open_ticket = _open_review(display, payment_id)
+    if open_ticket:
+        return {
+            "status": "ALREADY_UNDER_REVIEW",
+            "ticket_id": open_ticket,
+            "previous_status": str(payment["status"]),
+            "new_status": str(payment["status"]),
+            "resolution_target_hours": settings.resolution_target_hours,
+        }
+
     outcome = decide_allocation(
         payment_status=str(payment["status"]),
         payment_amount=abs(Decimal(str(payment["amount"]))),
@@ -85,8 +97,9 @@ def _propose(conversation_id: str, customer_id: str, display: dict, body: dict) 
     )
 
     if outcome.decision is AllocationDecision.ALREADY_UNDER_REVIEW:
-        # A repeat, not an error. Returning the original ticket lets the agent say something
-        # true and calm rather than creating a second review of the same payment (FR-022).
+        # Only reachable for a payment the applier has already moved, or seeded data. The
+        # agent no longer writes this status, but falling through would raise a second
+        # review of a payment somebody is already looking at.
         return {
             "status": "ALREADY_UNDER_REVIEW",
             "ticket_id": payment.get("review_ticket_id"),
@@ -105,40 +118,6 @@ def _propose(conversation_id: str, customer_id: str, display: dict, body: dict) 
         )
 
     ticket_id = _raise_ticket(conversation_id, display, invoice, payment)
-
-    moved = dynamo.update_if(
-        LEDGER_TABLE,
-        {"customer_id": customer_id, "entry_id": payment_id},
-        # Guards the transition even under two concurrent calls: only one can observe
-        # UNALLOCATED, so only one review is ever created.
-        condition="#s = :expected",
-        UpdateExpression=(
-            "SET #s = :new, allocated_to = :invoice, review_ticket_id = :ticket, "
-            "originating_conversation_id = :conversation, decision_source = :source, "
-            "approval_status = :approval"
-        ),
-        ExpressionAttributeNames={"#s": "status"},
-        ExpressionAttributeValues={
-            ":expected": outcome.previous_status,
-            ":new": outcome.new_status,
-            ":invoice": [invoice_id],
-            ":ticket": ticket_id or "",
-            ":conversation": conversation_id,
-            ":source": "AGENT_PROPOSED",
-            ":approval": "PENDING",
-        },
-    )
-
-    if moved is None:
-        # Another call moved it between the read and the write. Not an error: the payment is
-        # under review, which is what the caller wanted.
-        return {
-            "status": "ALREADY_UNDER_REVIEW",
-            "ticket_id": ticket_id,
-            "previous_status": outcome.previous_status,
-            "new_status": outcome.new_status,
-            "resolution_target_hours": settings.resolution_target_hours,
-        }
 
     audit.write(
         audit.AuditEvent(
@@ -200,6 +179,27 @@ def _owned_entry(customer_id: str, entry_id: str, expected_type: str) -> dict:
     return entry
 
 
+def _open_review(display: dict, payment_id: str) -> str | None:
+    """
+    Finds a review already open against this payment, raised by anyone at the company.
+
+    display:    CRM identifiers recorded at verification.
+    payment_id: the payment the caller wants allocated.
+
+    Returns: that ticket's id, or None when nobody has asked yet. Raises when the CRM cannot
+             be read, because proposing a second review of the same payment is worse than
+             telling the caller to ring back.
+    """
+    company_id = display.get("hubspot_company_id")
+    if not company_id:
+        raise ToolError(ErrorCategory.INTERNAL, "no company id, cannot check open reviews")
+
+    for ticket in hubspot.get_pending_requests(str(company_id)):
+        if str(ticket.get("related_entry_id") or "") == payment_id:
+            return str(ticket["id"])
+    return None
+
+
 def _raise_ticket(conversation_id: str, display: dict, invoice: dict, payment: dict) -> str | None:
     """
     Creates the ticket a person will work from.
@@ -209,13 +209,16 @@ def _raise_ticket(conversation_id: str, display: dict, invoice: dict, payment: d
     invoice:         the invoice being settled.
     payment:         the payment being proposed.
 
-    Returns: the ticket id, or None when HubSpot is unreachable. A CRM outage must not stop
-             the payment going under review — losing the ticket is recoverable, losing the
-             ledger state is not (FR-025).
+    Returns: the ticket id.
+
+    Raises when the CRM is unreachable, which inverts what this used to do. The ticket was
+    once a convenience on top of a ledger write that had already happened; it is now the
+    only record that the review exists. Swallowing the failure here would have the agent
+    tell a caller a colleague is looking into it when nothing, anywhere, says so (FR-025).
     """
     contact_id = display.get("hubspot_contact_id")
     if not contact_id:
-        return None
+        raise ToolError(ErrorCategory.INTERNAL, "no contact id, cannot raise a review")
 
     discrepancies = []
     if "payer_address" in payment:
@@ -239,15 +242,18 @@ def _raise_ticket(conversation_id: str, display: dict, invoice: dict, payment: d
                     + ("To check: " + "; ".join(discrepancies) + ".\n" if discrepancies else "")
                     + "The agent has no authority to allocate. Please confirm or reject."
                 ),
+                # The payment this review is about, as a property rather than prose: it is
+                # what the next caller's "already in process" check matches on.
+                "related_entry_id": payment["entry_id"],
                 "hs_pipeline_stage": "1",
                 "hs_ticket_priority": "HIGH",
             },
             contact_id=contact_id,
             company_id=display.get("hubspot_company_id"),
         )
-    except ToolError as error:
-        log.error("ticket not created", error_category=str(error.category), status="DEGRADED")
-        return None
+    except ToolError:
+        log.error("review not raised", status="FAILED")
+        raise
 
 
 def _log_interaction(display: dict, invoice: dict, payment: dict, ticket_id: str | None) -> None:

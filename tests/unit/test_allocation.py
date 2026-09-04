@@ -13,6 +13,7 @@ with a tested consequence, not an undefined one.
 from decimal import Decimal
 
 import pytest
+
 from src.domain.allocation import (
     AllocationDecision,
     decide_allocation,
