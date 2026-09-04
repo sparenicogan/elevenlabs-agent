@@ -17,14 +17,39 @@ class ErrorCategory(StrEnum):
     INTERNAL = "INTERNAL"
 
 
-# Phrasing the agent may paraphrase. None of these asserts a financial fact, because at
-# the point they are returned the backend does not know one (FR-011).
+# What the agent should say, not merely what went wrong.
+#
+# Directive because a neutral description leaves the model a gap to fill, and conversation
+# testing showed it sometimes fills one by claiming the action succeeded: an allocation was
+# refused and the caller was told a colleague would confirm it within twenty-four hours.
+# Handing over a sentence is more reliable than a prompt rule about what not to say — the
+# rule has to be recalled, the sentence is already in the response.
+#
+# None asserts a financial fact: at the point these are returned the backend does not know
+# one (FR-011). Each states that nothing changed, because that is the part most often
+# narrated wrongly.
 _MESSAGE_HINTS = {
-    ErrorCategory.TIMEOUT: "The system is taking longer than expected to respond.",
-    ErrorCategory.DEPENDENCY_DOWN: "That information is temporarily unavailable.",
-    ErrorCategory.VALIDATION: "Some of the details provided could not be read.",
-    ErrorCategory.NOT_AUTHORIZED: "That action is not available at this point in the call.",
-    ErrorCategory.INTERNAL: "Something went wrong on our side.",
+    ErrorCategory.TIMEOUT: (
+        "This took longer than expected and did not go through. Tell the caller you could "
+        "not complete it, and offer to have a colleague pick it up."
+    ),
+    ErrorCategory.DEPENDENCY_DOWN: (
+        "That information is temporarily unavailable and nothing was changed. Tell the "
+        "caller you cannot access it right now, never what it would have said, and offer to "
+        "have a colleague follow up."
+    ),
+    ErrorCategory.VALIDATION: (
+        "Some of the details could not be read and nothing was changed. Ask the caller to "
+        "repeat the detail rather than guessing at it."
+    ),
+    ErrorCategory.NOT_AUTHORIZED: (
+        "This is not available at this point in the call and nothing was changed. Do not "
+        "describe it as done."
+    ),
+    ErrorCategory.INTERNAL: (
+        "Something went wrong on our side and the action did not complete. Tell the caller "
+        "plainly, and arrange for a colleague to take it on."
+    ),
 }
 
 # A read may be retried once; a mutation may not (FR-023). Categories that indicate the

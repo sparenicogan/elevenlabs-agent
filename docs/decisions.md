@@ -1276,3 +1276,71 @@ an absent `raise`; `test_the_lambda_budget_sits_below_the_agents` reads the Terr
 write does not roll back a credit is a property of *not* doing something, and the timeout
 relationship lives in two files that must stay in step — a Lambda budget above the agent's
 would produce an opaque timeout instead of a speakable error, and nothing else would notice.
+
+### 12.32 A fourth test layer, driving the agent itself
+
+**Decision.** `tests/conversation` runs scripted callers against the deployed agent through
+ElevenLabs' simulator — real prompt, real tools, no voice minutes.
+
+**Cost.** Slow (about a minute per test, twelve for the suite), it mutates real data so every
+case reseeds, and it needs credentials. It cannot run in CI as things stand.
+
+**Why.** Nicolas asked whether the 413 tests ever reach ElevenLabs. They do not. Every layer
+below stops at the handler boundary, which means the prompt — twenty-eight thousand
+characters of security-relevant instruction — had no automated coverage at all.
+
+Every failure found during walkthroughs was in that gap: announcing the invoice amount before
+asking what was paid, claiming to have checked an invoice it never looked up, saying "I
+couldn't confirm that email" after a correct email, asserting a billing error it could not
+see. Four rounds of manual testing, each finding something the suite could not.
+
+**It found a worse one immediately.** Given a payment matching no invoice, the agent invented
+a second invoice — number, amount and date, none returned by any tool — called
+`propose_allocation` against it, and when the backend refused, told the caller "the payment
+has been proposed for allocation, a colleague will confirm within twenty-four hours."
+
+The data was safe: the mutation was rejected. The caller was not. They would have stopped
+chasing a payment nobody was handling.
+
+### 12.33 Prompt rules are tendencies; only the backend enforces
+
+**Decision.** Recorded as a property of the system rather than fixed, because it cannot be
+fixed at the prompt layer.
+
+**The evidence.** Running the conversation suite twice gave different results. Three tests
+failed on the second run, one of them having passed alone three minutes earlier. Same prompt,
+same agent, same scenario.
+
+Each of those three is an explicit "never" in the prompt. The model follows them most of the
+time.
+
+**Why it matters more than the individual failures.** It draws the line between the two kinds
+of guarantee this system makes. "Nothing financial before VERIFIED" holds because
+`require_verified` reads a row and raises — a caller cannot talk past it, and no model
+behaviour changes it. "Never say an action succeeded when it did not" holds because the model
+usually complies.
+
+The first is a control. The second is a tendency. Both were written the same way in the
+prompt, and only testing the agent showed which was which.
+
+**What follows from it**: where a rule matters and can be moved into the backend, move it.
+Where it cannot, say so honestly rather than claiming the prompt as a guarantee.
+
+### 12.34 Failure hints tell the agent what to say, not what went wrong
+
+**Decision.** `message_hint` changed from a description ("That information is temporarily
+unavailable") to an instruction ("...and nothing was changed. Tell the caller you cannot
+access it right now, never what it would have said, and offer to have a colleague follow
+up").
+
+**Cost.** The hint is no longer something the agent can read out verbatim, so it must
+paraphrase — and a longer string travels on every failure.
+
+**Why.** This is §12.33 acted on. The agent claiming a review that never happened was a
+prompt rule being ignored; the fix is not another prompt rule. A neutral description leaves
+the model a gap to fill, and it sometimes fills one by assuming success. A sentence in the
+response is right there at the moment of speaking, where a rule from twenty thousand
+characters earlier has to be recalled.
+
+Every hint now states explicitly that nothing changed, because that is the part most often
+narrated wrongly.

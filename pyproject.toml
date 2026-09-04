@@ -35,5 +35,6 @@ markers = [
     "unit: pure domain logic, no AWS",
     "contract: handler request/response shapes against specs/*/contracts/",
     "integration: runs against deployed endpoints",
+    "conversation: drives the deployed agent through the simulator; slow, and mutates data",
 ]
 addopts = "--strict-markers"
