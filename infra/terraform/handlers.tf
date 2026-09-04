@@ -137,9 +137,14 @@ data "aws_iam_policy_document" "check_factor" {
   }
 
   statement {
-    effect    = "Allow"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_secretsmanager_secret.tool_api_key.arn]
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      aws_secretsmanager_secret.tool_api_key.arn,
+      # Fingerprints the values offered, so guessing can be counted without storing what was
+      # said. Needed the moment this endpoint started counting attempts of its own.
+      aws_secretsmanager_secret.attempt_salt.arn,
+    ]
   }
 
   statement {
