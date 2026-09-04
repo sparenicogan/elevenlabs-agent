@@ -337,6 +337,23 @@ class TestSpokenEmails:
             "S-T-E-P-H-A-N-E dot R-I-C-H-A-R-D @ I-N-N-O-V-A-T-E-C-H dot C-H"
         ) == self._key("stephane.richard@innovatech.ch")
 
+    def test_a_spoken_hyphen_is_punctuation_not_letters(self):
+        """ "alpina hyphen tech" reached the backend as "alpinahyphentech". Callers name the
+        hyphen precisely because the transcript keeps losing it."""
+        assert self._key(
+            "K-L-A-U-S dot M-U-E-L-L-E-R at A-L-P-I-N-A hyphen T-E-C-H dot C-H"
+        ) == self._key("klaus.mueller@alpina-tech.ch")
+
+    def test_dash_period_and_underscore_are_understood_too(self):
+        assert self._key("a dash b at x dot ch") == self._key("a-b@x.ch")
+        assert self._key("a underscore b at x dot ch") == self._key("a_b@x.ch")
+        assert self._key("a at x period ch") == self._key("a@x.ch")
+
+    def test_the_words_only_count_when_they_stand_alone(self):
+        """Someone named Aldotata, or writing to cat@, keeps their address."""
+        assert self._key("aldotata@x.ch") == "aldotata@x.ch"
+        assert self._key("cat@x.ch") == "cat@x.ch"
+
     def test_the_at_sign_may_also_be_spoken(self):
         assert self._key("k-l-a-u-s at a-l-p-i-n-a dot c-h") == self._key("klaus@alpina.ch")
 
