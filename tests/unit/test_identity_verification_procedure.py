@@ -74,7 +74,9 @@ def test_both_decisions_survive_the_backend_being_down(steps):
     """ "Cannot check" is not "not allowed" (FR-011)."""
     for step in steps:
         if step.get("tool_name") in {"check_factor", "verify_identity"} and "on_failure" in step:
-            text = " ".join(s.get("instruction", "") for s in step["on_failure"]["fallback"])
+            fallback = step["on_failure"]["fallback"]
+            assert "retry" not in [s["type"] for s in fallback]
+            text = " ".join(s.get("instruction", "") for s in fallback)
             assert "nothing has changed" in text.lower()
 
 

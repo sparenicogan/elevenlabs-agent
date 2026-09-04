@@ -16,10 +16,6 @@
       "on_failure": {
         "fallback": [
           {
-            "type": "retry",
-            "max_retries": 1
-          },
-          {
             "type": "tell",
             "instruction": "Tell the caller you could not complete the check just now and that nothing has changed on the account. Offer to have a colleague call them back."
           }
@@ -94,10 +90,6 @@
       "instruction": "Send all three details together: email as confirmed, phone, and date of birth. This is the decision -- nothing before it verified anyone.",
       "on_failure": {
         "fallback": [
-          {
-            "type": "retry",
-            "max_retries": 1
-          },
           {
             "type": "tell",
             "instruction": "Tell the caller you could not complete the check and nothing has changed on the account. Offer a colleague."
