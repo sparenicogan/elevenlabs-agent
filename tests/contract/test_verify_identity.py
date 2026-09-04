@@ -70,8 +70,15 @@ def stubs(mocker):
 
 
 def call(stubs, factors, conversation_id="conv_1", api_key=API_KEY, **extra):
-    """Invokes the handler as API Gateway would."""
-    body = {"conversation_id": conversation_id, "factors": factors, **extra}
+    """Invokes the handler as API Gateway would.
+
+    Tests still describe a list of factors because that reads well; the wire format is one flat
+    field per detail, and the flattening happens here rather than in thirty call sites."""
+    body = {
+        "conversation_id": conversation_id,
+        **{f["field"]: f["value"] for f in factors},
+        **extra,
+    }
     response = stubs["module"].handler(
         {"headers": {"x-api-key": api_key}, "body": json.dumps(body)}
     )

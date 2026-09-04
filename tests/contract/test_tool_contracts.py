@@ -70,7 +70,7 @@ PAYMENT = {
 TOOLS = {
     "verify_identity": {
         "conversation_id": "conv_1",
-        "factors": [{"field": "customer_id", "value": "445909044455"}],
+        "email": CANARY_EMAIL,
     },
     "get_account_context": {"conversation_id": "conv_1"},
     "match_payment": {

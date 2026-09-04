@@ -21,26 +21,28 @@ tell you right now", never as an answer (FR-011).
 ## `verify_identity`
 
 ```json
-// request
+// request — one flat field per detail, omitting any the caller did not give
 { "conversation_id": "conv_...",
-  "factors": [ { "field": "email|phone|date_of_birth|account_opening_year|customer_id",
-                 "value": "as spoken by the caller" } ] }
+  "email": "...",
+  "phone": "...",
+  "date_of_birth": "..." }
 
 // response
 { "status": "VERIFIED|PARTIALLY_VERIFIED|FAILED|LOCKED",
   "factors_confirmed": 2,
   "factors_required": 3,
-  "next_factor_hint": "email|phone|date_of_birth|account_opening_year|customer_id",
-  "non_document_factor_satisfied": false,
-  "locked_until": null }
+  "personal_factor_satisfied": false }
 ```
 
-- Resolves the customer from the factors themselves, never from the caller-id candidate (research D3).
-- `next_factor_hint` names a *field to ask for*. It never carries a value (FR-004).
-- Never reveals which specific factor was wrong (FR-004).
-- `VERIFIED` requires three confirmed factors including at least one non-document factor (FR-003a).
-- Increments `failed_verification_attempts`; sets `locked_until` and returns `LOCKED` past the limit
-  (FR-006), writing a risk signal.
+- Flat fields rather than a list of `{field, value}` objects. The nested shape was correct and
+  the model could not reliably produce it: on a real call it sent the array as a JSON string with
+  one entry carrying `field` twice, after all three details had already matched individually.
+- Resolves the customer from the details themselves, never from the caller-id candidate
+  (research D3).
+- Never reveals which specific detail was wrong, and never says what to ask for next (FR-004).
+- `VERIFIED` requires three confirmed factors including at least one personal factor (FR-003a).
+- A detail that cannot be parsed at all is neither confirmed nor a mismatch: unreadable is not
+  wrong, and it must not discard the details that matched.
 
 ## `get_account_context`
 

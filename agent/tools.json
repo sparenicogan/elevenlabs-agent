@@ -2,7 +2,7 @@
   {
     "type": "webhook",
     "name": "verify_identity",
-    "description": "Check the identifying details the caller has given. Returns VERIFIED, PARTIALLY_VERIFIED, FAILED or LOCKED, and how many factors are confirmed. It never says which detail was wrong and never returns the expected answer. Disclose no financial information of any kind until it returns VERIFIED.",
+    "description": "Check the identifying details the caller has given, all together. Send each detail as its own field, exactly as the caller said it. Returns VERIFIED, PARTIALLY_VERIFIED, FAILED or LOCKED, and how many details are confirmed. It never says which detail was wrong and never returns the expected answer. Disclose no financial information of any kind until it returns VERIFIED.",
     "response_timeout_secs": 5,
     "force_pre_tool_speech": true,
     "pre_tool_speech": "auto",
@@ -13,39 +13,24 @@
       "request_body_schema": {
         "type": "object",
         "required": [
-          "conversation_id",
-          "factors"
+          "conversation_id"
         ],
         "properties": {
           "conversation_id": {
             "type": "string",
             "dynamic_variable": "system__conversation_id"
           },
-          "factors": {
-            "type": "array",
-            "description": "Every identifying detail the caller has given so far in this call, including ones already confirmed.",
-            "items": {
-              "type": "object",
-              "properties": {
-                "field": {
-                  "type": "string",
-                  "description": "Which detail this is.",
-                  "enum": [
-                    "email",
-                    "phone",
-                    "date_of_birth"
-                  ]
-                },
-                "value": {
-                  "type": "string",
-                  "description": "Exactly what the caller said, not corrected or reformatted."
-                }
-              },
-              "required": [
-                "field",
-                "value"
-              ]
-            }
+          "email": {
+            "type": "string",
+            "description": "The email address the caller gave, exactly as they said it. Omit if they did not give one."
+          },
+          "phone": {
+            "type": "string",
+            "description": "The phone number the caller gave, exactly as they said it. Omit if they did not give one."
+          },
+          "date_of_birth": {
+            "type": "string",
+            "description": "The date of birth the caller gave, exactly as they said it. Omit if they did not give one."
           }
         }
       }
