@@ -33,6 +33,11 @@ ALLOWED_FIELDS = frozenset(
         "rule_applied",
         "outcome",
         "event_type",
+        # Per-run counts from the applier. Numbers only, never anything a caller said.
+        "applied",
+        "already_applied",
+        "refused",
+        "failed",
         "message",
     }
 )

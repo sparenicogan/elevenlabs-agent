@@ -223,3 +223,19 @@ class TestOneBadTicket:
     def test_a_ledger_failure_on_one_ticket_is_counted_not_raised(self, stubs):
         stubs["put"].side_effect = ToolError(ErrorCategory.DEPENDENCY_DOWN, "down")
         assert stubs["module"].handler()["failed"] == 1
+
+
+class TestARunIsVisible:
+    """The counts exist so a run failing on every ticket cannot look like a run with nothing to
+    do. That is not hypothetical: the applier was denied dynamodb:UpdateItem on the ledger for
+    an hour and every run logged "apply run complete" and nothing else, because the count fields
+    were not on the logging allowlist."""
+
+    def test_the_count_fields_can_actually_be_logged(self):
+        from src.common.logging import ALLOWED_FIELDS
+
+        assert {"applied", "already_applied", "refused", "failed"} <= ALLOWED_FIELDS
+
+    def test_every_outcome_is_counted(self, stubs):
+        counts = stubs["module"].handler()
+        assert set(counts) == {"applied", "already_applied", "refused", "failed"}
