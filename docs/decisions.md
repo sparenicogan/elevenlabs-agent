@@ -1614,3 +1614,30 @@ that things which must never happen should be impossible. That still holds — t
 gate is server-side and unaffected by any of this. What was wrong was the assumption that the
 platform's procedure mechanism was the way to make conversational sequence a control. On this
 account, at this time, it introduced a failure worse than the ones it prevented.
+
+### 12.51 The tool call comes before the sentence
+
+**Decision.** Outcome sections in the prompt lead with the call that produces the outcome, and
+withhold the wording until the tool has returned. The address step is gated on
+`propose_allocation` returning `UNDER_REVIEW` rather than on `match_payment` returning MATCH.
+
+**Cost.** None.
+
+**Why.** On a real call the agent got MATCH and said "allocating it needs a person to confirm,
+which you will arrange now — a colleague will confirm within twenty-four hours", then asked
+about the address, then said goodbye. It never called `propose_allocation`. No ticket, no
+proposal, no record anywhere, and a caller told to stop chasing an invoice nobody is looking
+at.
+
+The MATCH bullet handed over a sentence and mentioned no tool; the instruction to call
+`propose_allocation` was two blocks below, past an unrelated subsection. At the moment the
+model was deciding what to do next, the text in front of it was a script. It performed the
+script.
+
+Same shape as the GRANTED wording that survived the credit rework: the prompt described what to
+say about an outcome before it described what to do to reach it, and the model did the speaking
+half. Ordering is the fix, not emphasis — there was already a section headed "Never say an
+action succeeded unless the tool said so".
+
+"Which you will arrange now" was part of it. A promise in the future tense reads as discharged
+once spoken.
