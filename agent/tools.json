@@ -31,7 +31,6 @@
                   "type": "string",
                   "description": "Which detail this is.",
                   "enum": [
-                    "customer_id",
                     "email",
                     "phone",
                     "date_of_birth"
