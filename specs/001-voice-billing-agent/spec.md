@@ -153,6 +153,13 @@ VERIFIED, PARTIALLY_VERIFIED, FAILED, and LOCKED produces its defined behavior.
 6e. **Given** a caller recites a correct phone number in any spoken form, **When** it is used to
    find their record, **Then** it finds them, because a value is normalised the same way wherever
    it is compared or looked up.
+6f. **Given** a caller says their date of birth aloud, **When** it is checked, **Then** the spoken
+   forms are understood: the month named in words ("12th of March, 1974"), an abbreviated year
+   ("12 March '74"), and an ordinal day. A date a caller can say and a transcriber can write down
+   MUST be a date the system can read, and one it cannot read MUST NOT be scored as a wrong answer.
+6g. **Given** two details have already matched and a third cannot be read at all, **When** the set
+   is evaluated, **Then** the two that matched still count. An answer the system failed to parse is
+   not evidence that the caller was wrong, and it MUST NOT discard the answers they got right.
 7. **Given** a caller offers one customer identifier and immediately corrects it, **When** they
    continue, **Then** verification proceeds normally: misspeaking is not an attack.
 8. **Given** a caller offers a third distinct customer identifier in the same call, **When** the

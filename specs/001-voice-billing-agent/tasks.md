@@ -265,6 +265,22 @@ Per plan.md: `src/domain/` (pure rules), `src/adapters/` (all external I/O), `sr
 
 ---
 
+## Phase 4b: User Story 2 — Spoken dates (Priority: P2)
+
+**Goal**: A date a caller can say is a date the system can read.
+
+**Independent test**: Call and give a date of birth as "the twelfth of March nineteen seventy-four"
+and confirm verification succeeds.
+
+- [ ] T107 [US2] Extend `DATE_FORMATS` in `src/domain/verification.py` to the forms a transcript
+      actually produces: month named in words, ordinal days, two-digit and apostrophe years,
+      comma-separated. Only numeric formats parse today, so no spoken date is ever readable.
+- [ ] T108 [P] [US2] Write the cases in `tests/unit/test_verification.py` from the real call:
+      "12 March '74", "12th of March, 1974", "the twelfth of March 1974".
+- [ ] T109 [US2] Separate unreadable from wrong in `check_factors`: an answer that could not be
+      parsed must not discard the factors that already matched. On the failing call two correct
+      answers were reported as zero confirmed.
+
 ## Phase 10b: User Story 9 — A human decision reaches the ledger (Priority: P9)
 
 **Goal**: The only path by which money moves. A colleague accepts a ticket, the applier re-runs the
