@@ -34,9 +34,18 @@ EXEMPT = ("scripts/check_no_secrets.py", "uv.lock", ".python-version")
 
 # HubSpot object ids are 12 digits, the same shape as an AWS account id, and the fixtures
 # are full of them. They are not secrets: anyone with access to the CRM can read them, and
-# they identify synthetic records. Exempted for that one pattern in that one file rather
-# than weakening the rule everywhere — credential patterns still apply here.
-ACCOUNT_ID_EXEMPT_PATHS = frozenset({"scripts/seed/fixtures.py"})
+# they identify synthetic records. Exempted for that one pattern in these files rather than
+# weakening the rule everywhere — credential patterns still apply here.
+#
+# The list grew when the HubSpot company id became the customer id. That id is now the
+# ledger's partition key, so it appears anywhere an account is named — including the demo
+# script, which is generated from these same fixtures.
+ACCOUNT_ID_EXEMPT_PATHS = frozenset(
+    {
+        "scripts/seed/fixtures.py",
+        "docs/test-scenarios.md",
+    }
+)
 
 # Values that look like the real thing but identify nothing: the all-zeros account used as
 # a placeholder in examples and in CI, where terraform needs a syntactically valid value it

@@ -15,12 +15,12 @@ on both sides.
 from decimal import Decimal
 
 import pytest
+
 from src.domain.credit import (
     CreditableEntry,
     CreditOutcome,
     evaluate_credit,
 )
-
 from src.domain.risk import RiskLevel
 
 MAX_PER_REQUEST = Decimal("100")

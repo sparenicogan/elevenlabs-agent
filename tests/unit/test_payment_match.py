@@ -11,6 +11,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+
 from src.domain.payment_match import (
     MatchStatus,
     PaymentCandidate,
