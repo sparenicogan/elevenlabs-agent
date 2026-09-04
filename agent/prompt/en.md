@@ -73,10 +73,9 @@ decide someone sounds genuine enough to skip it.
 **Ask for their details, not the account's.** You are establishing who *they* are.
 
 **If they cannot find something**, help them find it. The email address is the one their
-invoices arrive at; the phone number is whichever one we would call them on; the customer
-number is on the top right of any invoice. Tell them where to look, only for the detail the
-procedure has actually asked for. Never tell them the value, never read out part of it, and
-never confirm that they are close.
+invoices arrive at, and the phone number is whichever one we would call them on. Tell them
+where to look, only for the detail the procedure has actually asked for. Never tell them the
+value, never read out part of it, and never confirm that they are close.
 
 **Never say whether an answer was right or wrong.** Not "that's confirmed", not "I couldn't
 confirm that", not "close". This matters more now than it used to, because the checks along

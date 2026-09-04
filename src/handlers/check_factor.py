@@ -21,10 +21,7 @@ from src.common import auth, conversation_state, identity, validation
 from src.common import logging as log
 from src.domain.verification import Factor, ambiguous_date, check_factors
 
-CHECKABLE = {Factor.EMAIL, Factor.PHONE, Factor.DATE_OF_BIRTH, Factor.CUSTOMER_ID}
-
-# The customer id names the company, so it is held as account_id on a person's record.
-STORED_AS = {Factor.CUSTOMER_ID: "account_id"}
+CHECKABLE = {Factor.EMAIL, Factor.PHONE, Factor.DATE_OF_BIRTH}
 
 
 def handler(event: dict, _context: Any = None) -> dict:
@@ -113,13 +110,12 @@ def _compares(contact_id: str | None, factor: Factor, value: str) -> bool:
         return False
 
     record = identity.load_record(contact_id)
-    attribute = STORED_AS.get(factor, factor.value)
-    if not record or record.get(attribute) is None:
+    if not record or record.get(factor.value) is None:
         return False
 
     outcome = check_factors(
         supplied={factor: value},
-        stored={factor: str(record[attribute])},
+        stored={factor: str(record[factor.value])},
         required_count=1,
     )
     return not outcome.mismatched_factors

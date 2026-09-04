@@ -94,26 +94,6 @@ class TestDateOfBirth:
         assert call(stubs, "date_of_birth", "1968-09-14")["status"] == "NOT_MATCHED"
 
 
-class TestCustomerId:
-    """The one detail a caller can read off paper when their name has been misheard. With
-    three factors required and three asked, a single bad transcription otherwise leaves an
-    honest caller with no way through -- which is what happened on a real call."""
-
-    def test_it_is_compared_against_the_company_on_the_record(self, stubs):
-        """It is held as account_id, because it names the company rather than the person."""
-        assert call(stubs, "customer_id", RECORD["account_id"])["status"] == "MATCHED"
-
-    def test_another_companys_id_does_not_match(self, stubs):
-        assert call(stubs, "customer_id", "445909044455")["status"] == "NOT_MATCHED"
-
-    def test_it_cannot_resolve_a_caller_on_its_own(self, stubs):
-        """It names a company, so it identifies nobody. Without a record already resolved
-        there is nothing to compare it against."""
-        stubs["lookup"].return_value = None
-        stubs["resolved"].return_value = None
-        assert call(stubs, "customer_id", RECORD["account_id"])["status"] == "NOT_MATCHED"
-
-
 class TestItDecidesNothing:
     def test_a_match_does_not_verify_the_conversation(self, stubs):
         """Every detail can match here and the caller is still not through the gate.
@@ -123,7 +103,7 @@ class TestItDecidesNothing:
         assert "set_verification" not in dir(module.conversation_state.__class__)
 
     def test_an_unchecked_field_is_refused(self, stubs):
-        assert call(stubs, "first_name", "Charles")["error_category"] == "VALIDATION"
+        assert call(stubs, "customer_id", "445900025039")["error_category"] == "VALIDATION"
 
     def test_a_bad_api_key_is_refused(self, stubs):
         assert call(stubs, "email", RECORD["email"], api_key="wrong")["status"] != "MATCHED"
