@@ -13,7 +13,7 @@ import hashlib
 import hmac
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 
 # The number of trailing digits compared when checking a phone number. Swiss subscriber
@@ -65,7 +65,6 @@ PERSONAL_FACTORS = frozenset(
         Factor.DATE_OF_BIRTH,
     }
 )
-
 
 
 class VerificationStatus(StrEnum):
@@ -136,6 +135,37 @@ def _normalise_date(value: str) -> str:
         except ValueError:
             continue
     return "\x00unparseable"
+
+
+def ambiguous_date(value: str) -> tuple[str, str] | None:
+    """
+    Decides whether a spoken date could mean two different days.
+
+    value: the date as transcribed.
+
+    Returns: the two readings as ISO dates, day-first then month-first, or None when only one
+             reading is possible.
+
+    "11 6 1994" is the 11th of June to a Swiss caller and the 6th of November to an American
+    transcriber, and nothing in the string says which. Detected without touching the record:
+    this is a question about what the caller said, not about whether they are right, so
+    asking them to clarify reveals nothing.
+    """
+    digits = re.findall(r"\d+", value)
+    if len(digits) != 3:
+        return None
+
+    first, second, year = (int(d) for d in digits[:3])
+    # A four-digit year in first position means the string is already unambiguous ISO.
+    if len(digits[0]) == 4 or not (1 <= first <= 12 and 1 <= second <= 12) or first == second:
+        return None
+
+    try:
+        day_first = date(year, second, first).isoformat()
+        month_first = date(year, first, second).isoformat()
+    except ValueError:
+        return None
+    return day_first, month_first
 
 
 def _matches(factor: Factor, supplied: str, stored: str) -> bool:

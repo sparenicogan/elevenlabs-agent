@@ -352,3 +352,35 @@ def record_callback(
             ":now": datetime.now(UTC).isoformat(),
         },
     )
+
+
+def set_resolved_contact(conversation_id: str, contact_id: str) -> None:
+    """
+    Remembers whose record the rest of this call's answers are checked against.
+
+    conversation_id: the call.
+    contact_id:      the contact an identifier resolved to.
+
+    Returns: nothing.
+
+    Resolving is not verifying, and this grants nothing on its own: a date of birth cannot be
+    looked up, so checking one needs a record already in hand, and that is all this is for.
+    """
+    dynamo.upsert(
+        _TABLE,
+        {"conversation_id": conversation_id},
+        UpdateExpression=(
+            "SET resolved_contact_id = :contact, started_at = if_not_exists(started_at, :now)"
+        ),
+        ExpressionAttributeValues={
+            ":contact": contact_id,
+            ":now": datetime.now(UTC).isoformat(),
+        },
+    )
+
+
+def resolved_contact(conversation_id: str) -> str | None:
+    """Reads the contact an earlier answer in this call resolved to, or None."""
+    record = dynamo.get(_TABLE, {"conversation_id": conversation_id}) or {}
+    value = record.get("resolved_contact_id")
+    return str(value) if value else None

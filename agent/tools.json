@@ -54,6 +54,46 @@
   },
   {
     "type": "webhook",
+    "name": "check_factor",
+    "description": "Check one identifying detail on its own, so a misheard answer can be corrected while the caller is still on that question. Returns MATCHED, NOT_MATCHED, or AMBIGUOUS with the two possible readings when a spoken date could mean two different days. It never returns the stored value and never decides anything: verify_identity makes the decision, and this does not move the caller past it.",
+    "response_timeout_secs": 5,
+    "force_pre_tool_speech": false,
+    "pre_tool_speech": "auto",
+    "api_schema": {
+      "url": "/tools/check-factor",
+      "method": "POST",
+      "request_headers": {},
+      "request_body_schema": {
+        "type": "object",
+        "required": [
+          "conversation_id",
+          "field",
+          "value"
+        ],
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "dynamic_variable": "system__conversation_id"
+          },
+          "field": {
+            "type": "string",
+            "description": "Which detail this is.",
+            "enum": [
+              "email",
+              "phone",
+              "date_of_birth"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "description": "Exactly what the caller said, not corrected or reformatted."
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "webhook",
     "name": "get_account_context",
     "description": "Load the customer's open invoices, open and past escalations, CRM details and a short summary of previous conversations. Call this once, immediately after verification succeeds. It refuses if the conversation is not verified.",
     "response_timeout_secs": 5,
