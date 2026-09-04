@@ -25,7 +25,7 @@ from src.domain.risk import (
 
 TODAY = date(2026, 9, 3)
 CONVERSATION = "conv_1"
-CUSTOMER = "CUST-01144"
+CUSTOMER = "445900025039"
 
 # The per-request ceiling. A credit close to it, repeatedly, is the shape that matters.
 MAX_PER_REQUEST = Decimal("100")

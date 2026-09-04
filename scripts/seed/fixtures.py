@@ -50,22 +50,15 @@ class _Sequence:
 
 
 # --- Companies -------------------------------------------------------------------------
+# Account-level facts only. Who may call about an account is CONTACTS, below.
 # language is what the agent greets in. Alpina Tech is English so the demo can be followed
 # by an English-speaking audience; the others carry the language of their HubSpot record.
 
 COMPANIES = [
     {
         "key": "alpina",
-        "customer_id": "CUST-00417",
+        "customer_id": "445909044455",
         "company_name": "Alpina Tech",
-        "hubspot_company_id": "445909044455",
-        "hubspot_contact_id": "859557757171",
-        "first_name": "Klaus",
-        "last_name": "Mueller",
-        "email": "klaus.mueller@alpina-tech.ch",
-        "phone": "+41 44 501 22 18",
-        "date_of_birth": "1974-03-12",
-        "account_opening_year": 2019,
         "language": "en",
         "city": "Zürich",
         "postcode": "8005",
@@ -74,16 +67,8 @@ COMPANIES = [
     },
     {
         "key": "ticino",
-        "customer_id": "CUST-00982",
+        "customer_id": "446019693775",
         "company_name": "Ticino Industries",
-        "hubspot_company_id": "446019693775",
-        "hubspot_contact_id": "859585377479",
-        "first_name": "Marco",
-        "last_name": "Rossi",
-        "email": "marco.rossi@ticino-ind.ch",
-        "phone": "+41 91 604 77 31",
-        "date_of_birth": "1981-11-02",
-        "account_opening_year": 2021,
         "language": "it",
         "city": "Lugano",
         "postcode": "6900",
@@ -92,16 +77,8 @@ COMPANIES = [
     },
     {
         "key": "apex",
-        "customer_id": "CUST-01144",
+        "customer_id": "445900025039",
         "company_name": "Apex Capital",
-        "hubspot_company_id": "445900025039",
-        "hubspot_contact_id": "859554863314",
-        "first_name": "Charles",
-        "last_name": "Lavigne",
-        "email": "charles.lavigne@apex-capital.ch",
-        "phone": "+41 22 918 40 65",
-        "date_of_birth": "1969-07-25",
-        "account_opening_year": 2017,
         "language": "fr",
         "city": "Genève",
         "postcode": "1204",
@@ -110,21 +87,8 @@ COMPANIES = [
     },
     {
         "key": "precision",
-        "customer_id": "CUST-01390",
+        "customer_id": "446087611588",
         "company_name": "Precision Systems",
-        "hubspot_company_id": "446087611588",
-        # Martin Keller is the contact recorded against the account. Julia Fischer and
-        # Daniel Zimmermann also work there and exist in the CRM, but are not authorised to
-        # act on it — which is the scenario this company exists to exercise (FR-007a).
-        "hubspot_contact_id": "859585276132",
-        "first_name": "Martin",
-        "last_name": "Keller",
-        "email": "martin.keller@precision-systems.ch",
-        # No phone on file, so an inbound call is unrecognised and the greeting falls back
-        # to the configured default language (FR-033a).
-        "phone": None,
-        "date_of_birth": "1988-01-19",
-        "account_opening_year": 2023,
         "language": "de",
         "city": "Bern",
         "postcode": "3011",
@@ -133,16 +97,8 @@ COMPANIES = [
     },
     {
         "key": "heritage",
-        "customer_id": "CUST-01502",
+        "customer_id": "445941470419",
         "company_name": "Heritage Manufacturing",
-        "hubspot_company_id": "445941470419",
-        "hubspot_contact_id": "859555877061",
-        "first_name": "Andrea",
-        "last_name": "Colombo",
-        "email": "andrea.colombo@heritage-mfg.ch",
-        "phone": "+41 91 233 08 54",
-        "date_of_birth": "1971-05-30",
-        "account_opening_year": 2016,
         "language": "it",
         "city": "Bellinzona",
         "postcode": "6500",
@@ -151,16 +107,8 @@ COMPANIES = [
     },
     {
         "key": "nexus",
-        "customer_id": "CUST-01633",
+        "customer_id": "446043304132",
         "company_name": "Nexus Consulting",
-        "hubspot_company_id": "446043304132",
-        "hubspot_contact_id": "859560119498",
-        "first_name": "Raphael",
-        "last_name": "Mueller",
-        "email": "raphael.mueller@nexus-consulting.ch",
-        "phone": "+41 31 776 15 09",
-        "date_of_birth": "1985-09-14",
-        "account_opening_year": 2020,
         "language": "de",
         "city": "Bern",
         "postcode": "3006",
@@ -169,16 +117,8 @@ COMPANIES = [
     },
     {
         "key": "innovatech",
-        "customer_id": "CUST-01718",
+        "customer_id": "446069714152",
         "company_name": "Innovatech",
-        "hubspot_company_id": "446069714152",
-        "hubspot_contact_id": "859482418401",
-        "first_name": "Stephane",
-        "last_name": "Richard",
-        "email": "stephane.richard@innovatech.ch",
-        "phone": "+41 21 340 62 77",
-        "date_of_birth": "1979-12-08",
-        "account_opening_year": 2018,
         "language": "fr",
         "city": "Lausanne",
         "postcode": "1003",
@@ -187,16 +127,8 @@ COMPANIES = [
     },
     {
         "key": "synergy",
-        "customer_id": "CUST-01845",
+        "customer_id": "445925214417",
         "company_name": "Synergy Solutions",
-        "hubspot_company_id": "445925214417",
-        "hubspot_contact_id": "859519450331",
-        "first_name": "Sandra",
-        "last_name": "Hoffmann",
-        "email": "sandra.hoffmann@synergy-sol.ch",
-        "phone": "+41 61 285 93 40",
-        "date_of_birth": "1983-02-21",
-        "account_opening_year": 2022,
         "language": "de",
         "city": "Basel",
         "postcode": "4051",
@@ -205,16 +137,8 @@ COMPANIES = [
     },
     {
         "key": "lumina",
-        "customer_id": "CUST-01960",
+        "customer_id": "445925214416",
         "company_name": "Lumina Analytics",
-        "hubspot_company_id": "445925214416",
-        "hubspot_contact_id": "859557637333",
-        "first_name": "Marie",
-        "last_name": "Rousseau",
-        "email": "marie.rousseau@lumina-analytics.ch",
-        "phone": "+41 22 447 31 86",
-        "date_of_birth": "1990-06-17",
-        "account_opening_year": 2024,
         "language": "fr",
         "city": "Genève",
         "postcode": "1201",
@@ -223,16 +147,8 @@ COMPANIES = [
     },
     {
         "key": "frontier",
-        "customer_id": "CUST-02071",
+        "customer_id": "446082282723",
         "company_name": "Digital Frontier",
-        "hubspot_company_id": "446082282723",
-        "hubspot_contact_id": "859557757170",
-        "first_name": "Francois",
-        "last_name": "Hubert",
-        "email": "francois.hubert@digital-frontier.ch",
-        "phone": "+41 26 512 70 24",
-        "date_of_birth": "1976-10-03",
-        "account_opening_year": 2019,
         "language": "fr",
         "city": "Fribourg",
         "postcode": "1700",
@@ -414,7 +330,7 @@ def _golden_path_payment() -> list[dict]:
     """
     return [
         {
-            "customer_id": "CUST-00417",
+            "customer_id": "445909044455",
             "entry_id": "pay_00417_disputed",
             "type": "PAYMENT",
             "entry_date": _day(38).isoformat(),
@@ -445,7 +361,7 @@ def _goodwill_credits() -> list[dict]:
     """
     return [
         {
-            "customer_id": "CUST-01144",
+            "customer_id": "445900025039",
             "entry_id": f"cn_01144_{index:03d}",
             "type": "CREDIT_NOTE",
             "entry_date": _day(days_ago).isoformat(),
@@ -469,27 +385,250 @@ def _goodwill_credits() -> list[dict]:
 # are generated deterministically below, because the CRM holds neither and the backend is
 # the only place personal data lives (FR-027).
 
-COLLEAGUES = [
-    ("alpina", "859585000686", "Thomas", "Weber", "thomas.weber@alpina-tech.ch"),
-    ("alpina", "859585552601", "Anna", "Schmidt", "anna.schmidt@alpina-tech.ch"),
-    ("ticino", "859584517346", "Lucia", "Ferrari", "lucia.ferrari@ticino-ind.ch"),
-    ("ticino", "859585552602", "Giovanni", "Bianchi", "giovanni.bianchi@ticino-ind.ch"),
-    ("apex", "859559808229", "Olivier", "Lefevre", "olivier.lefevre@apex-capital.ch"),
-    ("apex", "859585472726", "Veronique", "Champagne", "veronique.champagne@apex-capital.ch"),
-    ("precision", "859479298251", "Julia", "Fischer", "julia.fischer@precision-systems.ch"),
-    ("precision", "859585843404", "Daniel", "Zimmermann", "daniel.zimmermann@precision-systems.ch"),
-    ("heritage", "859585176817", "Francesca", "Rizzo", "francesca.rizzo@heritage-mfg.ch"),
-    ("heritage", "859585472725", "Carlo", "Moretti", "carlo.moretti@heritage-mfg.ch"),
-    ("nexus", "859585276131", "Felix", "Graber", "felix.graber@nexus-consulting.ch"),
-    ("nexus", "859585938681", "Beatrice", "Fuchs", "beatrice.fuchs@nexus-consulting.ch"),
-    ("innovatech", "859559924937", "Luc", "Martin", "luc.martin@innovatech.ch"),
-    ("innovatech", "859563078868", "Claire", "Moreau", "claire.moreau@innovatech.ch"),
-    ("synergy", "859584707809", "Peter", "Bauer", "peter.bauer@synergy-sol.ch"),
-    ("synergy", "859585377478", "Michael", "Lang", "michael.lang@synergy-sol.ch"),
-    ("lumina", "859559297238", "Pierre", "Bernard", "pierre.bernard@lumina-analytics.ch"),
-    ("lumina", "859585640653", "Jean", "Dupont", "jean.dupont@lumina-analytics.ch"),
-    ("frontier", "859559808228", "Isabelle", "Deschamps", "isabelle.deschamps@digital-frontier.ch"),
-    ("frontier", "859586047210", "Eric", "Leclerc", "eric.leclerc@digital-frontier.ch"),
+# --- Contacts --------------------------------------------------------------------------
+# Every person cleared to discuss an account's money, and nothing else. This is not a copy
+# of the CRM: HubSpot holds everyone who has ever been in touch, including people with no
+# financial standing, and being in HubSpot confers nothing. A row here is the authority
+# (FR-007a).
+#
+# There is no separate notion of a colleague. Two rows sharing a company are colleagues,
+# which is a fact about the data rather than a category worth modelling.
+#
+# phone and date_of_birth are optional: where they are absent they are generated from the
+# email. They are written out only for the people the demo script names, so that what is
+# in docs/test-scenarios.md stays true.
+
+CONTACTS_SOURCE = [
+    {
+        "company": "alpina",
+        "contact_id": "859557757171",
+        "first_name": "Klaus",
+        "last_name": "Mueller",
+        "email": "klaus.mueller@alpina-tech.ch",
+        "phone": "+41 44 501 22 18",
+        "date_of_birth": "1974-03-12",
+    },
+    {
+        "company": "ticino",
+        "contact_id": "859585377479",
+        "first_name": "Marco",
+        "last_name": "Rossi",
+        "email": "marco.rossi@ticino-ind.ch",
+        "phone": "+41 91 604 77 31",
+        "date_of_birth": "1981-11-02",
+    },
+    {
+        "company": "apex",
+        "contact_id": "859554863314",
+        "first_name": "Charles",
+        "last_name": "Lavigne",
+        "email": "charles.lavigne@apex-capital.ch",
+        "phone": "+41 22 918 40 65",
+        "date_of_birth": "1969-07-25",
+    },
+    {
+        "company": "precision",
+        "contact_id": "859585276132",
+        "first_name": "Martin",
+        "last_name": "Keller",
+        "email": "martin.keller@precision-systems.ch",
+        "phone": "None",
+        "date_of_birth": "1988-01-19",
+    },
+    {
+        "company": "heritage",
+        "contact_id": "859555877061",
+        "first_name": "Andrea",
+        "last_name": "Colombo",
+        "email": "andrea.colombo@heritage-mfg.ch",
+        "phone": "+41 91 233 08 54",
+        "date_of_birth": "1971-05-30",
+    },
+    {
+        "company": "nexus",
+        "contact_id": "859560119498",
+        "first_name": "Raphael",
+        "last_name": "Mueller",
+        "email": "raphael.mueller@nexus-consulting.ch",
+        "phone": "+41 31 776 15 09",
+        "date_of_birth": "1985-09-14",
+    },
+    {
+        "company": "innovatech",
+        "contact_id": "859482418401",
+        "first_name": "Stephane",
+        "last_name": "Richard",
+        "email": "stephane.richard@innovatech.ch",
+        "phone": "+41 21 340 62 77",
+        "date_of_birth": "1979-12-08",
+    },
+    {
+        "company": "synergy",
+        "contact_id": "859519450331",
+        "first_name": "Sandra",
+        "last_name": "Hoffmann",
+        "email": "sandra.hoffmann@synergy-sol.ch",
+        "phone": "+41 61 285 93 40",
+        "date_of_birth": "1983-02-21",
+    },
+    {
+        "company": "lumina",
+        "contact_id": "859557637333",
+        "first_name": "Marie",
+        "last_name": "Rousseau",
+        "email": "marie.rousseau@lumina-analytics.ch",
+        "phone": "+41 22 447 31 86",
+        "date_of_birth": "1990-06-17",
+    },
+    {
+        "company": "frontier",
+        "contact_id": "859557757170",
+        "first_name": "Francois",
+        "last_name": "Hubert",
+        "email": "francois.hubert@digital-frontier.ch",
+        "phone": "+41 26 512 70 24",
+        "date_of_birth": "1976-10-03",
+    },
+    {
+        "company": "alpina",
+        "contact_id": "859585000686",
+        "first_name": "Thomas",
+        "last_name": "Weber",
+        "email": "thomas.weber@alpina-tech.ch",
+    },
+    {
+        "company": "alpina",
+        "contact_id": "859585552601",
+        "first_name": "Anna",
+        "last_name": "Schmidt",
+        "email": "anna.schmidt@alpina-tech.ch",
+    },
+    {
+        "company": "ticino",
+        "contact_id": "859584517346",
+        "first_name": "Lucia",
+        "last_name": "Ferrari",
+        "email": "lucia.ferrari@ticino-ind.ch",
+    },
+    {
+        "company": "ticino",
+        "contact_id": "859585552602",
+        "first_name": "Giovanni",
+        "last_name": "Bianchi",
+        "email": "giovanni.bianchi@ticino-ind.ch",
+    },
+    {
+        "company": "apex",
+        "contact_id": "859559808229",
+        "first_name": "Olivier",
+        "last_name": "Lefevre",
+        "email": "olivier.lefevre@apex-capital.ch",
+    },
+    {
+        "company": "apex",
+        "contact_id": "859585472726",
+        "first_name": "Veronique",
+        "last_name": "Champagne",
+        "email": "veronique.champagne@apex-capital.ch",
+    },
+    {
+        "company": "precision",
+        "contact_id": "859479298251",
+        "first_name": "Julia",
+        "last_name": "Fischer",
+        "email": "julia.fischer@precision-systems.ch",
+    },
+    {
+        "company": "precision",
+        "contact_id": "859585843404",
+        "first_name": "Daniel",
+        "last_name": "Zimmermann",
+        "email": "daniel.zimmermann@precision-systems.ch",
+    },
+    {
+        "company": "heritage",
+        "contact_id": "859585176817",
+        "first_name": "Francesca",
+        "last_name": "Rizzo",
+        "email": "francesca.rizzo@heritage-mfg.ch",
+    },
+    {
+        "company": "heritage",
+        "contact_id": "859585472725",
+        "first_name": "Carlo",
+        "last_name": "Moretti",
+        "email": "carlo.moretti@heritage-mfg.ch",
+    },
+    {
+        "company": "nexus",
+        "contact_id": "859585276131",
+        "first_name": "Felix",
+        "last_name": "Graber",
+        "email": "felix.graber@nexus-consulting.ch",
+    },
+    {
+        "company": "nexus",
+        "contact_id": "859585938681",
+        "first_name": "Beatrice",
+        "last_name": "Fuchs",
+        "email": "beatrice.fuchs@nexus-consulting.ch",
+    },
+    {
+        "company": "innovatech",
+        "contact_id": "859559924937",
+        "first_name": "Luc",
+        "last_name": "Martin",
+        "email": "luc.martin@innovatech.ch",
+    },
+    {
+        "company": "innovatech",
+        "contact_id": "859563078868",
+        "first_name": "Claire",
+        "last_name": "Moreau",
+        "email": "claire.moreau@innovatech.ch",
+    },
+    {
+        "company": "synergy",
+        "contact_id": "859584707809",
+        "first_name": "Peter",
+        "last_name": "Bauer",
+        "email": "peter.bauer@synergy-sol.ch",
+    },
+    {
+        "company": "synergy",
+        "contact_id": "859585377478",
+        "first_name": "Michael",
+        "last_name": "Lang",
+        "email": "michael.lang@synergy-sol.ch",
+    },
+    {
+        "company": "lumina",
+        "contact_id": "859559297238",
+        "first_name": "Pierre",
+        "last_name": "Bernard",
+        "email": "pierre.bernard@lumina-analytics.ch",
+    },
+    {
+        "company": "lumina",
+        "contact_id": "859585640653",
+        "first_name": "Jean",
+        "last_name": "Dupont",
+        "email": "jean.dupont@lumina-analytics.ch",
+    },
+    {
+        "company": "frontier",
+        "contact_id": "859559808228",
+        "first_name": "Isabelle",
+        "last_name": "Deschamps",
+        "email": "isabelle.deschamps@digital-frontier.ch",
+    },
+    {
+        "company": "frontier",
+        "contact_id": "859586047210",
+        "first_name": "Eric",
+        "last_name": "Leclerc",
+        "email": "eric.leclerc@digital-frontier.ch",
+    },
 ]
 
 # Swiss area codes by city, so a colleague's number looks like it belongs where they work.
@@ -527,62 +666,52 @@ def _personal_facts(email: str, city: str) -> tuple[str, str]:
     return phone, f"{year}-{month:02d}-{day:02d}"
 
 
-def _contact(
-    company: dict,
-    contact_id: str,
-    first: str,
-    last: str,
-    email: str,
-    phone: str | None,
-    date_of_birth: str,
-) -> dict:
-    """One person who may call about a company's account."""
+def _contact(company: dict, source: dict) -> dict:
+    """
+    One person cleared to discuss a company's money.
+
+    company: the account they belong to, from COMPANIES.
+    source:  their row in CONTACTS_SOURCE. phone and date_of_birth are optional.
+
+    Returns: the identity record as the table stores it.
+
+    Personal facts absent from the source are generated from the email rather than written
+    out, because the CRM holds neither — personal data lives only in the backend (FR-027) —
+    and thirty hand-written dates of birth would be thirty chances to typo one.
+    """
+    phone, date_of_birth = _personal_facts(source["email"], company["city"])
+
     return {
-        "contact_id": contact_id,
+        "contact_id": source["contact_id"],
         "account_id": company["customer_id"],
         "company_name": company["company_name"],
-        "first_name": first,
-        "last_name": last,
-        "date_of_birth": date_of_birth,
+        "first_name": source["first_name"],
+        "last_name": source["last_name"],
+        "date_of_birth": source.get("date_of_birth", date_of_birth),
         "postal_address": {
             "street": company["street"],
             "postcode": company["postcode"],
             "city": company["city"],
             "country": "CH",
         },
-        **({"phone": phone} if phone else {}),
-        "email": email,
+        "phone": source.get("phone", phone),
+        "email": source["email"],
         "account_status": "ACTIVE",
         "preferred_language": company["language"],
-        "hubspot_company_id": company["hubspot_company_id"],
-        "hubspot_contact_id": contact_id,
+        # One identifier per thing, across the whole stack. The company's HubSpot id is the
+        # customer id and a contact's HubSpot id is its contact id, so a ticket, a ledger row
+        # and an identity record all name the same party the same way.
+        "hubspot_company_id": company["customer_id"],
+        "hubspot_contact_id": source["contact_id"],
         "failed_verification_attempts": 0,
     }
 
 
 def _build_contacts() -> list[dict]:
-    """Every person who can verify: one primary contact per company, plus their colleagues."""
+    """Every person who can verify, in one list. Colleagues are simply rows that share a
+    company."""
     by_key = {c["key"]: c for c in COMPANIES}
-
-    contacts = [
-        _contact(
-            company=c,
-            contact_id=c["hubspot_contact_id"],
-            first=c["first_name"],
-            last=c["last_name"],
-            email=c["email"],
-            phone=c["phone"],
-            date_of_birth=c["date_of_birth"],
-        )
-        for c in COMPANIES
-    ]
-
-    for key, contact_id, first, last, email in COLLEAGUES:
-        company = by_key[key]
-        phone, date_of_birth = _personal_facts(email, company["city"])
-        contacts.append(_contact(company, contact_id, first, last, email, phone, date_of_birth))
-
-    return contacts
+    return [_contact(by_key[s["company"]], s) for s in CONTACTS_SOURCE]
 
 
 CONTACTS = _build_contacts()

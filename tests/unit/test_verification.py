@@ -25,7 +25,7 @@ STORED = {
     Factor.EMAIL: "Buchhaltung@Meier-Bau.ch",
     Factor.PHONE: "+41 44 123 45 67",
     Factor.DATE_OF_BIRTH: "1974-03-12",
-    Factor.CUSTOMER_ID: "CUST-00417",
+    Factor.CUSTOMER_ID: "445909044455",
 }
 
 REQUIRED = 3
@@ -44,7 +44,7 @@ class TestVerified:
     def test_three_correct_factors_including_a_personal_one(self):
         result = check(
             {
-                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.CUSTOMER_ID: "445909044455",
                 Factor.EMAIL: "buchhaltung@meier-bau.ch",
                 Factor.PHONE: "+41 44 123 45 67",
             }
@@ -80,7 +80,7 @@ class TestVerified:
             {
                 Factor.PHONE: spoken_phone,
                 Factor.EMAIL: "buchhaltung@meier-bau.ch",
-                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.CUSTOMER_ID: "445909044455",
             }
         )
         assert result.status is VerificationStatus.VERIFIED
@@ -93,7 +93,7 @@ class TestThePersonalFactorRule:
         who the caller is."""
         result = check(
             {
-                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.CUSTOMER_ID: "445909044455",
                 Factor.EMAIL: "buchhaltung@meier-bau.ch",
                 Factor.PHONE: "+41 44 123 45 67",
             },
@@ -103,14 +103,14 @@ class TestThePersonalFactorRule:
         assert result.status is VerificationStatus.VERIFIED
 
     def test_customer_id_alone_is_not_enough_even_repeated(self):
-        result = check({Factor.CUSTOMER_ID: "CUST-00417"})
+        result = check({Factor.CUSTOMER_ID: "445909044455"})
         assert result.status is VerificationStatus.PARTIALLY_VERIFIED
         assert result.personal_satisfied is False
 
     def test_the_hint_asks_for_a_personal_factor_when_that_is_what_is_missing(self):
         """When the count is met but every factor came off the document, the next question
         must be one the document cannot answer."""
-        result = check({Factor.CUSTOMER_ID: "CUST-00417"}, required=1)
+        result = check({Factor.CUSTOMER_ID: "445909044455"}, required=1)
         assert result.status is not VerificationStatus.VERIFIED
         assert result.next_factor_hint in PERSONAL_FACTORS
 
@@ -145,7 +145,7 @@ class TestFailed:
             {
                 Factor.EMAIL: "wrong@example.com",
                 Factor.PHONE: "+41 44 123 45 67",
-                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.CUSTOMER_ID: "445909044455",
             }
         )
         assert result.status is VerificationStatus.FAILED
@@ -158,7 +158,7 @@ class TestFailed:
             {
                 Factor.EMAIL: "buchhaltung@meier-bau.ch",
                 Factor.PHONE: "+41 44 123 45 67",
-                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.CUSTOMER_ID: "445909044455",
                 Factor.DATE_OF_BIRTH: "1980-01-01",
             }
         )
@@ -171,7 +171,7 @@ class TestFailed:
             {
                 Factor.EMAIL: "wrong@example.com",
                 Factor.PHONE: "wrong-number",
-                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.CUSTOMER_ID: "445909044455",
             }
         )
         serialised = repr(result)
@@ -195,12 +195,12 @@ class TestNoDisclosure:
         invented id confirmed none. The difference is a customer-id enumeration oracle over
         a five-digit space."""
         real_id = check(
-            {Factor.CUSTOMER_ID: "CUST-00417", Factor.EMAIL: "nonsense@example.com"},
-            stored={**STORED, Factor.CUSTOMER_ID: "CUST-00417"},
+            {Factor.CUSTOMER_ID: "445909044455", Factor.EMAIL: "nonsense@example.com"},
+            stored={**STORED, Factor.CUSTOMER_ID: "445909044455"},
         )
         invented_id = check(
             {Factor.CUSTOMER_ID: "CUST-99999", Factor.EMAIL: "nonsense@example.com"},
-            stored={**STORED, Factor.CUSTOMER_ID: "CUST-00417"},
+            stored={**STORED, Factor.CUSTOMER_ID: "445909044455"},
         )
         assert real_id.status is invented_id.status
         assert real_id.confirmed_count == invented_id.confirmed_count == 0
@@ -209,7 +209,7 @@ class TestNoDisclosure:
     def test_a_failed_attempt_reports_no_progress_at_all(self):
         result = check(
             {
-                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.CUSTOMER_ID: "445909044455",
                 Factor.EMAIL: "buchhaltung@meier-bau.ch",
                 Factor.PHONE: "wrong",
             }
@@ -221,7 +221,7 @@ class TestNoDisclosure:
     def test_a_verified_result_asks_for_nothing_further(self):
         result = check(
             {
-                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.CUSTOMER_ID: "445909044455",
                 Factor.EMAIL: "buchhaltung@meier-bau.ch",
                 Factor.PHONE: "+41 44 123 45 67",
             }
@@ -248,7 +248,7 @@ class TestDateHandling:
             {
                 Factor.DATE_OF_BIRTH: "12.03.1974",
                 Factor.EMAIL: "buchhaltung@meier-bau.ch",
-                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.CUSTOMER_ID: "445909044455",
             }
         )
         assert result.status is VerificationStatus.VERIFIED
@@ -258,7 +258,7 @@ class TestDateHandling:
             {
                 Factor.DATE_OF_BIRTH: "sometime in the seventies",
                 Factor.EMAIL: "buchhaltung@meier-bau.ch",
-                Factor.CUSTOMER_ID: "CUST-00417",
+                Factor.CUSTOMER_ID: "445909044455",
             }
         )
         assert result.status is VerificationStatus.FAILED

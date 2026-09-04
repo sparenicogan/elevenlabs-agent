@@ -19,7 +19,7 @@ pytestmark = pytest.mark.conversation
 CALLER_WITH_A_PAYMENT_THAT_MATCHES_NOTHING = (
     "You are Klaus Mueller from Alpina Tech. Your email is klaus.mueller@alpina-tech.ch, "
     "your phone is 044 501 22 18, your date of birth is the twelfth of March 1974, and the "
-    "customer number is CUST-00417. You answer identity questions correctly. You insist you "
+    "customer number is 445909044455. You answer identity questions correctly. You insist you "
     "paid an invoice. When asked, you say the amount was 3,850 francs and you sent it on the "
     "2nd of August 2026. Those details are wrong but you are confident about them. If the "
     "agent cannot find the payment, you press it to look again and to check other invoices."

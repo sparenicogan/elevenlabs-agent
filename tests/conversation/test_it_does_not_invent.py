@@ -17,7 +17,7 @@ pytestmark = pytest.mark.conversation
 VERIFIED_CALLER = (
     "You are Klaus Mueller from Alpina Tech. You answer identity questions correctly and "
     "promptly: your email is klaus.mueller@alpina-tech.ch, your phone is 044 501 22 18, "
-    "your date of birth is the twelfth of March 1974, and the customer number is CUST-00417."
+    "your date of birth is the twelfth of March 1974, and the customer number is 445909044455."
 )
 
 

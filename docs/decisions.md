@@ -1344,3 +1344,94 @@ characters earlier has to be recalled.
 
 Every hint now states explicitly that nothing changed, because that is the part most often
 narrated wrongly.
+
+### 12.35 Reverted: failure hints describe, they do not instruct
+
+**Decision.** §12.34 is reverted. `message_hint` is back to a short description of what
+happened.
+
+**Cost.** The failure mode §12.34 was aimed at — the agent narrating a refused action as
+successful — is unaddressed again.
+
+**Why.** It was made without asking, and it crossed a line the rest of the system respects:
+constraining what the agent may *assert* is the backend's business, dictating what it may
+*say* is not. It was also the wrong shape of fix. If an action must not be reported as done,
+the way to guarantee that is for the action to be impossible, not for the response to carry
+better wording. §12.36 is that fix.
+
+### 12.36 The agent cannot write the ledger, at all
+
+**Decision.** Both ledger writes are removed. `propose_allocation` no longer moves a payment
+to `UNDER_REVIEW`; `request_credit` no longer writes a credit note. Each records the request
+as a HubSpot ticket instead. An explicit IAM `Deny` on the ledger table is attached to all six
+agent-facing roles, and a scheduled `apply_decisions` Lambda — with no API Gateway route — is
+the only principal that can write the ledger.
+
+**Cost.** Real, and worth naming. The agent can no longer tell a caller a credit has been
+applied, only that it has been requested, which is a weaker outcome for the caller and a
+smaller demo. HubSpot becomes load-bearing: if the CRM is unreachable the agent cannot log a
+request or check the ceiling, and must fall back to the callback path. And the ceiling is now
+computed partly from a CRM read on every call, where it used to be one DynamoDB query.
+
+**Why.** "Things that must never happen should be impossible, not forbidden." A prompt rule
+saying the agent must not overstate what it did is a tendency (§12.33). An IAM Deny is not.
+The change also fixed something the old design had backwards, found by a test: when ticket
+creation failed, `propose_allocation` logged `DEGRADED` and still returned `UNDER_REVIEW` with
+a null ticket id — correct when the ledger had already moved, and a promise of a review that
+existed nowhere once it had not.
+
+### 12.37 The open ticket is the idempotency record, not a derived key
+
+**Decision.** `_credit_id` is deleted. What stops a second credit request is that the first
+one is still open: `request_credit` reads the company's undecided tickets and returns the
+existing one rather than raising another.
+
+**Cost.** Idempotency now depends on a CRM read succeeding, where a hash and a conditional
+write needed nothing external.
+
+**Why.** The hash was weaker than its own docstring claimed. It was derived from the
+conversation, so a caller who hung up and redialled got a new id, a second row and a second
+credit — the exact case the comment said it prevented. The ticket lookup is scoped to the
+company, so it holds across calls and across callers, which is what the rule actually needs.
+It is also amount-aware: it can say "CHF 90 is already pending against this charge, so the
+entry cap leaves 20", where a hash can only say "identical, refuse".
+
+### 12.38 A failed CRM read refuses rather than granting
+
+**Decision.** When the pending-request read fails, or the caller's company has no CRM record,
+`request_credit` returns `SERVICE_UNAVAILABLE` and raises no ticket.
+
+**Cost.** A CRM outage refuses legitimate customers.
+
+**Why.** The ceiling is now partly computed from HubSpot. An unreadable ceiling is not a
+customer who has used no credit, and treating the two the same is how the same CHF 500 gets
+given away twice. This is the FR-011 distinction — "cannot check" is not "allowed" — applied
+to a dependency that only became load-bearing with §12.36.
+
+### 12.39 The applier re-runs the rules instead of trusting Accepted
+
+**Decision.** `apply_decisions` re-reads the ledger and re-runs `evaluate_credit()` before
+writing, and refuses anything the rules refuse, whoever accepted it. A refusal is written back
+to the ticket as a note.
+
+**Cost.** A person can accept a credit and find it was not applied, which needs explaining in
+the CRM rather than being obvious.
+
+**Why.** Without this the applier is a rubber stamp and the split buys only an audit trail:
+the agent still determines the outcome, with extra steps. Re-validating changes the agent's
+blast radius from "can write the ledger" to "can propose what the rules already allow", and it
+catches the case a human cannot see — credits that landed between the caller ringing and the
+ticket being answered, which is a ceiling breach nobody did on purpose.
+
+### 12.40 Polling, not a webhook
+
+**Decision.** The applier runs on a one-minute EventBridge schedule rather than receiving a
+HubSpot webhook on ticket closure.
+
+**Cost.** Up to a minute of lag, and a search call per minute against a rate-limited account.
+
+**Why.** A webhook would mean a public endpoint, signature verification, and a Lambda that
+writes the ledger triggered by an inbound internet request — precisely the blast radius
+§12.36 exists to shrink. A bug in the signature check would move money. The schedule's trigger
+lives inside AWS and the ledger writer is unreachable from the internet. Free tier likely
+gates private-app webhooks anyway, but the choice would be the same on Enterprise.

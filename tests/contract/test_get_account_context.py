@@ -75,7 +75,7 @@ def stubs(mocker):
         "verified": mocker.patch.object(
             module.conversation_state,
             "verified_context",
-            return_value=("CUST-00417", dict(DISPLAY)),
+            return_value=("445909044455", dict(DISPLAY)),
         ),
         "get": mocker.patch.object(module.dynamo, "get", return_value=None),
         "query": mocker.patch.object(module.dynamo, "query", return_value=list(LEDGER)),
@@ -200,7 +200,7 @@ class TestCrmDegradation:
 
     def test_a_customer_with_no_crm_record_is_not_an_error(self, stubs):
         stubs["verified"].return_value = (
-            "CUST-00417",
+            "445909044455",
             {k: v for k, v in DISPLAY.items() if "hubspot" not in k},
         )
         result = call(stubs)

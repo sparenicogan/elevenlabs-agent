@@ -104,6 +104,7 @@ def wired(mocker):
         if hasattr(module, "hubspot"):
             mocker.patch.object(module.hubspot, "get_contact", return_value={})
             mocker.patch.object(module.hubspot, "get_open_tickets", return_value=[])
+            mocker.patch.object(module.hubspot, "get_pending_requests", return_value=[])
             mocker.patch.object(module.hubspot, "create_ticket", return_value="TICKET-1")
             mocker.patch.object(module.hubspot, "create_unassociated_ticket", return_value="T-Q")
             mocker.patch.object(module.hubspot, "log_interaction")
@@ -115,7 +116,7 @@ def wired(mocker):
                 module.conversation_state,
                 "verified_context",
                 return_value=(
-                    "CUST-00417",
+                    "445909044455",
                     {"company_name": "Alpina Tech", "account_status": "ACTIVE"},
                 ),
             )
@@ -243,7 +244,7 @@ class TestFour_CrmDown:
     def test_account_context_still_returns_the_invoices(self, wired):
         break_it(wired, "get_account_context", "hubspot", "get_contact")
         _module("get_account_context").conversation_state.verified_context.return_value = (
-            "CUST-00417",
+            "445909044455",
             {"company_name": "Alpina Tech", "hubspot_contact_id": "859"},
         )
         result = invoke("get_account_context", {"conversation_id": "c1"})
@@ -251,9 +252,11 @@ class TestFour_CrmDown:
         assert result["crm"] is None
         assert "open_invoices" in result
 
-    def test_an_allocation_still_goes_under_review_without_its_ticket(self, wired):
-        """Losing the ticket is recoverable. Failing to move the ledger after telling a
-        caller a review is under way is a promise that does not exist."""
+    def test_an_allocation_without_its_ticket_is_not_a_review(self, wired):
+        """This inverted when the ledger write went away. The ticket used to be a
+        convenience on top of a state change that had already happened; it is now the only
+        record the review exists, so losing it means nothing happened and the agent must not
+        say otherwise."""
         break_it(wired, "propose_allocation", "hubspot", "create_ticket")
         module = _module("propose_allocation")
         module.dynamo.get.side_effect = lambda t, k: {
@@ -273,17 +276,20 @@ class TestFour_CrmDown:
                 "entry_date": "2026-07-27",
             },
         }.get(k["entry_id"])
-        module.dynamo.update_if.return_value = {"status": "UNDER_REVIEW"}
         module.conversation_state.verified_context.return_value = (
-            "CUST-00417",
-            {"company_name": "Alpina Tech", "hubspot_contact_id": "859"},
+            "445909044455",
+            {
+                "company_name": "Alpina Tech",
+                "hubspot_contact_id": "859",
+                "hubspot_company_id": "44",
+            },
         )
         result = invoke(
             "propose_allocation",
             {"conversation_id": "c1", "payment_entry_id": "pay_1", "invoice_entry_id": "inv_1"},
         )
-        assert result["status"] == "UNDER_REVIEW"
-        assert result["ticket_id"] is None
+        assert result["status"] == "SERVICE_UNAVAILABLE"
+        module.dynamo.update_if.assert_not_called()
 
     def test_an_escalation_is_never_lost_to_a_crm_outage(self, wired):
         break_it(wired, "create_escalation", "hubspot", "create_unassociated_ticket")
@@ -363,28 +369,43 @@ class TestSeven_PartialFailureAfterAMutation:
     bookkeeping problem into a financial one.
     """
 
-    def test_a_granted_credit_survives_a_failed_interaction_log(self, wired):
-        break_it(wired, "request_credit", "hubspot", "log_interaction")
-        module = _module("request_credit")
-        module.dynamo.query.return_value = [
-            {
-                "customer_id": "CUST-00982",
+    def test_a_raised_request_survives_a_failed_interaction_log(self, wired):
+        """The ticket is the record now, so it is the thing that must not be undone by a
+        note failing to attach afterwards."""
+        break_it(wired, "propose_allocation", "hubspot", "log_interaction")
+        module = _module("propose_allocation")
+        module.conversation_state.verified_context.return_value = (
+            "446019693775",
+            {"account_status": "ACTIVE", "hubspot_contact_id": "859", "hubspot_company_id": "44"},
+        )
+        module.dynamo.get.side_effect = lambda _table, key: {
+            "pay_1": {
+                "customer_id": "446019693775",
+                "entry_id": "pay_1",
+                "type": "PAYMENT",
+                "amount": Decimal("1420.00"),
+                "status": "UNALLOCATED",
+                "entry_date": "2026-08-01",
+            },
+            "inv_1": {
+                "customer_id": "446019693775",
                 "entry_id": "inv_1",
                 "type": "INVOICE",
+                "invoice_number": "INV-2026-0020",
                 "amount": Decimal("1420.00"),
                 "status": "OPEN",
-            }
-        ]
-        module.conversation_state.verified_context.return_value = (
-            "CUST-00982",
-            {"account_status": "ACTIVE", "hubspot_contact_id": "859"},
-        )
+                "due_date": "2026-07-20",
+            },
+        }[key["entry_id"]]
+
         result = invoke(
-            "request_credit",
-            {"conversation_id": "c1", "entry_id": "inv_1", "amount": 40.00, "reason": "late"},
+            "propose_allocation",
+            {"conversation_id": "c1", "payment_entry_id": "pay_1", "invoice_entry_id": "inv_1"},
         )
-        assert result["status"] == "GRANTED"
-        module.dynamo.put_if_absent.assert_called_once()
+
+        # The note failed; the request did not. The caller is not told it fell through.
+        assert result.get("error_category") is None
+        assert module.hubspot.create_ticket.called
 
     def test_an_audit_write_failure_never_undoes_the_action(self):
         """The action has already happened by the time it is audited. The failure is logged

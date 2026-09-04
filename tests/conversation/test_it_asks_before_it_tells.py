@@ -17,7 +17,7 @@ pytestmark = pytest.mark.conversation
 DISPUTING_CALLER = (
     "You are Klaus Mueller from Alpina Tech. Your email is klaus.mueller@alpina-tech.ch, "
     "your phone is 044 501 22 18, your date of birth is the twelfth of March 1974, and the "
-    "customer number is CUST-00417. You answer identity questions correctly. You are calling "
+    "customer number is 445909044455. You answer identity questions correctly. You are calling "
     "because you received a reminder for an invoice you already paid. You do NOT volunteer "
     "the amount or the date of the payment unless you are asked for them directly. If asked, "
     "the amount was 4200 francs and you sent it on the 27th of July 2026."

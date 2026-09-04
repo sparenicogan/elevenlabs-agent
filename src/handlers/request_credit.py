@@ -1,7 +1,8 @@
 """The request_credit tool endpoint.
 
-The one place the agent gives something away without a person confirming it. Everything
-about its shape follows from that.
+The agent decides whether a credit is permitted; a person decides whether it is given. The
+rules run here in full, and their answer is recorded as a ticket rather than a ledger entry,
+so the worst this endpoint can do is ask.
 
 Evaluation and issuance are a single operation deliberately. Two tools — one to check
 eligibility, one to issue — would leave a window in which the model calls the second without
@@ -11,7 +12,7 @@ without deciding whether it may.
 """
 
 import json
-from datetime import UTC, date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -19,7 +20,7 @@ from boto3.dynamodb.conditions import Key
 
 from src.adapters import dynamo, hubspot, secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import audit, auth, conversation_state, idempotency, validation
+from src.common import audit, auth, conversation_state, validation
 from src.common import logging as log
 from src.domain import policy as policy_module
 from src.domain.credit import (
@@ -88,7 +89,10 @@ def _request(conversation_id: str, customer_id: str, display: dict, body: dict) 
     reason = str(body.get("reason") or "").strip()
 
     ledger = _customer_ledger(customer_id)
-    credits = [e for e in ledger if e.get("type") == "CREDIT_NOTE"]
+    pending = _pending_requests(display)
+    # Applied credits and unanswered requests, together. A colleague who rang this morning
+    # has already spoken for part of the ceiling even though nothing has reached the ledger.
+    credits = [e for e in ledger if e.get("type") == "CREDIT_NOTE"] + _as_credit_notes(pending)
 
     # Detected before the decision, so a pattern in the history can override rules that
     # would otherwise permit the request. Signals raised earlier in this call — a lockout, a
@@ -116,8 +120,15 @@ def _request(conversation_id: str, customer_id: str, display: dict, body: dict) 
         max_rolling=settings.credit_max_rolling,
     )
 
+    ticket_id = None
     if decision.outcome is CreditOutcome.GRANTED:
-        _issue(conversation_id, customer_id, entry_id, decision, reason, display)
+        # A tool call repeated inside one turn, or a caller asking twice, must not become two
+        # tickets. The open request itself is the idempotency record: same charge, same
+        # amount, still undecided, so there is nothing to add by asking again.
+        already = _matching_request(pending, entry_id, decision.credit_amount)
+        ticket_id = already or _raise_request(
+            conversation_id, customer_id, entry_id, decision, reason, display
+        )
 
     log.info(
         "credit evaluated",
@@ -129,10 +140,12 @@ def _request(conversation_id: str, customer_id: str, display: dict, body: dict) 
     )
 
     return {
-        "status": str(decision.outcome),
-        "credit_entry_id": _credit_id(conversation_id, entry_id, amount)
+        # REQUESTED, never GRANTED: the rules permit it, and nothing has been given yet.
+        # The agent can only report what happened, and what happened is that it asked.
+        "status": "REQUESTED"
         if decision.outcome is CreditOutcome.GRANTED
-        else None,
+        else str(decision.outcome),
+        "ticket_id": ticket_id,
         "rule_applied": decision.authorizing_rule,
         "rolling_total_after": float(decision.rolling_total_after),
         # Tells the agent to hand over rather than simply refuse. A customer told only "no"
@@ -141,100 +154,137 @@ def _request(conversation_id: str, customer_id: str, display: dict, body: dict) 
     }
 
 
-def _issue(
+def _pending_requests(display: dict) -> list[dict]:
+    """
+    Reads the credit requests this company is already waiting on.
+
+    display: CRM identifiers recorded at verification.
+
+    Returns: the undecided tickets, as the CRM returned them.
+
+    Raises rather than returning an empty list when the company is unknown or the CRM cannot
+    be read. An unreadable ceiling has to refuse: treating "could not tell" as "nothing
+    outstanding" is how the same headroom gets spent twice.
+    """
+    company_id = display.get("hubspot_company_id")
+    if not company_id:
+        raise ToolError(ErrorCategory.INTERNAL, "no company id, cannot total pending credits")
+
+    return hubspot.get_pending_requests(str(company_id))
+
+
+def _matching_request(pending: list[dict], entry_id: str, amount: Decimal) -> str | None:
+    """
+    Finds an undecided request for the same credit.
+
+    pending:  the company's open tickets.
+    entry_id: the charge the credit would attach to.
+    amount:   the credit the rules permitted.
+
+    Returns: that ticket's id, or None when this request is new.
+    """
+    for ticket in pending:
+        same_charge = str(ticket.get("related_entry_id") or "") == entry_id
+        raw = ticket.get("credit_amount")
+        if same_charge and raw not in (None, "") and Decimal(str(raw)) == amount:
+            return str(ticket["id"])
+    return None
+
+
+def _as_credit_notes(pending: list[dict]) -> list[dict]:
+    """
+    Shapes undecided requests like ledger credit notes.
+
+    pending: the company's open tickets.
+
+    Returns: one entry per ticket carrying an amount, so the ceiling rules count it without
+             knowing it came from the CRM rather than the ledger.
+    """
+    return [
+        {
+            "type": "CREDIT_NOTE",
+            "amount": -Decimal(str(ticket["credit_amount"])),
+            # PENDING_APPROVAL already counts towards both ceilings, which is exactly what an
+            # unanswered request is: headroom spoken for, but not yet confirmed.
+            "status": "PENDING_APPROVAL",
+            # Dated today rather than from the ticket, so a request left unanswered for
+            # months still counts. Erring towards refusing is the safe direction here.
+            "entry_date": date.today().isoformat(),
+            "allocated_to": [str(ticket.get("related_entry_id") or "")],
+        }
+        for ticket in pending
+        if ticket.get("credit_amount") not in (None, "")
+    ]
+
+
+def _raise_request(
     conversation_id: str,
     customer_id: str,
     entry_id: str,
     decision,
     reason: str,
     display: dict,
-) -> None:
+) -> str | None:
     """
-    Writes the credit note, audits it, and logs the interaction.
+    Records the permitted credit as a ticket for a person to accept or reject.
 
     conversation_id: the call.
     customer_id:     the verified customer.
-    entry_id:        the charge the credit attaches to.
-    decision:        the evaluated CreditDecision.
+    entry_id:        the charge the credit would attach to.
+    decision:        the evaluated CreditDecision, already GRANTED by the rules.
     reason:          the caller's stated reason, in their words.
     display:         CRM identifiers.
 
-    Returns: nothing.
+    Returns: the ticket id, or None when there is no contact to associate it with.
 
-    The credit note carries a deterministic id derived from the conversation, the charge and
-    the amount, and is written only if absent. A caller who repeats themselves, or a dropped
-    call redialled, cannot be credited twice for the same request (FR-022).
+    credit_amount and related_entry_id are set as properties rather than described in the
+    body, because the next call's ceiling is computed by summing them. A number that exists
+    only in prose cannot be added up.
     """
-    credit_entry_id = _credit_id(conversation_id, entry_id, decision.credit_amount)
+    contact_id = display.get("hubspot_contact_id")
+    if not contact_id:
+        raise ToolError(ErrorCategory.INTERNAL, "no contact id, cannot record credit request")
 
-    written = dynamo.put_if_absent(
-        LEDGER_TABLE,
+    ticket_id = hubspot.create_ticket(
         {
-            "customer_id": customer_id,
-            "entry_id": credit_entry_id,
-            "type": "CREDIT_NOTE",
-            # Negative, because a credit reduces what is owed.
-            "amount": -decision.credit_amount,
-            "currency": "CHF",
-            "entry_date": datetime.now(UTC).date().isoformat(),
-            "status": "APPROVED",
-            "allocated_to": [entry_id],
-            "reason": reason or "goodwill",
-            "originating_conversation_id": conversation_id,
-            "decision_source": "AGENT_AUTONOMOUS",
-            "approval_status": "NOT_REQUIRED",
+            "subject": f"Goodwill credit CHF {decision.credit_amount:,.2f} on {entry_id}",
+            "content": (
+                f"Requested by the voice agent during conversation {conversation_id}.\n\n"
+                f"Charge: {entry_id}.\n"
+                f"Reason given by the caller: {reason or 'not stated'}.\n"
+                f"Permitted by: {decision.authorizing_rule}.\n"
+                f"Customer total after this credit, if accepted: "
+                f"CHF {decision.rolling_total_after:,.2f}.\n\n"
+                "The agent has told the caller this was requested, not applied. "
+                "Set Request outcome to Accepted or Rejected to decide it."
+            ),
+            "credit_amount": float(decision.credit_amount),
+            "related_entry_id": entry_id,
+            "hs_pipeline_stage": "1",
+            "hs_ticket_priority": "HIGH",
         },
-        key_field="entry_id",
+        contact_id=str(contact_id),
+        company_id=display.get("hubspot_company_id"),
     )
-
-    if not written:
-        # The same request, already granted. Nothing further to do, and nothing to correct.
-        return
 
     audit.write(
         audit.AuditEvent(
-            action="issue_credit",
+            action="request_credit",
             previous_state="NONE",
-            new_state="APPROVED",
+            new_state="REQUESTED",
             authorizing_rule=decision.authorizing_rule,
             customer_id=customer_id,
             conversation_id=conversation_id,
             agent_version=AGENT_VERSION,
             risk_result="NOT_HIGH",
-            # The only autonomous financial action in the system, and the audit record says
-            # so explicitly rather than by omission.
-            human_approval_required=False,
-            entry_id=credit_entry_id,
+            # The rules permitted it; a person still has to accept it. Nothing about this
+            # call moves money on its own.
+            human_approval_required=True,
+            entry_id=entry_id,
         )
     )
 
-    contact_id = display.get("hubspot_contact_id")
-    if contact_id:
-        try:
-            hubspot.log_interaction(
-                contact_id,
-                f"Goodwill credit of CHF {decision.credit_amount:,.2f} applied to {entry_id} "
-                f"during a call. Reason given: {reason or 'not stated'}.",
-            )
-        except ToolError as error:
-            # The credit exists and is audited. A CRM outage must not undo it.
-            log.error(
-                "interaction not logged",
-                error_category=str(error.category),
-                status="DEGRADED",
-            )
-
-
-def _credit_id(conversation_id: str, entry_id: str, amount: Decimal) -> str:
-    """
-    Builds a deterministic identifier for this credit.
-
-    Derived from the conversation, the charge and the amount, so the same request always
-    produces the same id and a duplicate write fails its condition rather than creating a
-    second credit.
-    """
-    digest = idempotency.key(conversation_id, entry_id, str(amount))
-    return f"cn_{digest[:20]}"
+    return ticket_id
 
 
 def _customer_ledger(customer_id: str) -> list[dict]:

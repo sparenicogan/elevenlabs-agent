@@ -25,7 +25,7 @@ from decimal import Decimal
 import httpx
 import pytest
 
-CUSTOMER_ID = "CUST-00417"
+CUSTOMER_ID = "445909044455"
 INVOICE_ENTRY = "inv_00417_006"
 PAYMENT_ENTRY = "pay_00417_disputed"
 

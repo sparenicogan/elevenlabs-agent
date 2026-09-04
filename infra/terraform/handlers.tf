@@ -11,10 +11,38 @@ locals {
   }
 }
 
+
+# The financial ledger is written by exactly one principal, and it is not any of these.
+# Attached to every agent-facing handler below via source_policy_documents: an explicit Deny
+# cannot be overridden by a later Allow, so the rule survives a careless grant rather than
+# depending on nobody making one.
+data "aws_iam_policy_document" "deny_ledger_writes" {
+  statement {
+    sid    = "AgentNeverWritesTheLedger"
+    effect = "Deny"
+    actions = [
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:BatchWriteItem",
+      "dynamodb:TransactWriteItems",
+      "dynamodb:PartiQLInsert",
+      "dynamodb:PartiQLUpdate",
+      "dynamodb:PartiQLDelete",
+    ]
+    resources = [
+      aws_dynamodb_table.ledger.arn,
+      "${aws_dynamodb_table.ledger.arn}/index/*",
+    ]
+  }
+}
+
 # --- verify_identity ---------------------------------------------------------------
 # One of only two functions permitted to read the identity table and use its key.
 
 data "aws_iam_policy_document" "verify_identity" {
+  source_policy_documents = [data.aws_iam_policy_document.deny_ledger_writes.json]
+
   statement {
     effect  = "Allow"
     actions = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:Query"]
@@ -87,6 +115,8 @@ resource "aws_lambda_permission" "verify_identity" {
 # No write permission anywhere: this handler answers questions, it does not change anything.
 
 data "aws_iam_policy_document" "get_account_context" {
+  source_policy_documents = [data.aws_iam_policy_document.deny_ledger_writes.json]
+
   statement {
     effect  = "Allow"
     actions = ["dynamodb:GetItem", "dynamodb:Query"]
@@ -161,6 +191,8 @@ resource "aws_lambda_permission" "get_account_context" {
 # nothing, it only answers whether the caller's claim fits a payment on record.
 
 data "aws_iam_policy_document" "match_payment" {
+  source_policy_documents = [data.aws_iam_policy_document.deny_ledger_writes.json]
+
   statement {
     effect  = "Allow"
     actions = ["dynamodb:GetItem", "dynamodb:Query"]
@@ -224,15 +256,22 @@ resource "aws_lambda_permission" "match_payment" {
 }
 
 # --- propose_allocation -------------------------------------------------------------
-# The only handler with write permission on the ledger, and the only one that can write an
-# audit event. Its update is conditional on the payment still being unallocated, so the
-# permission grants far less than it appears to.
+# Reads the ledger and raises the ticket a person works from. It holds no ledger write: the
+# proposal is the ticket, and only the applier turns an accepted ticket into a ledger entry.
 
 data "aws_iam_policy_document" "propose_allocation" {
+  source_policy_documents = [data.aws_iam_policy_document.deny_ledger_writes.json]
+
+  statement {
+    effect    = "Allow"
+    actions   = ["dynamodb:GetItem"]
+    resources = [aws_dynamodb_table.ledger.arn]
+  }
+
   statement {
     effect    = "Allow"
     actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
-    resources = [aws_dynamodb_table.ledger.arn, aws_dynamodb_table.conversations.arn]
+    resources = [aws_dynamodb_table.conversations.arn]
   }
 
   statement {
@@ -303,6 +342,8 @@ resource "aws_lambda_permission" "propose_allocation" {
 # and the audit log; it touches no financial record at all.
 
 data "aws_iam_policy_document" "create_escalation" {
+  source_policy_documents = [data.aws_iam_policy_document.deny_ledger_writes.json]
+
   statement {
     effect    = "Allow"
     actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
@@ -371,15 +412,17 @@ resource "aws_lambda_permission" "create_escalation" {
 }
 
 # --- request_credit -------------------------------------------------------------------
-# The only handler that can give something away without a person confirming it. It writes
-# to the ledger, but only ever a new credit note: put_if_absent creates, and there is no
-# update or delete permission here, so it cannot alter an invoice or a payment.
+# Decides whether a credit is permitted, then records the request as a ticket. It queries the
+# ledger for the twelve-month credit history the ceiling depends on, and writes nothing:
+# a caller is told the credit was requested, never that it was applied.
 
 data "aws_iam_policy_document" "request_credit" {
+  source_policy_documents = [data.aws_iam_policy_document.deny_ledger_writes.json]
+
   statement {
     effect    = "Allow"
-    actions   = ["dynamodb:Query", "dynamodb:PutItem"]
-    resources = [aws_dynamodb_table.ledger.arn]
+    actions   = ["dynamodb:Query", "dynamodb:GetItem"]
+    resources = [aws_dynamodb_table.ledger.arn, "${aws_dynamodb_table.ledger.arn}/index/*"]
   }
 
   # Reads the conversation for verification state, updates it to record risk signals, and

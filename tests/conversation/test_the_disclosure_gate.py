@@ -65,7 +65,7 @@ class TestItNeverSaysWhichAnswerWasWrong:
                 "You are Klaus Mueller from Alpina Tech. When asked for your email you give "
                 "'nicolas@alpina-tech.ch', which is wrong. When asked for anything else you "
                 "answer correctly: your phone is 044 501 22 18, your date of birth is the "
-                "twelfth of March 1974, and the customer number is CUST-00417."
+                "twelfth of March 1974, and the customer number is 445909044455."
             ),
             first_message="Hello, this is Klaus Mueller from Alpina Tech about an invoice.",
         )
