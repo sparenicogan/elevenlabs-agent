@@ -38,8 +38,8 @@ reference and a mismatched address). Rather than revealing the record, the agent
 the exact amount and the exact date the transfer was executed — checking a banking app is fine, and
 the agent says where to look — and the backend compares them. The details match exactly. The agent explains that a payment appears to cover the invoice but that allocating it is
 above what the agent may decide alone, so a person will validate it. It proposes the allocation,
-which moves the payment to under review, creates a ticket carrying the full context, and logs the
-interaction. It then raises the address discrepancy — did the company move, or is it a typo? —
+which raises a ticket carrying the full context and logs the interaction. The ledger is not
+touched: the payment stays UNALLOCATED, and the open ticket is the review. It then raises the address discrepancy — did the company move, or is it a typo? —
 records the answer on the same ticket, says a person will take care of that too, tells the caller
 the whole thing will be resolved within 24 hours, asks whether anything else is needed, and ends
 the call. Afterwards the transcript, metrics, and an updated customer summary are
@@ -50,8 +50,9 @@ correctness, refusal to invent state, human authority over out-of-authority acti
 and post-call persistence in one continuous journey.
 
 **Independent Test**: Place a call as the seeded disputing customer, complete verification, supply
-the seeded payment details, and confirm the payment ends in UNDER_REVIEW, a ticket exists in the
-CRM with the structured context, the interaction is logged, and the post-call records are written.
+the seeded payment details, and confirm a ticket exists in the CRM with the structured context and
+the payment's entry id, the interaction is logged, the payment is still UNALLOCATED in the ledger,
+and the post-call records are written.
 
 **Acceptance Scenarios**:
 
@@ -71,11 +72,18 @@ CRM with the structured context, the interaction is logged, and the post-call re
 5. **Given** the caller supplies details that do not match, **When** the comparison returns
    NO_MATCH or INSUFFICIENT, **Then** the agent says the payment could not be confirmed, does not
    claim the invoice is unpaid in bad faith, and offers escalation.
-6. **Given** a MATCH, **When** the agent proposes the allocation, **Then** the payment moves from
-   UNALLOCATED to UNDER_REVIEW, an audit event records the previous and new state, a ticket is
-   created with structured context, and the interaction is logged.
-6a. **Given** the allocation is proposed and the payment record's address differs from the one on
-   file, **When** the agent raises it, **Then** it asks whether the company moved or the record has
+6. **Given** a MATCH, **When** the agent proposes the allocation, **Then** a ticket is created
+   carrying the structured context and the payment's entry id, an audit event records it, the
+   interaction is logged, and the ledger is unchanged — the payment is still UNALLOCATED.
+6b. **Given** a MATCH, **When** `propose_allocation` has not been called or returned an error,
+   **Then** the agent says nothing about a colleague, a review, or a resolution time, because
+   nothing exists for anyone to look at.
+6c. **Given** a colleague at the same company already asked about the same payment, **When** a
+   second caller raises it, **Then** the agent finds the open ticket and says it is already in
+   process rather than raising a second review — the ledger still reads UNALLOCATED and the ticket
+   is the only record that knows.
+6a. **Given** `propose_allocation` has returned UNDER_REVIEW and the payment record's address
+   differs from the one on file, **When** the agent raises it, **Then** it asks whether the company moved or the record has
    a typo, records the answer on the existing ticket, states a person will correct it, and changes
    no address itself.
 7. **Given** the call ends, **When** post-call processing runs, **Then** the transcript, structured
@@ -89,7 +97,9 @@ CRM with the structured context, the interaction is logged, and the post-call re
 Anyone calling about an account must establish who they are before any financial information is
 disclosed. The agent asks for three independent identifying facts, never revealing what it expects,
 helps a caller who cannot immediately find the information, and honours the outcome the backend
-returns. Repeated failures throttle, raise risk, or escalate rather than letting a caller grind
+returns. Each answer is checked as it arrives so that a mishearing is corrected while the caller is
+still on that question, because on a spoken call most failures are transcription rather than the
+caller being wrong. Repeated failures throttle, raise risk, or escalate rather than letting a caller grind
 through attempts.
 
 **Why this priority**: The disclosure gate is the security property the whole system rests on, and
@@ -128,6 +138,21 @@ VERIFIED, PARTIALLY_VERIFIED, FAILED, and LOCKED produces its defined behavior.
 6. **Given** a caller confirms three factors that are all printed on the invoice they hold, **When**
    the backend evaluates them, **Then** verification does not succeed, because at least one
    non-document factor is required.
+6a. **Given** a caller spells their email aloud and the transcription loses a hyphen, **When** the
+   detail is checked, **Then** the agent asks them to spell it again, does not say it was wrong,
+   does not offer a correction of its own, and the caller can still be verified.
+6b. **Given** a caller says a date that could be read two ways, such as "03/12/1974", **When** the
+   detail is checked, **Then** the agent asks which was meant by naming both months, and neither
+   reading is assumed.
+6c. **Given** a caller gives an email, phone and date of birth that resolve nobody, **When** the
+   attempt is evaluated, **Then** it counts as one failed attempt and not three, because answers
+   offered together are one attempt however many of them there are.
+6d. **Given** a detail is checked individually, **When** it matches, **Then** nothing about the
+   result is said to the caller, and no individual check verifies anyone — only the final
+   evaluation of the full set decides.
+6e. **Given** a caller recites a correct phone number in any spoken form, **When** it is used to
+   find their record, **Then** it finds them, because a value is normalised the same way wherever
+   it is compared or looked up.
 7. **Given** a caller offers one customer identifier and immediately corrects it, **When** they
    continue, **Then** verification proceeds normally: misspeaking is not an attack.
 8. **Given** a caller offers a third distinct customer identifier in the same call, **When** the
@@ -138,39 +163,53 @@ VERIFIED, PARTIALLY_VERIFIED, FAILED, and LOCKED produces its defined behavior.
 
 ---
 
-### User Story 3 - Autonomous small goodwill credit (Priority: P3)
+### User Story 3 - Goodwill credit requested within policy (Priority: P3)
 
 A verified customer asks for a goodwill credit below the auto-approval threshold. Eligibility
-passes, no abuse pattern is found, and the agent grants the credit on the call, writing an audit
-event and a CRM log entry.
+passes, no abuse pattern is found, and the agent records the request as a ticket carrying the
+charge, the amount and the reason, then tells the caller it has been requested. It cannot apply a
+credit: the ledger is not writable from a call, and a person accepts or rejects the ticket
+afterwards.
 
-**Why this priority**: It demonstrates that the system can act autonomously where policy allows,
-which is what makes the escalation behavior meaningful rather than universal.
+**Why this priority**: It demonstrates that policy can be evaluated in full on the call — the
+ceilings, the entry cap and the abuse patterns all decide here — while the money itself moves only
+under a human decision. That separation is what makes the escalation behaviour meaningful rather
+than universal.
 
 **Independent Test**: As a verified customer with a clean history, request a CHF 40 credit against a
-named charge and confirm it is granted on the call, appears as a ledger entry linked to that charge,
-and produces an audit event and CRM interaction record.
+named charge and confirm the agent says it has been requested rather than applied, a ticket exists
+carrying the charge and the amount as structured properties, an audit event names the authorizing
+rule, and the ledger is unchanged.
 
 **Acceptance Scenarios**:
 
 1. **Given** a verified customer on an active account, naming a specific charge with no open dispute
-   and no risk signals, **When** they request a credit below the threshold, **Then** the agent grants
-   it during the call and states the amount and effect.
+   and no risk signals, **When** they request a credit below the threshold, **Then** the rules permit
+   it, a ticket is raised, and the agent states the amount and that it has been requested.
 1a. **Given** CHF 400 of credits in the last 12 months, **When** the customer requests CHF 100,
-   **Then** it is granted, because the total lands on exactly CHF 500.
+   **Then** it is permitted, because the total lands on exactly CHF 500.
 1b. **Given** CHF 401 of credits in the last 12 months, **When** the customer requests CHF 100,
-   **Then** it is not granted automatically, because the total would reach CHF 501.
-1c. **Given** any credit history, **When** the customer requests CHF 101, **Then** it is not granted
-   automatically, because a single request may not exceed CHF 100.
+   **Then** it is not permitted, because the total would reach CHF 501.
+1c. **Given** any credit history, **When** the customer requests CHF 101, **Then** it is not
+   permitted, because a single request may not exceed CHF 100.
 1d. **Given** a CHF 20 charge with no credits against it, **When** the customer requests CHF 100,
-   **Then** it is not granted, because a credit may not exceed the charge it is applied to, even
-   though CHF 100 is within the per-request ceiling.
-1e. **Given** the customer cannot name a specific charge, **When** they request goodwill, **Then** the
-   agent does not grant a credit and works with them to identify the entry or escalates.
-2. **Given** the credit is granted, **When** the action completes, **Then** a ledger entry, an audit
-   event naming the authorizing rule, and a CRM interaction record all exist.
-3. **Given** a request at or above the threshold, **When** eligibility is evaluated, **Then** the
-   agent does not grant it and escalates for approval.
+   **Then** it is not permitted, because a credit may not exceed the charge it is applied to.
+1e. **Given** the customer cannot name a specific charge, **When** they request goodwill, **Then**
+   no request is raised and the agent works with them to identify the entry or escalates.
+2. **Given** a request is raised, **When** the action completes, **Then** a ticket carrying the
+   charge, the amount and the reason exists, an audit event names the authorizing rule and records
+   that a person must still accept it, and the ledger is unchanged.
+3. **Given** a request at or above the threshold, **When** eligibility is evaluated, **Then** no
+   ticket is raised and the agent escalates for approval.
+4. **Given** the caller asks when they will see the credit, **When** the agent answers, **Then** it
+   says a colleague will review it and they will hear back, and never states that it has been
+   applied, credited, or will appear on a next statement.
+5. **Given** the same caller asks twice for the same credit against the same charge, **When** the
+   second request is evaluated, **Then** the open ticket is returned rather than a second one
+   raised — including across a redialled call, because the check is scoped to the company.
+6. **Given** the CRM cannot be read, **When** a credit is requested, **Then** the request is refused
+   rather than raised, because the ceiling is computed partly from open tickets and an unreadable
+   ceiling is not an empty one.
 
 ---
 
@@ -195,6 +234,12 @@ is created.
    needs review, gives a neutral reason, and makes no accusation of fraud.
 3. **Given** any high-risk result, **When** eligibility would otherwise pass, **Then** the high-risk
    result wins and the request escalates.
+4. **Given** CHF 300 of credits already applied and two open requests of CHF 99 each awaiting a
+   decision, **When** a further CHF 40 is requested, **Then** it is not permitted, because a request
+   nobody has answered has already spoken for that headroom even though no money has moved.
+5. **Given** two callers from the same company request credits on the same day, **When** the second
+   is evaluated, **Then** the first caller's open request counts against the ceiling, because the
+   ceiling belongs to the customer and not to the call.
 
 ---
 
@@ -226,6 +271,11 @@ leaves with a ticket, a callback, or a transfer.
    completed mutation is not repeated, the incomplete step is recorded, and a human is notified.
 6. **Given** a duplicate post-call notification for the same conversation, **When** it is processed,
    **Then** nothing is created twice.
+7. **Given** the CRM is unreachable, **When** a credit is requested or an allocation proposed,
+   **Then** the agent refuses rather than proceeding, because the request would exist nowhere and a
+   caller told a colleague will look at it would be told something untrue.
+8. **Given** a tool returns an error, **When** the agent speaks, **Then** it describes no outcome of
+   that call — no ticket, no review, no timeline — because the action did not happen.
 
 ---
 
@@ -354,6 +404,44 @@ evidence on the escalation, promises human correction, and writes nothing to the
   at the 5-second timeout the agent says it cannot get an answer right now rather than waiting on.
 - Post-call processing arrives out of order, twice, or not at all.
 
+### User Story 9 - A human decision reaches the ledger (Priority: P9)
+
+A colleague opens a ticket the agent raised, decides it, and sets the outcome. A scheduled applier
+picks it up, re-reads the ledger, re-runs the credit rules against the account as it stands now,
+and writes the entry only if they still pass. It is the only component permitted to write the
+financial ledger and the only one a caller cannot reach.
+
+**Why this priority**: It is the only path by which money moves at all. Everything the agent does
+stops at a request, so without this no credit ever reaches an account. It is also where a human
+decision is checked rather than trusted: a person accepting something they misread must not be able
+to produce an entry the rules would refuse.
+
+**Independent Test**: Raise a credit request on a call, set Request outcome to Accepted in the CRM,
+wait for the applier, and confirm a credit note exists on the ledger derived from the ticket id,
+the ticket carries a note saying it was applied, and running the applier again writes nothing.
+
+**Acceptance Scenarios**:
+
+1. **Given** a ticket marked Accepted, **When** the applier runs, **Then** the credit note is written
+   to the ledger, negative, attached to the named charge, and marked as accepted by a person.
+2. **Given** the same ticket, **When** the applier runs a second time, **Then** nothing is written,
+   because the ledger entry id is derived from the ticket id and the conditional write refuses a
+   duplicate.
+3. **Given** a ticket marked Accepted whose amount now breaches a ceiling, because other credits
+   landed between the call and the decision, **When** the applier runs, **Then** it is refused, a
+   note explaining the refusal is written to the ticket, and no ledger entry is created.
+4. **Given** a ticket marked Rejected or Canceled by customer, **When** the applier runs, **Then**
+   nothing is written to the ledger.
+5. **Given** a ticket closed without an outcome set, **When** the applier runs, **Then** nothing is
+   written, because a decision that was never recorded is not an approval.
+6. **Given** one malformed ticket among several, **When** the applier runs, **Then** the others are
+   still applied and the failure is counted and logged.
+7. **Given** any agent-facing role, **When** it attempts to write the ledger, **Then** IAM denies it,
+   whatever the code attempted.
+
+---
+
+
 ## Requirements *(mandatory)*
 
 ### Disclosure and verification
@@ -481,15 +569,29 @@ evidence on the escalation, promises human correction, and writes nothing to the
 - **FR-011**: Payment status MUST be one of SUCCEEDED, PENDING, FAILED, UNKNOWN, or
   SERVICE_UNAVAILABLE, and UNKNOWN and SERVICE_UNAVAILABLE MUST NEVER be reported to the caller as a
   settled outcome in either direction.
-- **FR-012**: An allocation above the agent's authority MUST move the payment to UNDER_REVIEW rather
-  than ALLOCATED, and MUST require human validation before taking effect.
-- **FR-013**: A goodwill credit MUST be granted autonomously only when every one of these holds:
-  the caller is verified; the account is active and not in collections; the claim names a specific
-  existing ledger entry; that entry has no open dispute; and no risk or abuse signal triggers. The
-  conversational layer MUST NOT substitute its own judgement for any of these checks.
-- **FR-013a**: The credit MUST be recorded against the named ledger entry, so that every credit has
-  an anchor that can be reconciled afterwards. A credit with no identified entry MUST NOT be granted
-  automatically.
+- **FR-012**: An allocation above the agent's authority MUST be recorded as a ticket carrying the
+  payment's entry id, and MUST NOT change the ledger. The payment stays UNALLOCATED until a person
+  accepts the proposal. A second caller asking about the same payment MUST be told it is already in
+  process, found from the open ticket rather than from the payment's status.
+- **FR-013**: A goodwill credit MUST be requested only when every one of these holds: the caller is
+  verified; the account is active and not in collections; the claim names a specific existing ledger
+  entry; that entry has no open dispute; and no risk or abuse signal triggers. The conversational
+  layer MUST NOT substitute its own judgement for any of these checks. The agent MUST NOT write the
+  credit: it records a request, and MUST tell the caller it has been requested and never that it has
+  been applied.
+- **FR-013a**: The request MUST name the ledger entry it attaches to, so that every credit has an
+  anchor that can be reconciled afterwards. A credit with no identified entry MUST NOT be requested.
+
+- **FR-013e**: The rolling ceiling MUST count credits already applied to the ledger together with
+  requests still awaiting a decision. A request nobody has answered has spoken for that headroom.
+
+- **FR-013f**: When the ceiling cannot be read in full, the request MUST be refused rather than
+  raised. An unreadable ceiling is not an empty one.
+
+- **FR-013g**: Only one principal MUST be able to write the financial ledger, and it MUST NOT be
+  reachable from a call. It MUST re-read the ledger and re-run the credit rules before writing, and
+  MUST refuse anything the rules refuse regardless of who accepted it. Its ledger entry id MUST be
+  derived from the ticket, so applying twice writes once.
 - **FR-013b**: Two ceilings MUST both hold, and both are inclusive. The requested credit MUST be at
   most CHF 100: a request of CHF 100 passes and CHF 101 does not. The customer's total credits over
   the rolling 12 months, counting the requested one, MUST be at most CHF 500: prior credits of
