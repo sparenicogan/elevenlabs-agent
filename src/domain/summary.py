@@ -21,17 +21,6 @@ _FORBIDDEN = (
 )
 
 
-def is_safe(text: str) -> bool:
-    """
-    Whether a candidate summary carries anything it must not.
-
-    text: the summary being considered.
-
-    Returns: True when it holds no amount, invoice number, date, address or phone number.
-    """
-    return not any(pattern.search(text) for pattern in _FORBIDDEN)
-
-
 def redact(text: str) -> str:
     """
     Removes anything the summary may not carry.

@@ -17,7 +17,7 @@ from boto3.dynamodb.conditions import Key
 from src.adapters import dynamo
 from src.adapters.errors import ToolError
 from src.common import logging as log
-from src.domain.locale import FALLBACK, normalise
+from src.domain.locale import normalise
 from src.domain.verification import Factor, lookup_key
 
 IDENTITY_TABLE = "customer-identity"
@@ -87,8 +87,3 @@ def _contact_for(caller_id: str) -> dict | None:
         return None
 
     return dynamo.get(IDENTITY_TABLE, {"contact_id": hits[0]["contact_id"]})
-
-
-def fallback_language() -> str:
-    """The language an unrecognised caller is greeted in (FR-033a)."""
-    return FALLBACK

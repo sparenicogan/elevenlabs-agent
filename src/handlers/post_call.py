@@ -22,7 +22,6 @@ from src.adapters.errors import ErrorCategory, ToolError
 from src.common import conversation_state
 from src.common import logging as log
 from src.domain import locale
-from src.domain import metrics as metrics_domain
 from src.domain import policy as policy_module
 from src.domain import summary as summary_domain
 
@@ -330,8 +329,3 @@ def _reconcile_transfer(conversation_id: str, payload: dict) -> None:
         conversation_id=conversation_id,
         status="RECONCILED",
     )
-
-
-def derive_rates(records: list[dict]) -> dict[str, float]:
-    """The nine rates in FR-043, from stored conversation records."""
-    return metrics_domain.derive([metrics_domain.from_record(r) for r in records])
