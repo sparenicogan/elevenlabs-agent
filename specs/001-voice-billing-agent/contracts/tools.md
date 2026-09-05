@@ -146,12 +146,16 @@ tell you right now", never as an answer (FR-011).
   "discrepancy": { "field": "payer_address", "caller_explanation": "MOVED|TYPO|UNKNOWN" } }
 
 // response
-{ "status": "CREATED|APPENDED|CRM_UNAVAILABLE_PERSISTED",
+{ "say_before_transferring": "A colleague has the details and will call you back if we get cut off.",
+  "status": "CREATED|APPENDED|CRM_UNAVAILABLE_PERSISTED",
   "ticket_id": "...",
   "handoff_summary": "Composed server-side. Verified state, intent, facts gathered, actions attempted and their outcomes, escalation reason.",
   "callback_created": false }
 ```
 
+- `say_before_transferring` is returned first and named for the act, because a transfer can drop
+  the call and the promise is worth nothing said afterwards. It is a nudge, not a guarantee: the
+  callback is recorded server-side either way (FR-019c).
 - `existing_ticket_id` appends rather than creating a second ticket (FR-031b).
 - `handoff_summary` is composed in the backend so its field set is enforced and testable (FR-019,
   research D2). The agent passes it as `agent_message` on transfer.

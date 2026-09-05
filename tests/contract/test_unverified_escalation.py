@@ -225,7 +225,7 @@ class TestTheCallbackIsArrangedBeforeTheTransfer:
     def test_the_agent_is_given_something_true_to_promise(self, stubs):
         """Said before transferring, so the promise survives the transfer failing."""
         result = call(stubs, caller_stated_problem=STATED_PROBLEM)
-        assert "call you back" in result["safe_to_promise"]
+        assert "call you back" in result["say_before_transferring"]
 
     def test_a_failed_callback_does_not_lose_the_escalation(self, stubs):
         """The ticket and the audit record still exist. Nobody is scheduled to ring, which is

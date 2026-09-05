@@ -1742,3 +1742,24 @@ within a second of each other does not buy that.
 would have deployed whatever happened to be checked out, unreviewed and possibly dirty, while
 the merge itself deploys a commit that CI has already run green. The manual path is for
 recovery, not for routine work.
+
+### 12.58 The callback promise leads the escalation response
+
+US5's remaining check — that the caller hears about the callback *before* the transfer, not
+after — failed about half the time across runs of identical code. The prompt already said it,
+in bold. The backend already returned the exact sentence. It was the last field in the
+response, under the descriptive name `safe_to_promise`.
+
+It is now the first field, named `say_before_transferring`.
+
+**Why not prepend it to `handoff_summary`, which was the first idea.** That string is the
+HubSpot ticket body — `content: handoff`. Leading it with a line addressed to the caller would
+put "a colleague will call you back if we get cut off" at the top of every ticket a human
+opens, and store it in the CRM. The promise belongs in what the agent reads, not in what the
+colleague reads.
+
+**This is a nudge, not a control, and the distinction is the whole point (§12.33).** Ordering
+and naming move the odds that a model says a sentence; they cannot guarantee it. What does not
+depend on the model is `_record_callback`, which runs before any transfer is attempted — so
+the caller is owed a call back whether or not the agent remembered to mention it. The promise
+being spoken is a courtesy; the promise being true is a control.

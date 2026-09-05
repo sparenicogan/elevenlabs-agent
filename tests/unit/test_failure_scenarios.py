@@ -339,7 +339,7 @@ class TestFive_TransferFailure:
             "create_escalation",
             {"conversation_id": "c1", "reason": "CUSTOMER_REQUESTED_HUMAN"},
         )
-        assert "call you back" in result["safe_to_promise"]
+        assert "call you back" in result["say_before_transferring"]
 
 
 class TestSix_DuplicatePostCallWebhook:
