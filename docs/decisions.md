@@ -1694,3 +1694,51 @@ move the line into the `create_escalation` response where it is present at the m
 speaking — which is what §12.34 tried and §12.35 reverted, and which should not be done again
 without asking — or to accept it, knowing the post-call handler records the callback anyway
 when a transfer fails.
+
+### 12.55 Four simplifications, one at a time, each through its own PR
+
+A read of the whole codebase found four places where it had grown redundant. They were
+applied singly, each verified against the unit suite, the deployed integration suite and all
+six story simulations before the next began, and each merged through its own pull request.
+Serially rather than in one sweep because a single failing check then names its own cause; in
+a batch of four it names only the batch.
+
+| | Change | Net |
+|---|---|---|
+| 1 | One normalisation table in `verification.py` in place of three dispatchers | −30 |
+| 2 | `common/guessing.py`: one place that counts what a caller has offered | −101 |
+| 3 | `common/http.py`: one response shape and one error envelope for seven endpoints | −91 |
+| 4 | Three functions nothing calls, deleted | −22 |
+
+**The tradeoff taken in change 3.** A decorator would have absorbed the `try`, the body parse
+and the API-key check as well, saving more lines than the helper did. It was rejected: the
+API-key check is a security control, and a control that a reader of the handler cannot see is
+one nobody will notice the absence of. Boilerplate is worth removing, evidence is not.
+
+**The tradeoff taken in change 4.** `is_safe` went, but its six assertions did not. They were
+testing the `_FORBIDDEN` patterns rather than the predicate, so they moved to `redact` — the
+function that actually runs. Deleting a function is not a reason to delete what it proved.
+
+### 12.56 HubSpot's search index lags its own writes, and the test now waits
+
+`test_the_whole_journey` began failing on the assertion that a second `propose_allocation`
+finds the ticket the first one raised. Not a regression: the diff across those commits is
+empty for both `propose_allocation` and the HubSpot adapter.
+
+The duplicate check reads HubSpot's search index. That index was measured, with a probe
+ticket, at roughly **1.5 seconds behind its own writes**. The test's two calls land under a
+second apart, so the second genuinely cannot see the first.
+
+So two callers inside that window can both raise a review for the same payment — a real if
+narrow hole in FR-012. The test waits three seconds and records the limitation rather than
+hiding it. Closing it properly would mean a second store the agent may write to, and the
+agent is deliberately allowed to write almost nothing (§12.33). Two phone calls landing
+within a second of each other does not buy that.
+
+### 12.57 Deployment is the pipeline's job, not the operator's
+
+`main.yml` applies Terraform on every push to `main`, through an OIDC role. A manual
+`terraform apply` from a working tree was attempted during change 3 and was right to fail: it
+would have deployed whatever happened to be checked out, unreviewed and possibly dirty, while
+the merge itself deploys a commit that CI has already run green. The manual path is for
+recovery, not for routine work.

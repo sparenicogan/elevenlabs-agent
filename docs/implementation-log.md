@@ -820,3 +820,36 @@ caller's stored language.
 
 **Next**: T034 and T035 close Phase 3, then US2 hardens verification — lockout, risk signals,
 and the guessing detection the user asked for.
+
+---
+
+## APPEND — 2026-09-05: four simplifications
+
+A read of the whole codebase for redundancy, then four changes applied one at a time. Each was
+verified against the unit suite, the deployed integration suite and all six story simulations
+before the next began, and each went through its own pull request.
+
+| PR | Change | Net |
+|---|---|---|
+| #13 | One normalisation table in `verification.py` | −30 |
+| #14 | `common/guessing.py`, shared by both verification endpoints | −101 |
+| #16 | `common/http.py`, one response shape for seven endpoints | −91 |
+| #17 | Three functions nothing calls, deleted | −22 |
+
+**−244 lines. Behaviour unchanged**: 715 unit, 60/60 integration, and the story simulations
+holding where they held before.
+
+**PR #15** was not a simplification. `test_the_whole_journey` started failing between #14 and
+#16, and the cause was outside the diff: HubSpot's search index runs about 1.5 seconds behind
+its own writes, measured with a probe ticket. The test now waits, and the window it exposes is
+recorded in §12.56 rather than papered over.
+
+**US5 still fails its callback check**, as it did before any of this. It has now failed,
+passed and failed again across three runs of code that did not change in between — which is
+the point §12.54 makes. The disclosure gate is a control and has never failed; "mention the
+callback before transferring" is a tendency and fails about half the time. Moving that line
+out of the prompt and into the `create_escalation` response is the fix, and it is the user's
+call, because §12.35 reverted exactly that kind of unilateral change to caller-facing
+behaviour.
+
+**Next**: the Loom recording (T101), and the US5 decision.

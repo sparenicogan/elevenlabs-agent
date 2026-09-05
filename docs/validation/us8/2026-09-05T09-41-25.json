@@ -1,0 +1,210 @@
+{
+  "story": "US8",
+  "title": "Address discrepancy raised with the caller",
+  "timestamp": "2026-09-05T09:41:25+00:00",
+  "verdict": "SUCCESS",
+  "checks_passed": 3,
+  "checks_total": 3,
+  "good": [
+    {
+      "behaviour": "the discrepancy is raised",
+      "why_it_matters": "The caller is asked whether they moved or it is a typo."
+    },
+    {
+      "behaviour": "the address is read out rather than withheld",
+      "why_it_matters": "Asking whether it is a typo without saying what it is asks someone to confirm what they cannot see."
+    },
+    {
+      "behaviour": "no address is changed on the call",
+      "why_it_matters": "A person corrects it."
+    }
+  ],
+  "bad": [],
+  "metadata": {
+    "git_commit": "81eeea1",
+    "git_dirty": true,
+    "agent_id": "agent_3501m1k6hy8yech93pn3gfets2tx",
+    "prompt_chars": 16001,
+    "tools_executed": false,
+    "tool_results_are": "simulated by ElevenLabs, not returned by the deployed backend",
+    "turns": 30,
+    "tools_called": [
+      "check_factor",
+      "check_factor",
+      "check_factor",
+      "verify_identity",
+      "get_account_context",
+      "match_payment",
+      "propose_allocation",
+      "create_escalation"
+    ]
+  },
+  "transcript": [
+    {
+      "role": "agent",
+      "message": "Helvetia Werkstoffe, accounts department. How can I help you?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "Hello, my name is Klaus Mueller from Alpina Tech. I am calling about an overdue invoice.  We received a reminder, but we already paid four thousand two hundred francs on the 27th of July.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "An overdue invoice you've already paid \u2014 I can look into that.  First I need to confirm your identity.\n \nCould you please tell me the email address associated with your account?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "My email address is klaus.mueller@alpina-tech.ch.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "check_factor"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "Thank you.  Could you please tell me the phone number associated with your account?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "My phone number is 044 501 22 18.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "check_factor"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "Thank you.   Could you please tell me your date of birth?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "I was born on the 12th of March 1974.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "check_factor"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "verify_identity"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "Let me pull up your account details to check on that invoice.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "get_account_context"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "I can see the invoice from the twentieth of June,  INV twenty twenty-six, zero zero one three,  showing as overdue with no payment recorded against it yet.\n \nYou mentioned you paid four thousand two hundred francs on the twenty-seventh of July.   Is that the exact amount and date you transferred?   It's fine to check your banking app \u2014 I'll wait.",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "Yes, that is correct.  Four thousand two hundred francs on the 27th of July.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "match_payment"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "propose_allocation"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "A payment matching those details was found and appears to cover the invoice.   A person will confirm it within twenty-four hours,  and you need do nothing else.\n \nThe payer address on the payment we received is:  Alpina Tech,   Bahnhofstrasse 45,  8001 Zurich.   Is that correct,  or did you move,   or is it a typo?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "The company has not moved.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "create_escalation"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "Thank you for confirming.   I've noted that the address is correct and your company hasn't moved.   A colleague will review both the payment allocation and the address details together and correct anything needed.   You don't need to do anything else.\n \nIs there anything else I can help you with today?",
+      "tool_calls": []
+    }
+  ]
+}
