@@ -5,7 +5,7 @@ is narrative only. Everything financial is read live, because a remembered numbe
 that can be wrong (FR-039c).
 """
 
-from src.domain.summary import is_safe, redact, regenerate
+from src.domain.summary import redact, regenerate
 
 MAX = 2000
 
@@ -40,22 +40,21 @@ class TestItStaysWithinItsCeiling:
 
 class TestItCarriesNothingFinancial:
     def test_an_amount_never_survives(self):
-        assert not is_safe("They disputed CHF 4,200.00 on the invoice.")
         assert "4,200" not in redact("They disputed CHF 4,200.00 on the invoice.")
 
     def test_an_invoice_number_never_survives(self):
-        assert not is_safe("About INV-2026-0013.")
         assert "INV-2026-0013" not in redact("About INV-2026-0013.")
 
     def test_a_date_never_survives(self):
         """A date of birth is a verification answer, and no date is worth the risk of
         storing one."""
-        assert not is_safe("Born 1974-03-12.")
         assert "1974-03-12" not in redact("Born 1974-03-12.")
 
     def test_an_email_or_phone_never_survives(self):
-        assert not is_safe("Reach them at klaus.mueller@alpina-tech.ch")
-        assert not is_safe("Call +41 44 501 22 18")
+        assert "klaus.mueller@alpina-tech.ch" not in redact(
+            "Reach them at klaus.mueller@alpina-tech.ch"
+        )
+        assert "+41 44 501 22 18" not in redact("Call +41 44 501 22 18")
 
     def test_the_narrative_survives_the_redaction(self):
         """Redacting rather than rejecting: a summary that fails to save is a caller
@@ -66,4 +65,5 @@ class TestItCarriesNothingFinancial:
 
     def test_a_regenerated_summary_is_safe_even_when_its_input_was_not(self):
         text = regenerate("", "They paid CHF 900.00 against INV-2026-0044 on 2026-07-01.", MAX)
-        assert is_safe(text)
+        for forbidden in ("900.00", "INV-2026-0044", "2026-07-01"):
+            assert forbidden not in text
