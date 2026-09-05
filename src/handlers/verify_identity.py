@@ -12,7 +12,7 @@ from typing import Any
 
 from src.adapters import dynamo, secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import auth, conversation_state, guessing, identity
+from src.common import auth, conversation_state, guessing, http, identity
 from src.common import logging as log
 from src.common.conversation_state import VerificationStatus as ConversationVerification
 from src.domain import policy as policy_module
@@ -52,15 +52,10 @@ def handler(event: dict, _context: Any = None) -> dict:
             raise ToolError(ErrorCategory.VALIDATION, "missing conversation_id")
 
         result = _verify(conversation_id, body)
-        return _response(200, result)
+        return http.respond(200, result)
 
     except ToolError as error:
-        log.error(
-            "verify_identity failed",
-            error_category=str(error.category),
-            error_detail=error.detail,
-        )
-        return _response(200, error.to_response())
+        return http.failed("verify_identity", error)
 
 
 def _verify(conversation_id: str, body: dict) -> dict:
@@ -353,12 +348,4 @@ def _body(status, confirmed: int, required: int, personal: bool) -> dict:
         "factors_confirmed": confirmed,
         "factors_required": required,
         "personal_factor_satisfied": personal,
-    }
-
-
-def _response(code: int, body: dict) -> dict:
-    return {
-        "statusCode": code,
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body),
     }

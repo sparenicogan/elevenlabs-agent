@@ -20,7 +20,7 @@ from boto3.dynamodb.conditions import Key
 
 from src.adapters import dynamo, hubspot, secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import audit, auth, conversation_state, validation
+from src.common import audit, auth, conversation_state, http, validation
 from src.common import logging as log
 from src.domain import policy as policy_module
 from src.domain.credit import (
@@ -61,15 +61,10 @@ def handler(event: dict, _context: Any = None) -> dict:
             raise ToolError(ErrorCategory.VALIDATION, "missing conversation_id")
 
         customer_id, display = conversation_state.verified_context(conversation_id)
-        return _response(200, _request(conversation_id, customer_id, display, body))
+        return http.respond(200, _request(conversation_id, customer_id, display, body))
 
     except ToolError as error:
-        log.error(
-            "request_credit failed",
-            error_category=str(error.category),
-            error_detail=error.detail,
-        )
-        return _response(200, error.to_response())
+        return http.failed("request_credit", error)
 
 
 def _request(conversation_id: str, customer_id: str, display: dict, body: dict) -> dict:
@@ -303,11 +298,3 @@ def _find(entries: list[dict], entry_id: str) -> dict | None:
     """Finds one entry by id, or None. Ownership is implicit: the query was scoped to the
     verified customer, so an entry belonging to anyone else is simply not here (FR-007)."""
     return next((e for e in entries if e.get("entry_id") == entry_id), None)
-
-
-def _response(code: int, body: dict) -> dict:
-    return {
-        "statusCode": code,
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body),
-    }
