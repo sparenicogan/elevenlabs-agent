@@ -254,6 +254,30 @@ def ambiguous_date(value: str) -> tuple[str, str] | None:
     return day_first, month_first
 
 
+# How each detail is reduced before anything is compared, counted or looked up. One table
+# rather than a switch in each caller: they were three, and they had already drifted — the
+# comparison folded an email's case and the fingerprint did not, so a caller who repeated one
+# address in two spellings spent two of their three attempts on it.
+_NORMALISE = {
+    Factor.PHONE: _normalise_phone,
+    Factor.EMAIL: _normalise_email,
+    Factor.DATE_OF_BIRTH: _normalise_date,
+}
+
+
+def normalise(factor: Factor, value: str) -> str:
+    """
+    Reduces one answer to the form everything else works in.
+
+    factor: which detail it is.
+    value:  what the caller said, or what the record holds.
+
+    Returns: the normalised form. A factor with no rule of its own is trimmed and folded,
+             which is right for the customer id and for anything added later.
+    """
+    return _NORMALISE.get(factor, lambda v: v.strip().casefold())(value)
+
+
 def _matches(factor: Factor, supplied: str, stored: str) -> bool:
     """
     Compares one answer against the record, allowing for how it was spoken.
@@ -266,13 +290,7 @@ def _matches(factor: Factor, supplied: str, stored: str) -> bool:
              caller does not speak capital letters, and the same phone number has several
              written forms.
     """
-    if factor is Factor.PHONE:
-        return _normalise_phone(supplied) == _normalise_phone(stored)
-    if factor is Factor.DATE_OF_BIRTH:
-        return _normalise_date(supplied) == _normalise_date(stored)
-    if factor is Factor.EMAIL:
-        return _normalise_email(supplied) == _normalise_email(stored)
-    return supplied.strip().casefold() == stored.strip().casefold()
+    return normalise(factor, supplied) == normalise(factor, stored)
 
 
 def lookup_key(factor: Factor, value: str) -> str:
@@ -289,11 +307,7 @@ def lookup_key(factor: Factor, value: str) -> str:
     the index was queried with the raw string, so a caller reciting their own number
     correctly could never be found by it.
     """
-    if factor is Factor.PHONE:
-        return _normalise_phone(value)
-    if factor is Factor.EMAIL:
-        return _normalise_email(value)
-    return value.strip().casefold()
+    return normalise(factor, value)
 
 
 def check_factors(
@@ -394,21 +408,11 @@ def fingerprint(factor: Factor, value: str, salt: str) -> str:
     Returns: a truncated HMAC. Distinct attempts can be counted without retaining what was
              guessed (FR-006c).
     """
-    normalised = _normalise_for_comparison(factor, value)
+    normalised = normalise(factor, value)
     digest = hmac.new(
         salt.encode(), f"{factor.value}:{normalised}".encode(), hashlib.sha256
     ).hexdigest()
     return digest[:_FINGERPRINT_LENGTH]
-
-
-def _normalise_for_comparison(factor: Factor, value: str) -> str:
-    """Applies the same normalisation the matching rule uses, so a caller repeating one
-    answer in a different form is not counted as a second attempt."""
-    if factor is Factor.PHONE:
-        return _normalise_phone(value)
-    if factor is Factor.DATE_OF_BIRTH:
-        return _normalise_date(value)
-    return value.strip().casefold()
 
 
 def is_enumerating(distinct_counts: dict[Factor, int], max_distinct: int) -> Factor | None:
