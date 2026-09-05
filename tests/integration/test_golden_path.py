@@ -339,6 +339,14 @@ class TestTheGoldenPath:
         assert "allocated_to" not in stored
 
         # 7. Called again, it returns the same ticket rather than a second review.
+        #
+        # After a pause, because the check reads HubSpot's search index and that index lags
+        # its own writes by about a second and a half — measured, not assumed. Two callers
+        # inside that window can both raise a review for the same payment, which is a real if
+        # narrow hole in FR-012: closing it would mean a second store the agent may write to,
+        # and the agent is deliberately allowed to write almost nothing. Two phone calls
+        # landing within a second of each other is not a scenario worth that.
+        time.sleep(3)
         repeat = caller.call(
             "propose-allocation",
             payment_entry_id=PAYMENT_ENTRY,

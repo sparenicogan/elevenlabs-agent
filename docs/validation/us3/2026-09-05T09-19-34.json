@@ -1,0 +1,174 @@
+{
+  "story": "US3",
+  "title": "Goodwill credit requested within policy",
+  "timestamp": "2026-09-05T09:19:34+00:00",
+  "verdict": "SUCCESS",
+  "checks_passed": 3,
+  "checks_total": 3,
+  "good": [
+    {
+      "behaviour": "a credit is requested",
+      "why_it_matters": "The rules are evaluated in full on the call."
+    },
+    {
+      "behaviour": "it is described as requested, never as applied",
+      "why_it_matters": "The agent cannot apply a credit; a person accepts the ticket."
+    },
+    {
+      "behaviour": "no charge is called an error",
+      "why_it_matters": "It cannot see line items, so it cannot know."
+    }
+  ],
+  "bad": [],
+  "metadata": {
+    "git_commit": "ac5ae04",
+    "git_dirty": true,
+    "agent_id": "agent_3501m1k6hy8yech93pn3gfets2tx",
+    "prompt_chars": 16001,
+    "tools_executed": false,
+    "tool_results_are": "simulated by ElevenLabs, not returned by the deployed backend",
+    "turns": 24,
+    "tools_called": [
+      "check_factor",
+      "check_factor",
+      "check_factor",
+      "verify_identity",
+      "get_account_context",
+      "request_credit"
+    ]
+  },
+  "transcript": [
+    {
+      "role": "agent",
+      "message": "Helvetia Werkstoffe, accounts department. How can I help you?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "Hello, this is Marco Rossi from Ticino Industries.  I'm calling about my most recent invoice. I believe I was charged twice for red fabric, and it was about a hundred francs.  I'd like to get a credit for that.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "I can help you with that request.  First, I need to confirm your identity.  Could you please tell me the email address associated with your account?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "My email is marco.rossi@ticino-ind.ch.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "check_factor"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "Thank you.  Could you please tell me the phone number associated with your account?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "My phone is 091 604 77 31.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "check_factor"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "Thank you.   Could you please tell me your date of birth?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "I was born on the 2nd of November 1981.Is there anything else you need to verify,  or can we proceed with addressing the invoice issue?",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "check_factor"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "verify_identity"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "Thank you for providing those details.  Let me pull up your account information to look into the invoice issue you mentioned.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "get_account_context"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "I can see your most recent invoice is INV-2026-0020 from the twenty-sixth of July.   You mentioned you believe you were charged twice for red fabric and would like a credit of about a hundred francs.   \n\nTo process a credit request,  I need to know which specific charge it relates to.   Is this credit request for invoice INV-2026-0020,  or a different one?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "Yes, it's for INV-2026-0020, my most recent invoice.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "request_credit"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "I've requested a credit of one hundred francs against invoice INV-2026-0020.   A colleague will review this request and follow up with you.   \n\nIs there anything else I can help you with today?",
+      "tool_calls": []
+    }
+  ]
+}
