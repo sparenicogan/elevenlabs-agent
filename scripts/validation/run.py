@@ -10,6 +10,7 @@ it does.
 """
 
 import argparse
+import json
 import pathlib
 import re
 import subprocess
@@ -113,58 +114,71 @@ def simulate(scenario: Scenario, api_key: str) -> Transcript:
     return Transcript(response.json()["simulated_conversation"])
 
 
-def write_report(scenario: Scenario, transcript: Transcript, results: list[tuple]) -> pathlib.Path:
+def _metadata() -> dict:
     """
-    Writes one story's result to docs/validation.
+    What was true of the system when the run happened.
 
-    Returns: the path written. The transcript goes in whole: a summary of a conversation is
-             an opinion about it, and the point of this file is that somebody else can form
-             their own.
+    Returns: the commit, the prompt size and the agent, so a result can be tied to the thing
+             that produced it. A transcript without them is an anecdote.
     """
-    passed = sum(1 for _, ok, _ in results if ok)
-    verdict = "PASSED" if passed == len(results) else "FAILED"
+    return {
+        "git_commit": _shell("git", "rev-parse", "--short", "HEAD"),
+        "git_dirty": bool(_shell("git", "status", "--porcelain")),
+        "agent_id": AGENT_ID,
+        "prompt_chars": len(pathlib.Path("agent/prompt/en.md").read_text()),
+        # Stated in every file because it is the limit of what these prove: the simulator
+        # fabricates tool results, so a recorded tool call is the agent deciding to call it and
+        # nothing reached the backend. What is tested here is the prompt.
+        "tools_executed": False,
+        "tool_results_are": "simulated by ElevenLabs, not returned by the deployed backend",
+    }
 
-    lines = [
-        f"# {scenario.story} — {scenario.title}",
-        "",
-        f"**{verdict}** — {passed} of {len(results)} checks. "
-        f"Run {datetime.now(UTC).strftime('%Y-%m-%d %H:%M')} UTC against the deployed agent.",
-        "",
-        "## Checks",
-        "",
-        "| | Check | Why it matters |",
-        "|---|---|---|",
-    ]
-    for name, ok, why in results:
-        lines.append(f"| {'PASS' if ok else 'FAIL'} | {name} | {why} |")
 
-    tools = transcript.tools_called()
-    lines += [
-        "",
-        "## Tools called",
-        "",
-        "```",
-        "\n".join(f"{i:2}. {t}" for i, t in enumerate(tools, 1)) if tools else "none",
-        "```",
-        "",
-        "## Transcript",
-        "",
-    ]
-    for turn in transcript.turns:
-        message = (turn.get("message") or "").strip()
-        called = [c["tool_name"] for c in (turn.get("tool_calls") or [])]
-        if message:
-            lines.append(f"**{turn.get('role', '?')}** — {message}")
-            lines.append("")
-        for tool in called:
-            lines.append(f"> called `{tool}`")
-            lines.append("")
+def write_run(scenario: Scenario, transcript: Transcript, results: list[tuple]) -> pathlib.Path:
+    """
+    Writes one run as JSON, named for when it happened.
 
-    if scenario.notes:
-        lines += ["## Notes", "", scenario.notes, ""]
+    scenario:   the story.
+    transcript: the conversation.
+    results:    one (name, passed, why) per check.
 
-    path = OUT / f"{scenario.story.lower()}.md"
-    path.write_text("\n".join(lines).rstrip() + "\n")
+    Returns: the path written, docs/validation/<story>/<timestamp>.json.
+
+    One file per run rather than one per story, so the history accumulates and a rule that
+    holds today and not tomorrow is visible rather than overwritten.
+    """
+    passed = [name for name, ok, _ in results if ok]
+    failed = [name for name, ok, _ in results if not ok]
+    reasons = {name: why for name, _, why in results}
+
+    record = {
+        "story": scenario.story,
+        "title": scenario.title,
+        "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
+        "verdict": "SUCCESS" if not failed else "FAIL",
+        "checks_passed": len(passed),
+        "checks_total": len(results),
+        "good": [{"behaviour": n, "why_it_matters": reasons[n]} for n in passed],
+        "bad": [{"behaviour": n, "why_it_matters": reasons[n]} for n in failed],
+        "metadata": {
+            **_metadata(),
+            "turns": len(transcript.turns),
+            "tools_called": transcript.tools_called(),
+        },
+        "transcript": [
+            {
+                "role": turn.get("role"),
+                "message": (turn.get("message") or "").strip(),
+                "tool_calls": [c["tool_name"] for c in (turn.get("tool_calls") or [])],
+            }
+            for turn in transcript.turns
+        ],
+    }
+
+    folder = OUT / scenario.story.lower()
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{datetime.now(UTC).strftime('%Y-%m-%dT%H-%M-%S')}.json"
+    path.write_text(json.dumps(record, indent=2) + "\n")
     return path
 
 
@@ -177,6 +191,7 @@ def main() -> int:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--story", help="run one, e.g. US1")
+    parser.add_argument("--runs", type=int, default=4, help="how many times to run each")
     args = parser.parse_args()
 
     api_key = _shell(
@@ -200,20 +215,21 @@ def main() -> int:
 
     failures = 0
     for scenario in chosen:
-        # Reseeded before each: a previous simulation's credit changes what the next one sees.
-        _shell("uv", "run", "python", "-m", "scripts.seed.seed", "--env", "dev")
-        print(f"{scenario.story}: running...", flush=True)
+        for index in range(1, args.runs + 1):
+            # Reseeded before each: a previous simulation's credit changes what the next sees.
+            _shell("uv", "run", "python", "-m", "scripts.seed.seed", "--env", "dev")
+            print(f"{scenario.story} run {index}/{args.runs}...", flush=True)
 
-        transcript = simulate(scenario, api_key)
-        results = [(c.name, bool(c.passed(transcript)), c.why) for c in scenario.checks]
-        path = write_report(scenario, transcript, results)
+            transcript = simulate(scenario, api_key)
+            results = [(c.name, bool(c.passed(transcript)), c.why) for c in scenario.checks]
+            path = write_run(scenario, transcript, results)
 
-        passed = sum(1 for _, ok, _ in results if ok)
-        failures += len(results) - passed
-        print(f"  {passed}/{len(results)} checks — {path}")
-        for name, ok, _ in results:
-            if not ok:
-                print(f"    FAILED: {name}")
+            bad = [n for n, ok, _ in results if not ok]
+            failures += len(bad)
+            verdict = "SUCCESS" if not bad else "FAIL"
+            print(f"  {verdict} {len(results) - len(bad)}/{len(results)} -> {path}", flush=True)
+            for name in bad:
+                print(f"    BAD: {name}", flush=True)
 
     return 1 if failures else 0
 

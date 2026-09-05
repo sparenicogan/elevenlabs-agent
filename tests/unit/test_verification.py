@@ -368,3 +368,42 @@ class TestSpokenEmails:
         """Otherwise "dot" is glued into the address it was separating, and the local part
         becomes "stephanedotrichard"."""
         assert "dot" not in self._key("S-T-E-P-H-A-N-E dot R-I-C-H-A-R-D @ x dot c-h")
+
+
+class TestOneNormalisation:
+    """Comparison, lookup and fingerprinting must agree on what counts as the same answer.
+
+    They were three separate switch statements and they had drifted: the comparison folded an
+    email's case and stripped its hyphens, and the fingerprint did neither. A caller whose
+    address failed on a hyphen and repeated it spelled out therefore spent two of their three
+    attempts on one address — the exact thing counting distinct values was meant to prevent.
+    """
+
+    @pytest.mark.parametrize(
+        "factor,first,second",
+        [
+            (Factor.EMAIL, "Klaus.Mueller@Alpina-Tech.CH", "klaus.mueller@alpinatech.ch"),
+            (Factor.PHONE, "+41 44 501 22 18", "044 501 22 18"),
+            (Factor.DATE_OF_BIRTH, "12 March 1974", "1974-03-12"),
+        ],
+    )
+    def test_the_three_users_agree_on_one_value(self, factor, first, second):
+        from src.domain.verification import fingerprint, lookup_key, normalise
+
+        assert normalise(factor, first) == normalise(factor, second)
+        assert fingerprint(factor, first, "salt") == fingerprint(factor, second, "salt")
+        if factor is not Factor.DATE_OF_BIRTH:
+            # A date is never looked up: thousands of people share one.
+            assert lookup_key(factor, first) == lookup_key(factor, second)
+
+    def test_two_different_answers_stay_different(self):
+        from src.domain.verification import fingerprint, normalise
+
+        assert normalise(Factor.EMAIL, "a@x.ch") != normalise(Factor.EMAIL, "b@x.ch")
+        assert fingerprint(Factor.EMAIL, "a@x.ch", "s") != fingerprint(Factor.EMAIL, "b@x.ch", "s")
+
+    def test_a_factor_with_no_rule_is_still_folded(self):
+        """The customer id, and anything added later, rather than falling through raw."""
+        from src.domain.verification import normalise
+
+        assert normalise(Factor.CUSTOMER_ID, "  445909044455 ") == "445909044455"
