@@ -121,3 +121,30 @@ class TestConfigurability:
 
     def test_nothing_offered_is_never_enumeration(self):
         assert is_enumerating({}, ALLOWANCE) is None
+
+
+class TestOneImplementation:
+    """It was written twice, once in each endpoint that takes an answer, and the copies had
+    begun to differ in what they recorded. A rule that holds on one path and not the other is
+    not a rule."""
+
+    def test_both_endpoints_call_the_same_function(self):
+        import inspect
+
+        from src.handlers import check_factor, verify_identity
+
+        for module in (check_factor, verify_identity):
+            source = inspect.getsource(module)
+            assert "guessing.record_and_check" in source
+            # No local copy left behind to drift again.
+            assert "is_enumerating(" not in source
+
+    def test_it_records_before_it_decides(self):
+        """A caller must not learn from the attempt that stops them whether it was right, so
+        the value is counted before anything is compared."""
+        import inspect
+
+        from src.common import guessing
+
+        source = inspect.getsource(guessing.record_and_check)
+        assert source.index("record_factor_attempts") < source.index("is_enumerating")

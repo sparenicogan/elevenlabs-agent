@@ -12,7 +12,7 @@ from typing import Any
 
 from src.adapters import dynamo, secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import auth, conversation_state, identity
+from src.common import auth, conversation_state, guessing, identity
 from src.common import logging as log
 from src.common.conversation_state import VerificationStatus as ConversationVerification
 from src.domain import policy as policy_module
@@ -22,7 +22,6 @@ from src.domain.verification import (
     VerificationStatus,
     check_factors,
     fingerprint,
-    is_enumerating,
 )
 
 IDENTITY_TABLE = "customer-identity"
@@ -79,8 +78,8 @@ def _verify(conversation_id: str, body: dict) -> dict:
 
     # Checked before the answers are evaluated. A caller working through values must not be
     # able to learn which of them was right on the attempt that stops them.
-    enumerated, offered_new = _check_for_enumeration(
-        conversation_id, contact_id, supplied, settings
+    enumerated, offered_new = guessing.record_and_check(
+        conversation_id, supplied, settings, contact_id
     )
     if enumerated:
         return _body(VerificationStatus.LOCKED, 0, settings.required_factor_count, False)
@@ -212,68 +211,6 @@ def _wrong_fingerprints(supplied: dict[Factor, str], outcome) -> dict[str, str]:
         for factor in outcome.mismatched_factors
         if factor in supplied
     }
-
-
-def _check_for_enumeration(
-    conversation_id: str,
-    contact_id: str | None,
-    supplied: dict[Factor, str],
-    settings,
-) -> tuple[bool, bool]:
-    """
-    Records what has been offered for each field and decides whether the caller is guessing.
-
-    conversation_id: the call.
-    contact_id:      the person, where one was resolved. A caller who matches nobody still
-                     produces signals; they belong to the conversation.
-    supplied:        this attempt's answers.
-    settings:        policy, for the allowance.
-
-    Returns: (whether a field exceeded the allowance, whether this call offered any value not
-             already seen). The second is what stops a resent wrong answer being counted as a
-             fresh failure.
-
-    One correction is human. A third distinct value for the same field is someone working
-    through possibilities, and the difference matters more than any single wrong answer does
-    (FR-006a).
-    """
-    if not supplied:
-        return False, False
-
-    salt = secrets.get("verification/attempt-salt")
-    counts, offered_new = conversation_state.record_factor_attempts(
-        conversation_id,
-        {factor.value: fingerprint(factor, value, salt) for factor, value in supplied.items()},
-    )
-
-    offending = is_enumerating(
-        {Factor(field): count for field, count in counts.items()},
-        settings.guessing_max_distinct_values,
-    )
-    if not offending:
-        return False, offered_new
-
-    conversation_state.record_risk_signal(
-        RiskSignal(
-            signal_type=SignalType.SUSPECTED_GUESSING,
-            # A count and a field name. Never what was offered — recording the guesses would
-            # defeat the point of fingerprinting them.
-            evidence=(
-                f"{counts[offending.value]} distinct values offered for {offending.value}, "
-                f"allowance is {settings.guessing_max_distinct_values}"
-            ),
-            conversation_id=conversation_id,
-            customer_id=contact_id,
-        )
-    )
-    log.info(
-        "suspected guessing",
-        conversation_id=conversation_id,
-        customer_id=contact_id or "",
-        status="LOCKED",
-        attempt=counts[offending.value],
-    )
-    return True, offered_new
 
 
 def _parse_factors(body: dict) -> dict[Factor, str]:
