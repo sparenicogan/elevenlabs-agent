@@ -17,16 +17,13 @@ from typing import Any
 
 from src.adapters import secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import auth, conversation_state, identity, validation
+from src.common import auth, conversation_state, guessing, identity, validation
 from src.common import logging as log
 from src.domain import policy as policy_module
-from src.domain.risk import RiskSignal, SignalType
 from src.domain.verification import (
     Factor,
     ambiguous_date,
     check_factors,
-    fingerprint,
-    is_enumerating,
 )
 
 CHECKABLE = {Factor.EMAIL, Factor.PHONE, Factor.DATE_OF_BIRTH}
@@ -78,7 +75,13 @@ def _check(conversation_id: str, factor: Factor, value: str, settings) -> dict:
     # birth through this endpoint and tripped nothing, because only verify_identity was
     # counting and they never reached it. Checking each detail separately is what made that
     # possible, so it is what has to count.
-    if _is_guessing(conversation_id, factor, value, settings):
+    enumerating, _ = guessing.record_and_check(
+        conversation_id,
+        {factor: value},
+        settings,
+        conversation_state.resolved_contact(conversation_id),
+    )
+    if enumerating:
         log.info("conversation locked", conversation_id=conversation_id, status="LOCKED")
         return {"status": "LOCKED", "field": factor.value}
 
@@ -112,47 +115,6 @@ def _check(conversation_id: str, factor: Factor, value: str, settings) -> dict:
         status="MATCHED" if matched else "NOT_MATCHED",
     )
     return {"status": "MATCHED" if matched else "NOT_MATCHED", "field": factor.value}
-
-
-def _is_guessing(conversation_id: str, factor: Factor, value: str, settings) -> bool:
-    """
-    Records the value and decides whether the caller has moved to trying possibilities.
-
-    conversation_id: the call.
-    factor:          which detail.
-    value:           what the caller said.
-    settings:        policy, for the allowance.
-
-    Returns: whether this field has now exceeded it.
-
-    Per field and by distinct value, matching verify_identity: correcting a mistyped email
-    must not consume the allowance for a date of birth, and the same wrong answer repeated is
-    one attempt however many times it arrives.
-    """
-    salt = secrets.get("verification/attempt-salt")
-    counts, _ = conversation_state.record_factor_attempts(
-        conversation_id, {factor.value: fingerprint(factor, value, salt)}
-    )
-
-    offending = is_enumerating(
-        {Factor(field): count for field, count in counts.items()},
-        settings.guessing_max_distinct_values,
-    )
-    if not offending:
-        return False
-
-    conversation_state.record_risk_signal(
-        RiskSignal(
-            signal_type=SignalType.SUSPECTED_GUESSING,
-            evidence=(
-                f"{counts[offending.value]} distinct values offered for {offending.value}, "
-                f"allowance is {settings.guessing_max_distinct_values}"
-            ),
-            conversation_id=conversation_id,
-            customer_id=conversation_state.resolved_contact(conversation_id),
-        )
-    )
-    return True
 
 
 def _compares(contact_id: str | None, factor: Factor, value: str) -> bool:
