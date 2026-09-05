@@ -17,7 +17,7 @@ from typing import Any
 
 from src.adapters import secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import auth, conversation_state, guessing, identity, validation
+from src.common import auth, conversation_state, guessing, http, identity, validation
 from src.common import logging as log
 from src.domain import policy as policy_module
 from src.domain.verification import (
@@ -49,15 +49,10 @@ def handler(event: dict, _context: Any = None) -> dict:
         if field not in {f.value for f in CHECKABLE}:
             raise ToolError(ErrorCategory.VALIDATION, f"not a checkable field: {field}")
 
-        return _response(200, _check(conversation_id, Factor(field), value, settings))
+        return http.respond(200, _check(conversation_id, Factor(field), value, settings))
 
     except ToolError as error:
-        log.error(
-            "check_factor failed",
-            error_category=str(error.category),
-            error_detail=error.detail,
-        )
-        return _response(200, error.to_response())
+        return http.failed("check_factor", error)
 
 
 def _check(conversation_id: str, factor: Factor, value: str, settings) -> dict:
@@ -142,11 +137,3 @@ def _compares(contact_id: str | None, factor: Factor, value: str) -> bool:
         required_count=1,
     )
     return not outcome.mismatched_factors
-
-
-def _response(code: int, body: dict) -> dict:
-    return {
-        "statusCode": code,
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body),
-    }

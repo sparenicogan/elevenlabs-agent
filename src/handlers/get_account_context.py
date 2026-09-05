@@ -17,7 +17,7 @@ from boto3.dynamodb.conditions import Key
 
 from src.adapters import dynamo, hubspot, secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import auth, conversation_state
+from src.common import auth, conversation_state, http
 from src.common import logging as log
 from src.domain import policy as policy_module
 
@@ -55,15 +55,10 @@ def handler(event: dict, _context: Any = None) -> dict:
         # conversation's own claim to be verified is not consulted.
         customer_id, display = conversation_state.verified_context(conversation_id)
 
-        return _response(200, _context_for(conversation_id, customer_id, display))
+        return http.respond(200, _context_for(conversation_id, customer_id, display))
 
     except ToolError as error:
-        log.error(
-            "get_account_context failed",
-            error_category=str(error.category),
-            error_detail=error.detail,
-        )
-        return _response(200, error.to_response())
+        return http.failed("get_account_context", error)
 
 
 def _context_for(conversation_id: str, customer_id: str, display: dict) -> dict:
@@ -203,11 +198,3 @@ def _summary(customer_id: str, max_chars: int) -> str | None:
     if not record:
         return None
     return str(record.get("summary_text", ""))[:max_chars] or None
-
-
-def _response(code: int, body: dict) -> dict:
-    return {
-        "statusCode": code,
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body),
-    }

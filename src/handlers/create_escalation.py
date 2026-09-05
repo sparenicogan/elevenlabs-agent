@@ -16,7 +16,7 @@ from typing import Any
 
 from src.adapters import hubspot, secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import audit, auth, conversation_state, validation
+from src.common import audit, auth, conversation_state, http, validation
 from src.common import logging as log
 from src.domain import policy as policy_module
 from src.domain.handoff import compose_handoff
@@ -75,15 +75,10 @@ def handler(event: dict, _context: Any = None) -> dict:
         if reason not in VALID_REASONS:
             raise ToolError(ErrorCategory.VALIDATION, f"unknown escalation reason: {reason}")
 
-        return _response(200, _escalate(conversation_id, reason, body))
+        return http.respond(200, _escalate(conversation_id, reason, body))
 
     except ToolError as error:
-        log.error(
-            "create_escalation failed",
-            error_category=str(error.category),
-            error_detail=error.detail,
-        )
-        return _response(200, error.to_response())
+        return http.failed("create_escalation", error)
 
 
 def _escalate(conversation_id: str, reason: str, body: dict) -> dict:
@@ -289,11 +284,3 @@ def _ticket(
         # (FR-025).
         log.error("ticket failed", error_category=str(error.category), status="DEGRADED")
         return None, "CRM_UNAVAILABLE_PERSISTED"
-
-
-def _response(code: int, body: dict) -> dict:
-    return {
-        "statusCode": code,
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body),
-    }

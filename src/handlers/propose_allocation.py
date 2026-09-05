@@ -16,7 +16,7 @@ from typing import Any
 
 from src.adapters import dynamo, hubspot, secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import audit, auth, conversation_state, validation
+from src.common import audit, auth, conversation_state, http, validation
 from src.common import logging as log
 from src.domain import policy as policy_module
 from src.domain.allocation import AllocationDecision, decide_allocation
@@ -44,15 +44,10 @@ def handler(event: dict, _context: Any = None) -> dict:
             raise ToolError(ErrorCategory.VALIDATION, "missing conversation_id")
 
         customer_id, display = conversation_state.verified_context(conversation_id)
-        return _response(200, _propose(conversation_id, customer_id, display, body))
+        return http.respond(200, _propose(conversation_id, customer_id, display, body))
 
     except ToolError as error:
-        log.error(
-            "propose_allocation failed",
-            error_category=str(error.category),
-            error_detail=error.detail,
-        )
-        return _response(200, error.to_response())
+        return http.failed("propose_allocation", error)
 
 
 def _propose(conversation_id: str, customer_id: str, display: dict, body: dict) -> dict:
@@ -284,11 +279,3 @@ def _log_interaction(display: dict, invoice: dict, payment: dict, ticket_id: str
         )
     except ToolError as error:
         log.error("interaction not logged", error_category=str(error.category), status="DEGRADED")
-
-
-def _response(code: int, body: dict) -> dict:
-    return {
-        "statusCode": code,
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body),
-    }
