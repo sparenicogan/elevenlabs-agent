@@ -150,15 +150,19 @@ def _escalate(conversation_id: str, reason: str, body: dict) -> dict:
     )
 
     return {
+        # First, and named for the act rather than the fact. Saying this before the transfer
+        # is what makes the promise survive the transfer failing, and the agent skipped it
+        # about half the time while it sat last in the response under a descriptive name.
+        # Ordering and naming are still only tendencies -- they move the odds, they do not
+        # close the gap (S12.58). The callback itself is already recorded either way, which
+        # is the part that does not depend on the model remembering anything.
+        "say_before_transferring": (
+            "A colleague has the details and will call you back if we get cut off."
+        ),
         "status": ticket_status,
         "ticket_id": ticket_id,
         "handoff_summary": handoff,
         "callback_created": callback_created,
-        # Said to the caller before transferring, so the promise survives the transfer
-        # failing. It is true either way: a person has the context and will call back.
-        "safe_to_promise": (
-            "A colleague has the details and will call you back if we get cut off."
-        ),
     }
 
 
