@@ -471,6 +471,52 @@ tickets carry a note saying they were applied, and running the applier again wri
 ---
 
 
+### User Story 10 - A question that needs no account (Priority: P10)
+
+Somebody rings to ask what the standard payment terms are. They may not be a customer yet. Nothing
+about the answer depends on who they are, so nothing about the call should.
+
+**Why this priority**: It is the cheapest call the agent will ever take and the easiest to get
+wrong in the direction nobody notices. An agent that verifies by reflex turns a ten-second answer
+into a two-minute interrogation, and the caller who gives up is invisible in every metric except
+the ones that matter.
+
+**Independent Test**: Ask for the standard payment terms without offering any identifying detail.
+Confirm the answer is 30 days, that identification is never requested, and that no account tool is
+called.
+
+**Acceptance Scenarios**:
+
+1. **Given** a caller asking a question answerable without a lookup, **When** they ask it, **Then**
+   the agent answers and does not ask who they are.
+2. **Given** the same call, **When** it ends, **Then** no tool that reads customer records was
+   called, because there was nothing to read.
+3. **Given** a caller who asks a general question and then asks about their own invoice, **When**
+   they do, **Then** verification starts at that point and not before.
+
+### User Story 11 - A colleague finds the work already in hand (Priority: P11)
+
+A second person from a company rings about the reminder their colleague already called about. The
+agent finds the open ticket and says so, rather than taking the problem down a second time.
+
+**Why this priority**: Two tickets for one problem means two people working it and two different
+answers reaching the same customer. It is also the moment a company either looks like it has one
+memory or several.
+
+**Independent Test**: Raise a dispute on one call, then ring as a different verified contact on the
+same account and ask about the same invoice. Confirm the caller is told it is already being dealt
+with, that no second ticket is created, and that being a colleague of somebody verified confers
+nothing until they verify themselves.
+
+**Acceptance Scenarios**:
+
+1. **Given** an open escalation on the account, **When** a different contact rings about the same
+   matter, **Then** they are told it is already in hand and roughly when they will hear back.
+2. **Given** the same call, **When** it ends, **Then** no second escalation was created.
+3. **Given** a caller who is a colleague of somebody already verified, **When** they ask about the
+   account, **Then** they verify with their own details first, because the gate does not know what
+   a colleague is and must not be asked to.
+
 ## Requirements *(mandatory)*
 
 ### Disclosure and verification

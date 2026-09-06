@@ -1790,3 +1790,31 @@ the surface it costs.
 
 The ten years still applies where FR-038a puts it -- the performance table, which has no TTL
 and holds cost, tokens, sentiment, latency, outcome and per-tool timings for every call.
+
+### 12.60 Verification is triggered by the lookup, not by the topic
+
+The prompt opened every call the same way: understand the request, then start verification.
+The exemption was one line naming opening hours and transfers, so anything not on that short
+list fell through to asking for identity. A caller asking what the standard payment terms are
+was made to prove who they were before hearing a number that is the same for every customer
+and printed on every invoice.
+
+The rule is now the one the backend already enforces: **if answering means calling a tool that
+reads this company's records, verify first; if it does not, answer.** That is not a softening
+of the gate. Every one of those tools refuses an unverified conversation server-side and still
+does. What changed is that the agent no longer asks for identification it has no use for.
+
+Payment terms are in the prompt now -- 30 days from the invoice date, matching
+`PAYMENT_TERMS_DAYS` in the fixtures, so a general answer cannot contradict the ledger.
+
+`open_escalations` gets an instruction too: when a colleague has already raised what this
+caller is ringing about, say so rather than raising a second ticket. `get_account_context`
+returned that field all along and the prompt never mentioned it.
+
+Two scenarios were added for the two cases, US10 and US11 -- US9 is the
+applier story and was already taken. Neither has an acceptance scenario
+in the spec, because neither was imagined: they came from asking what somebody does before
+they are a customer, and what the second person from one company hears.
+
+Nothing in the backend changed. Both behaviours were already possible and simply never asked
+for.

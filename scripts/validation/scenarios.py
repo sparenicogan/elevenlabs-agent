@@ -18,6 +18,12 @@ KLAUS = (
     "Answer questions directly and give details when asked."
 )
 
+THOMAS = (
+    "You are Thomas Weber from Alpina Tech. Your email is thomas.weber@alpina-tech.ch, "
+    "your phone is 044 407 76 73, and you were born on the 3rd of September 1981. "
+    "Answer questions directly and give details when asked."
+)
+
 MARCO = (
     "You are Marco Rossi from Ticino Industries. Your email is marco.rossi@ticino-ind.ch, "
     "your phone is 091 604 77 31, and you were born on the 2nd of November 1981. "
@@ -49,6 +55,24 @@ class Scenario:
 
 def _no_amount_before(transcript, tool: str) -> bool:
     return not transcript.mentions_money(transcript.said_before_tool(tool))
+
+
+# Phrases that only appear when the agent is asking somebody to prove who they are. Matched on
+# the agent's words rather than on a tool call, because the failure being watched for is the
+# question itself -- asking and then not checking is the same rudeness.
+_ASKED_FOR_IDENTITY = (
+    "confirm your identity",
+    "verify your identity",
+    "confirm who you are",
+    "date of birth",
+    "your email address",
+    "identify yourself",
+)
+
+
+def _asked_for_identity(transcript) -> bool:
+    said = transcript.agent_said.lower()
+    return any(phrase in said for phrase in _ASKED_FOR_IDENTITY)
 
 
 SCENARIOS = [
@@ -251,5 +275,73 @@ SCENARIOS = [
                 "A person corrects it.",
             ),
         ],
+    ),
+    Scenario(
+        story="US10",
+        title="A general question needs no identification",
+        persona=KLAUS
+        + " You are not calling about your own account. You just want to know the company's "
+        "standard payment terms before you send a purchase order.",
+        opening="Quick question — what are your standard payment terms?",
+        turns=6,
+        checks=[
+            Check(
+                "the answer is thirty days",
+                lambda t: "30" in t.agent_said or "thirty" in t.agent_said.lower(),
+                "It is the same for every customer and needs no lookup. An agent that cannot "
+                "answer it sends the caller to a person for something on the website.",
+            ),
+            Check(
+                "identification is never asked for",
+                lambda t: not _asked_for_identity(t),
+                "Nothing was looked up, so there was nothing to protect. Asking anyway wastes "
+                "the part of the call the caller rang for and makes an ordinary question "
+                "sound like a serious one.",
+            ),
+            Check(
+                "no account tool is called",
+                lambda t: not (set(t.tools_called()) & {"get_account_context", "verify_identity"}),
+                "The gate is not the point here -- a tool call that never needed to happen is.",
+            ),
+        ],
+        notes="The case the prompt did not cover, found by asking what somebody does before "
+        "they are a customer.",
+    ),
+    Scenario(
+        story="US11",
+        title="A colleague hears that the dispute is already in hand",
+        persona=THOMAS
+        + " You are calling about an overdue invoice reminder your company received. A "
+        "colleague of yours already rang about the same invoice earlier. You do not know "
+        "what came of it.",
+        opening="We've had a reminder about an overdue invoice, but I believe someone here "
+        "already called about it.",
+        turns=16,
+        checks=[
+            Check(
+                "he is told it is already being dealt with",
+                lambda t: any(
+                    phrase in t.agent_said.lower()
+                    for phrase in ("already", "under review", "in hand", "being looked", "raised")
+                ),
+                "A colleague raised it, so the work exists. Making him explain it again is how "
+                "a company looks like it has lost the thread.",
+            ),
+            Check(
+                "no second ticket is raised for it",
+                lambda t: t.tools_called().count("create_escalation") == 0,
+                "Two tickets for one problem means two people working it and two different "
+                "answers reaching the customer.",
+            ),
+            Check(
+                "he is verified before hearing anything about the account",
+                lambda t: not t.mentions_money(t.said_before_tool("verify_identity")),
+                "Being a colleague of somebody verified is not being verified. The gate does "
+                "not know the difference and must not be asked to.",
+            ),
+        ],
+        notes="The simulator fabricates tool results, so this shows what the agent does when "
+        "told a review is open -- not that the HubSpot lookup finds one. The integration "
+        "suite covers the real path.",
     ),
 ]
