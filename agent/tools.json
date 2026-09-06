@@ -142,7 +142,7 @@
   {
     "type": "webhook",
     "name": "propose_allocation",
-    "description": "Propose that a matched payment be allocated to an invoice. Call this only after match_payment returned MATCH. It does not settle the invoice: it puts the payment under review for a person to confirm, creates a ticket and logs the interaction. Tell the caller a person will confirm it within 24 hours.",
+    "description": "Propose that a matched payment be allocated to an invoice. Call this only after match_payment returned MATCH, and before you tell the caller anything about the outcome \u2014 nothing is under review until this returns. It does not settle the invoice: it puts the payment under review for a person to confirm, creates a ticket and logs the interaction. Returns UNDER_REVIEW, or ALREADY_UNDER_REVIEW when a colleague raised the same payment earlier, which is not the same thing and must not be described as something you just did.",
     "response_timeout_secs": 5,
     "force_pre_tool_speech": true,
     "pre_tool_speech": "auto",
@@ -177,7 +177,7 @@
   {
     "type": "webhook",
     "name": "request_credit",
-    "description": "Ask for a goodwill credit against a specific charge. Evaluates eligibility and issues it in one step. Returns GRANTED, or a denial reason. On any denial, say a colleague will review it and give a neutral reason \u2014 never suggest the caller has asked too often and never imply anything about their honesty.",
+    "description": "Ask for a goodwill credit against a specific charge. Records the request and returns REQUESTED when the rules permit it, or a denial reason. It does not issue anything: a person decides, and nothing exists until this call returns. Call it before you tell the caller a credit has been requested \u2014 saying so without calling this leaves them expecting a colleague who will never see it. On any denial, say a colleague will review it and give a neutral reason: never suggest the caller has asked too often and never imply anything about their honesty.",
     "response_timeout_secs": 5,
     "force_pre_tool_speech": true,
     "pre_tool_speech": "auto",
@@ -217,7 +217,7 @@
   {
     "type": "webhook",
     "name": "create_escalation",
-    "description": "Hand the call to a person, with context so the caller does not repeat themselves. Call this before transferring, always. It works even when the caller could not be verified \u2014 use reason IDENTITY_NOT_ESTABLISHED and put what they told you in caller_stated_problem. Returns a handoff summary to pass to the human.",
+    "description": "Hand the call to a person, with context so the caller does not repeat themselves. Call this before transferring, always, and before promising anyone will be in touch \u2014 the callback is recorded here and nowhere else. It works even when the caller could not be verified: use reason IDENTITY_NOT_ESTABLISHED and put what they told you in caller_stated_problem. Returns a handoff summary to pass to the human.",
     "response_timeout_secs": 5,
     "force_pre_tool_speech": true,
     "pre_tool_speech": "auto",

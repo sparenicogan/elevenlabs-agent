@@ -1900,6 +1900,38 @@ It is still a tendency, not a control. The address question cannot be enforced b
 because nothing about it is a write. What can be said is that the model is no longer being
 handed its closing line before its last instruction.
 
+### 12.65 The tool description contradicted the tool
+
+On conv_7001m1vfzm2bf86s9f1cthd1n3bn the agent told a caller three times that a credit of a
+hundred francs had been requested and a colleague would follow up. `request_credit` was never
+called. No ticket exists for that company. The caller rang off believing something was in
+motion, and nothing was.
+
+The prompt already forbids this in as many words -- "Never say an action succeeded unless the
+tool said so" -- and it lost anyway. Strengthening it is not a fix; the sentence is already
+unambiguous.
+
+What was fixable is that **the model was reading two contradictory instructions**.
+`request_credit`'s tool description said "Evaluates eligibility and issues it in one step.
+Returns GRANTED". It does neither. It records a request and returns REQUESTED, a distinction
+the handler comments on directly -- "REQUESTED, never GRANTED: the rules permit it, and nothing
+has been given yet." GRANTED is a domain outcome meaning the rules allow it, deliberately never
+put on the wire. The description had been stale since credits stopped being granted on the
+call.
+
+A tool description is read at the moment of deciding whether to call, closer to the decision
+than the prompt. Told the tool *issues* credits while the prompt says it only asks for them,
+describing a request rather than invoking an issuing tool is a coherent thing to do. The three
+action tools now say what they return and where the call sits relative to the sentence, and a
+test holds the description to the wire contract.
+
+**There is no setting that forces a tool call.** `pre_tool_speech: force` -- which replaced the
+deprecated `force_pre_tool_speech` -- only guarantees the agent speaks before the tool executes.
+It cuts dead air and couples the announcement to the execution, but a model that never calls
+the tool never reaches it. The honest position is that the reasons not to call can be removed
+and the recovery can be guaranteed; the call itself cannot be compelled. The recovery half is
+not built: post_call has the transcript and the tool calls and could raise a callback when an
+action was promised and never taken, the way it already does for a failed transfer.
 ### 12.64 The agent has been speaking Italian through an English-only voice model
 
 Heard on conv_4001m1vfkr1cf50b2t5qvmnrbpde: the Italian was fluent but the accent was wrong,
