@@ -1901,33 +1901,39 @@ because nothing about it is a write. What can be said is that the model is no lo
 handed its closing line before its last instruction.
 
 
-### 12.64 The agent has been speaking Italian through an English-only voice model
+### 12.64 The voice model is chosen per call, and it was already right
 
-Heard on conv_4001m1vfkr1cf50b2t5qvmnrbpde: the Italian was fluent but the accent was wrong,
-most audibly on the first word of each sentence.
+Superseded by evidence. The original entry claimed the agent had been speaking Italian through
+an English-only TTS model, and set `tts.model_id` to `eleven_turbo_v2_5` to fix it. That was
+wrong twice over.
 
-`conversation_config.tts.model_id` was `eleven_turbo_v2`. Asking the models endpoint how many
-languages that supports returns **one**: English. Every German, French and Italian call this
-project has ever made was rendered through an English phoneme set. `eleven_turbo_v2_5` covers
-32 languages at the same latency, and is now what agent.json declares.
+**It broke the pipeline.** The API refuses the change outright -- "English Agents must use turbo
+or flash v2" -- so three merges in a row reached main and none of them reached AWS or
+ElevenLabs. A failed deploy is silent: main moves on, the agent does not, and the only symptom
+is a caller hearing an old prompt.
 
-The multilingual work was never wrong -- the prompts, the language detection, the greeting from
-the calling number all did their job. The voice on the other end of them could not pronounce
-the result. It is worth naming how long that went unnoticed: every test until now was in
-English, and the one property no test asserts is what the call sounded like.
+**And there was nothing to fix.** ElevenLabs picks the model from the *conversation's* language,
+not from a setting. Two real German phone calls on record used `eleven_turbo_v2_5`; the English
+ones used `eleven_turbo_v2`. The switch has been working all along, per the documented
+behaviour that additional languages move a call to the multilingual model while English stays
+on v2.
 
-**Verbosity, same call.** Four paragraphs where one would do: the caller's own words repeated
-back, then an explanation of what the agent could not see, then an offer, then a second offer.
-The tone section said "brief"; brief is not a measurable instruction. It now says one or two
-sentences, do not repeat back what they just told you, and do not narrate what you cannot see
-or do.
+**What the accent actually was.** The Italian and French calls that sounded wrong were browser
+widget sessions. The widget carries no calling number, so `conversation_init` had nothing to
+choose a language from and the conversation stayed English. The model then produced Italian
+text, which an English voice read out. `main_language=en` and `primary_tts_model=eleven_turbo_v2`
+on both, against `de` and `eleven_turbo_v2_5` on the phone calls.
 
-**And it read a twelve-digit ticket number aloud**, in the one branch whose prompt already says
-"Do not read out the ticket identifier". The instruction is there and was ignored, which makes
-it a tendency and not worth strengthening. The control is available: the agent uses
-`request_credit`'s `ticket_id` for nothing -- only `propose_allocation`'s is ever passed back,
-as `existing_ticket_id` -- so removing it from the response makes reading it out impossible.
-That is a contract change and is not taken here.
+So the language presets for de, fr and it are not a fallback to be removed -- they are what
+tells ElevenLabs the agent handles those languages at all. Deleting them would make every call
+English permanently.
+
+The verbosity work from the same change stands and is untouched: one or two sentences, do not
+repeat back what the caller just said, do not narrate what you cannot see or do.
+
+A test now refuses any multilingual model while the agent's primary language is English, since
+the failure mode is a deploy that stops without anybody noticing.
+
 ### 12.65 The tool description contradicted the tool
 
 On conv_7001m1vfzm2bf86s9f1cthd1n3bn the agent told a caller three times that a credit of a

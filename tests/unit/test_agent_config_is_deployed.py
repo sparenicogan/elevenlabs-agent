@@ -89,3 +89,26 @@ class TestToolDescriptionsTellTheTruth:
         where the call sits relative to the sentence."""
         for name in ("request_credit", "propose_allocation", "create_escalation"):
             assert "before" in self.TOOLS[name]["description"].lower(), name
+
+
+class TestTheVoiceModelMatchesThePrimaryLanguage:
+    """The API refuses a multilingual TTS model on an agent whose primary language is English:
+    "English Agents must use turbo or flash v2." Setting one broke every deploy for twenty
+    minutes, and a broken deploy is silent -- main moves on, the agent does not.
+
+    Multilingual is not configured here. de, fr and it are additional languages on the agent,
+    and ElevenLabs switches those calls to the v2.5 multilingual model itself."""
+
+    ENGLISH_ONLY_MODELS = ("eleven_turbo_v2", "eleven_flash_v2")
+
+    def test_an_english_agent_uses_a_v2_model(self):
+        config = AGENT["conversation_config"]
+        if config["agent"].get("language") == "en":
+            assert config["tts"]["model_id"] in self.ENGLISH_ONLY_MODELS, (
+                "the sync will 400 with 'English Agents must use turbo or flash v2'"
+            )
+
+    def test_the_model_is_not_chosen_per_language_here(self):
+        """Anything that looks like an attempt to pick the multilingual model by hand."""
+        assert "_2_5" not in AGENT["conversation_config"]["tts"]["model_id"]
+        assert "multilingual" not in AGENT["conversation_config"]["tts"]["model_id"]
