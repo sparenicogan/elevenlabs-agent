@@ -381,3 +381,54 @@ class TestTestTrafficIsSeparable:
         """Not reduced to a flag: the same widget is a real channel on another deployment,
         and that judgement belongs to whoever reads the numbers."""
         assert self._row(stubs, "some_future_channel")["channel"] == "some_future_channel"
+
+
+class TestTheEnvelopeElevenLabsActuallySends:
+    """The webhook was auto-disabled after a week of 400s. ElevenLabs wraps the conversation
+    as {"type", "event_timestamp", "data": {...}} and the handler read conversation_id from
+    the top level, so every real delivery was refused -- silently, because the 400 logged
+    nothing. CloudWatch showed a quiet endpoint rather than a failing one.
+
+    Every test here posted the conversation flat, which is why the suite stayed green while
+    nothing real ever got in."""
+
+    @staticmethod
+    def _wrapped(payload, event="post_call_transcription"):
+        return {"type": event, "event_timestamp": 1739537297, "data": payload}
+
+    def test_a_wrapped_delivery_is_processed(self, stubs):
+        status, body = call(stubs, self._wrapped(PAYLOAD))
+        assert status == 200
+        assert body["status"] == "OK"
+        assert stubs["put_if_absent"].call_args.args[1]["conversation_id"] == "conv_1"
+
+    def test_a_flat_delivery_still_works(self, stubs):
+        """The integration suite posts the conversation directly. Both shapes are accepted so
+        the fix does not trade one blind spot for another."""
+        status, body = call(stubs, PAYLOAD)
+        assert status == 200
+        assert body["status"] == "OK"
+
+    def test_an_event_type_we_do_not_handle_is_accepted_not_refused(self, stubs):
+        """A 400 counts as a failure, and ten consecutive failures disable the webhook. An
+        audio event must not be able to switch off transcription."""
+        status, body = call(stubs, self._wrapped(PAYLOAD, event="post_call_audio"))
+        assert status == 200
+        assert body["status"] == "IGNORED"
+        stubs["put_if_absent"].assert_not_called()
+
+    def test_a_delivery_with_no_conversation_id_is_logged(self, stubs):
+        """It was refused silently for a week. Whatever else it does, it has to be visible."""
+        status, body = call(stubs, self._wrapped({"metadata": {}}))
+        assert status == 400
+        assert body["status"] == "NO_CONVERSATION_ID"
+
+    def test_the_signature_covers_the_whole_envelope(self, stubs):
+        """The HMAC is over the raw body, so unwrapping happens after verification and a
+        wrapped payload signed correctly still passes."""
+        status, _ = call(stubs, self._wrapped(PAYLOAD))
+        assert status == 200
+        body = json.dumps(self._wrapped(PAYLOAD))
+        assert (
+            call(stubs, self._wrapped(PAYLOAD), signature=_signed(body, secret="wrong"))[0] == 401
+        )
