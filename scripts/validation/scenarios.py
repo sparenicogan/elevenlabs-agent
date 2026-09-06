@@ -277,7 +277,7 @@ SCENARIOS = [
         ],
     ),
     Scenario(
-        story="US9",
+        story="US10",
         title="A general question needs no identification",
         persona=KLAUS
         + " You are not calling about your own account. You just want to know the company's "
@@ -304,11 +304,11 @@ SCENARIOS = [
                 "The gate is not the point here -- a tool call that never needed to happen is.",
             ),
         ],
-        notes="Deliberately has no acceptance scenario in the spec: it is the case the prompt "
-        "did not cover, found by asking what a caller does before they are a customer.",
+        notes="The case the prompt did not cover, found by asking what somebody does before "
+        "they are a customer.",
     ),
     Scenario(
-        story="US10",
+        story="US11",
         title="A colleague hears that the dispute is already in hand",
         persona=THOMAS
         + " You are calling about an overdue invoice reminder your company received. A "

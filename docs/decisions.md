@@ -1811,7 +1811,8 @@ Payment terms are in the prompt now -- 30 days from the invoice date, matching
 caller is ringing about, say so rather than raising a second ticket. `get_account_context`
 returned that field all along and the prompt never mentioned it.
 
-Two scenarios were added for the two cases, US9 and US10. Neither has an acceptance scenario
+Two scenarios were added for the two cases, US10 and US11 -- US9 is the
+applier story and was already taken. Neither has an acceptance scenario
 in the spec, because neither was imagined: they came from asking what somebody does before
 they are a customer, and what the second person from one company hears.
 
