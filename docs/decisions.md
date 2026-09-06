@@ -1985,3 +1985,32 @@ the same thing -- which is a way of asking it to guess.
 
 The same failure produced §12.61: a rule and a list that could disagree. Duplication in a prompt
 is not redundancy, it is ambiguity.
+
+### 12.67 Two bugs the first end-to-end run found
+
+The applier ran for real for the first time: two tickets closed as Accepted, one credit and one
+allocation, both written to the ledger correctly. `pay_00417_disputed` moved to ALLOCATED
+carrying its ticket id, and `cn_432000634091` appeared as a HUMAN_ACCEPTED credit note. The loop
+works.
+
+It also reported both of them as failures.
+
+**No note this project has ever written reached HubSpot.** `/crm/v3/objects/notes` requires
+`hs_timestamp` and both callers sent only `hs_note_body`, so every attempt was refused with a
+400. The ledger write comes first and succeeded, then the note raised, so the run counted
+`applied: 0, failed: 1` while the money had in fact moved. Anybody reading those counters would
+have concluded the exact opposite of what happened.
+
+The same call is `log_interaction`, so the per-call CRM record in FR-044 has never existed
+either. Both now go through one helper that sends the timestamp, and a test asserts the format
+rather than merely that a note was attempted.
+
+**An allocated payment left its invoice overdue.** `_allocate` moved the payment and stopped.
+The invoice it settled kept `status: OVERDUE`, so `get_account_context` would offer it again and
+the next caller would be told the thing they rang about last week was still outstanding -- the
+one outcome the whole journey exists to prevent. The invoices named on the ticket are now
+settled in the same run, conditional on not already being PAID so a repeat run writes once.
+
+Both were invisible to every test layer. The contract tests stub HubSpot, so a 400 from the real
+API had nowhere to appear; the integration tests exercise our endpoints, not a ticket closed by a
+person hours later. Only a human closing a real ticket could have surfaced either.

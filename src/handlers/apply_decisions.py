@@ -196,6 +196,29 @@ def _allocate(ticket: dict) -> str:
     if moved is None:
         return "already_applied"
 
+    # The invoices the payment covers are settled in the same run. Without this the payment
+    # reads ALLOCATED while the invoice it paid still reads OVERDUE, so the next caller is
+    # told the thing they rang about last week is still outstanding -- which is the one
+    # outcome the whole journey exists to prevent. Conditional on not already being PAID, so
+    # a repeat run and a concurrent applier both write once.
+    for invoice_id in invoice_ids:
+        dynamo.update_if(
+            LEDGER_TABLE,
+            {"customer_id": customer_id, "entry_id": invoice_id},
+            condition="#s <> :paid",
+            UpdateExpression=(
+                "SET #s = :paid, settled_by_entry_id = :payment, source_ticket_id = :ticket, "
+                "decision_source = :source"
+            ),
+            ExpressionAttributeNames={"#s": "status"},
+            ExpressionAttributeValues={
+                ":paid": "PAID",
+                ":payment": payment_id,
+                ":ticket": ticket_id,
+                ":source": "HUMAN_ACCEPTED",
+            },
+        )
+
     audit.write(
         audit.AuditEvent(
             action="apply_allocation",
