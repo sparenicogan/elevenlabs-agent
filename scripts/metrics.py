@@ -52,6 +52,28 @@ def _recent(days: int) -> list[dict]:
             return records
 
 
+def _medium(record: dict) -> str:
+    """Whether somebody phoned in or used the web widget. Both are real interactions."""
+    return "phone" if record.get("is_phone_call") else "web"
+
+
+def _counts(records: list[dict]) -> dict[str, int]:
+    """How many interactions arrived by each medium."""
+    counts: dict[str, int] = {}
+    for record in records:
+        medium = _medium(record)
+        counts[medium] = counts.get(medium, 0) + 1
+    return counts
+
+
+def _split(records: list[dict]) -> str:
+    """The medium breakdown as a phrase, or nothing when they all came the same way."""
+    counts = _counts(records)
+    if len(counts) < 2:
+        return ""
+    return " (" + ", ".join(f"{n} {medium}" for medium, n in sorted(counts.items())) + ")"
+
+
 def main() -> int:
     """
     Prints the rates for the period.
@@ -63,18 +85,19 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", type=int, default=30)
     parser.add_argument("--json", action="store_true")
-    # Browser sessions are testing on this deployment, and there are six times as many of
-    # them as real calls. Averaged together they describe nobody.
+    # Everything counts. The medium is reported rather than filtered on, because a web
+    # session is a real interaction and leaving it out would describe a quieter, tidier
+    # service than the one running.
     parser.add_argument(
-        "--include-test-traffic",
-        action="store_true",
-        help="count widget sessions as well as phone calls",
+        "--medium",
+        choices=("phone", "web"),
+        help="narrow to one medium; the default counts both",
     )
     args = parser.parse_args()
 
     records = _recent(args.days)
-    if not args.include_test_traffic:
-        records = [r for r in records if r.get("is_phone_call")]
+    if args.medium:
+        records = [r for r in records if _medium(r) == args.medium]
     rates = derive([from_record(r) for r in records])
 
     if args.json:
@@ -82,8 +105,8 @@ def main() -> int:
             json.dumps(
                 {
                     "days": args.days,
-                    "calls": len(records),
-                    "phone_calls_only": not args.include_test_traffic,
+                    "interactions": len(records),
+                    "by_medium": _counts(records),
                     **rates,
                 },
                 indent=2,
@@ -91,8 +114,7 @@ def main() -> int:
         )
         return 0
 
-    scope = "calls" if args.include_test_traffic else "phone calls"
-    print(f"{len(records)} {scope} in the last {args.days} days\n")
+    print(f"{len(records)} interactions in the last {args.days} days{_split(records)}\n")
     if not records:
         print("  nothing to derive from yet")
         return 0
