@@ -1,0 +1,89 @@
+{
+  "story": "US5",
+  "title": "Degradation, escalation and transfer",
+  "timestamp": "2026-09-05T09:49:34+00:00",
+  "verdict": "FAIL",
+  "checks_passed": 1,
+  "checks_total": 2,
+  "good": [
+    {
+      "behaviour": "asking for a human is enough",
+      "why_it_matters": "Do not talk them out of it."
+    }
+  ],
+  "bad": [
+    {
+      "behaviour": "the callback is promised before the transfer",
+      "why_it_matters": "A transfer can drop the call, and a promise made only afterwards is one that sometimes never gets made."
+    }
+  ],
+  "metadata": {
+    "git_commit": "abeac86",
+    "git_dirty": true,
+    "agent_id": "agent_3501m1k6hy8yech93pn3gfets2tx",
+    "prompt_chars": 16001,
+    "tools_executed": false,
+    "tool_results_are": "simulated by ElevenLabs, not returned by the deployed backend",
+    "turns": 10,
+    "tools_called": [
+      "create_escalation",
+      "transfer_to_number"
+    ]
+  },
+  "transcript": [
+    {
+      "role": "agent",
+      "message": "Helvetia Werkstoffe, accounts department. How can I help you?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "Hello, my name is Klaus Mueller from Alpina Tech.  I would like to speak to a human being, please.  I would prefer to speak with a person.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "I understand you'd prefer to speak with a person.  Before I transfer you, could you tell me briefly what this is regarding?  That way I can make sure the right colleague takes your call.",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "I would prefer to speak with a person.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "That is absolutely fine.  I will get a colleague for you right away.  I have noted your request,  and they will have the details of this call so you do not need to repeat yourself.  Let me put you through now.",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "Thank you.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "create_escalation"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "transfer_to_number"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    }
+  ]
+}

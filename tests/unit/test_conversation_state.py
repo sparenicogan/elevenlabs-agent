@@ -113,3 +113,62 @@ class TestTheGate:
             "customer_id": "CUST-99999",
         }
         assert conversation_state.require_verified("conv_1") == "CUST-99999"
+
+
+class TestStateExpiresOnItsOwn:
+    """A TTL that nothing writes the attribute for is a TTL that never fires -- the table
+    setting and the write have to be checked together or neither is real."""
+
+    def test_every_write_that_can_create_the_row_sets_an_expiry(self):
+        """There is no single place a conversation is opened, so each of these may be the
+        write that creates it. One of them forgetting means rows that never expire."""
+        import inspect
+
+        from src.common import conversation_state
+
+        source = inspect.getsource(conversation_state)
+        creators = [
+            "set_verification",
+            "record_risk_signal",
+            "record_factor_attempts",
+            "record_wrong_values",
+            "record_callback",
+            "set_resolved_contact",
+        ]
+        for name in creators:
+            body = source.split(f"def {name}(")[1].split("\ndef ")[0]
+            assert "_TOUCH" in body, f"{name} can create a row without an expiry"
+            assert '":expires"' in body, f"{name} does not bind :expires"
+
+    def test_the_table_actually_has_ttl_enabled(self):
+        import pathlib
+
+        tf = (
+            pathlib.Path(__file__).resolve().parents[2] / "infra/terraform/dynamodb.tf"
+        ).read_text()
+        conversations = tf.split('resource "aws_dynamodb_table" "conversations"')[1].split(
+            "\nresource "
+        )[0]
+        assert "ttl {" in conversations
+        assert 'attribute_name = "expires_at"' in conversations
+        assert "enabled        = true" in conversations
+
+    def test_the_permanent_record_has_no_ttl(self):
+        """The interactions table is what survives; an expiry on it would defeat the split."""
+        import pathlib
+
+        tf = (
+            pathlib.Path(__file__).resolve().parents[2] / "infra/terraform/dynamodb.tf"
+        ).read_text()
+        interactions = tf.split('resource "aws_dynamodb_table" "interactions"')[1].split(
+            "\nresource "
+        )[0]
+        assert "ttl {" not in interactions
+
+    def test_state_outlives_the_window_the_risk_rules_read(self):
+        """The credit rules still read this table over 365 days. An expiry shorter than that
+        would silently stop raising contact-frequency signals rather than fail."""
+        from src.common.conversation_state import STATE_RETENTION_DAYS
+        from src.domain.risk import HISTORY_WINDOW_DAYS
+
+        assert STATE_RETENTION_DAYS > HISTORY_WINDOW_DAYS

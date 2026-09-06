@@ -170,6 +170,58 @@ resource "aws_dynamodb_table" "conversations" {
     projection_type = "ALL"
   }
 
+  # Live call state expires on its own. Verification outcomes, lockout counters and the
+  # fingerprints of what a caller guessed are useful for minutes and a liability for months.
+  # What survives a call is written to the interactions table instead.
+  ttl {
+    attribute_name = "expires_at"
+    enabled        = true
+  }
+
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.data.arn
+  }
+}
+
+# One immutable row per completed call. Separate from conversations because the two have
+# opposite lifetimes: call state is worthless an hour later, and what a call cost, how long
+# the caller waited and whether it resolved is worth years. Sharing a row meant the only
+# available reset destroyed both.
+resource "aws_dynamodb_table" "interactions" {
+  name         = "${var.project}-interactions"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "conversation_id"
+
+  attribute {
+    name = "conversation_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "customer_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "started_at"
+    type = "S"
+  }
+
+  # Two readers: the credit risk rules ask for one customer's last year of calls, and the
+  # metrics script scans a date range across everybody.
+  global_secondary_index {
+    name            = "customer-index"
+    hash_key        = "customer_id"
+    range_key       = "started_at"
+    projection_type = "ALL"
+  }
+
+  # No TTL. This table is the record of what happened, and it is never reset by seeding.
+  point_in_time_recovery {
+    enabled = true
+  }
+
   server_side_encryption {
     enabled     = true
     kms_key_arn = aws_kms_key.data.arn

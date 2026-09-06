@@ -683,7 +683,12 @@ def _contact(company: dict, source: dict) -> dict:
     """
     phone, date_of_birth = _personal_facts(source["email"], company["city"])
 
-    return {
+    # HubSpot exports a missing phone as the string "None". Left as it is, it would be
+    # stored as this person's phone number and compared against what a caller says.
+    stated = source.get("phone", phone)
+    stated = "" if stated in ("None", None) else stated
+
+    record = {
         "contact_id": source["contact_id"],
         "account_id": company["customer_id"],
         "company_name": company["company_name"],
@@ -696,13 +701,8 @@ def _contact(company: dict, source: dict) -> dict:
             "city": company["city"],
             "country": "CH",
         },
-        "phone": source.get("phone", phone),
+        "phone": stated,
         "email": source["email"],
-        # Indexed forms. Written here rather than derived at query time because a GSI can
-        # only be searched on a stored value, and a caller says "oh four four" where the
-        # record says "+41 44".
-        "phone_lookup": lookup_key(Factor.PHONE, source.get("phone", phone)),
-        "email_lookup": lookup_key(Factor.EMAIL, source["email"]),
         "account_status": "ACTIVE",
         "preferred_language": company["language"],
         # One identifier per thing, across the whole stack. The company's HubSpot id is the
@@ -712,6 +712,21 @@ def _contact(company: dict, source: dict) -> dict:
         "hubspot_contact_id": source["contact_id"],
         "failed_verification_attempts": 0,
     }
+
+    # Indexed forms. Written here rather than derived at query time because a GSI can only be
+    # searched on a stored value, and a caller says "oh four four" where the record says
+    # "+41 44". Omitted rather than stored empty when there is nothing to index: DynamoDB
+    # rejects an empty key on an index, and a contact with no phone genuinely cannot be found
+    # by one.
+    for attribute, factor, value in (
+        ("phone_lookup", Factor.PHONE, stated),
+        ("email_lookup", Factor.EMAIL, source["email"]),
+    ):
+        key = lookup_key(factor, value)
+        if key:
+            record[attribute] = key
+
+    return record
 
 
 def _build_contacts() -> list[dict]:

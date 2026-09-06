@@ -21,11 +21,13 @@ from src.adapters import dynamo, s3, secrets
 from src.adapters.errors import ErrorCategory, ToolError
 from src.common import conversation_state
 from src.common import logging as log
+from src.domain import interaction as interaction_domain
 from src.domain import locale
 from src.domain import policy as policy_module
 from src.domain import summary as summary_domain
 
 CONVERSATIONS_TABLE = "conversations"
+INTERACTIONS_TABLE = "interactions"
 IDENTITY_TABLE = "customer-identity"
 SUMMARIES_TABLE = "customer-summaries"
 
@@ -69,6 +71,7 @@ def handler(event: dict, _context: Any = None) -> dict:
 
     steps = {
         "transcript": lambda: _store_transcript(conversation_id, payload),
+        "interaction": lambda: _store_interaction(conversation_id, payload),
         "metrics": lambda: _store_metrics(conversation_id, payload),
         "summary": lambda: _regenerate_summary(conversation_id, payload),
         "preferences": lambda: _persist_preferences(payload),
@@ -141,6 +144,33 @@ def _store_transcript(conversation_id: str, payload: dict) -> None:
         {"conversation_id": conversation_id},
         UpdateExpression="SET transcript_s3_key = :key",
         ExpressionAttributeValues={":key": key},
+    )
+
+
+def _store_interaction(conversation_id: str, payload: dict) -> None:
+    """
+    Writes the permanent record of the call.
+
+    conversation_id: the call.
+    payload:         the post-call payload.
+
+    Returns: nothing. Written once and never updated -- a duplicate delivery finds the row
+             already there and changes nothing, which is what put_if_absent is for. The row
+             outlives the conversation record it is derived from, and no reset removes it.
+    """
+    record = dynamo.get(CONVERSATIONS_TABLE, {"conversation_id": conversation_id}) or {}
+    row = interaction_domain.build(
+        payload,
+        customer_id=str(record.get("customer_id") or ""),
+        outcome=_outcome(payload),
+    )
+    written = dynamo.put_if_absent(INTERACTIONS_TABLE, row, "conversation_id")
+    log.info(
+        "interaction recorded" if written else "interaction already recorded",
+        conversation_id=conversation_id,
+        customer_id=str(record.get("customer_id") or ""),
+        outcome=row["outcome"],
+        latency_ms=max((t["latency_max_ms"] for t in row["tools"].values()), default=0),
     )
 
 

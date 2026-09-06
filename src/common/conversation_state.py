@@ -5,7 +5,7 @@ talked their way past the model would be verified. Here, every financial tool as
 conversations table, and the model's opinion is irrelevant.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
 from boto3.dynamodb.conditions import Key
@@ -15,6 +15,27 @@ from src.adapters.errors import ErrorCategory, ToolError
 from src.domain.risk import RiskSignal
 
 _TABLE = "conversations"
+
+
+# How long a conversation record survives. Deliberately longer than the 365-day window the
+# credit risk rules look back over, because those rules still read this table. It drops to
+# days once the interactions table serves that history: verification outcomes, lockout
+# counters and fingerprints of what a caller guessed are useful for minutes and a liability
+# for months.
+STATE_RETENTION_DAYS = 400
+
+# Appended to every write that might be the one creating the row. There is no single place a
+# conversation is opened -- nothing calls start(), and the record appears when whichever tool
+# runs first writes to it -- so the row's birthday and its expiry are set by all of them,
+# whichever gets there first.
+_TOUCH = (
+    "started_at = if_not_exists(started_at, :now), expires_at = if_not_exists(expires_at, :expires)"
+)
+
+
+def _expires_at() -> int:
+    """The Unix second DynamoDB should drop the row on. TTL reads epoch seconds, nothing else."""
+    return int((datetime.now(UTC) + timedelta(days=STATE_RETENTION_DAYS)).timestamp())
 
 
 class VerificationStatus(StrEnum):
@@ -77,13 +98,13 @@ def set_verification(
         _TABLE,
         {"conversation_id": conversation_id},
         UpdateExpression=(
-            "SET verification_status = :s, customer_id = :c, "
-            "started_at = if_not_exists(started_at, :now), customer_display = :d"
+            "SET verification_status = :s, customer_id = :c, " + _TOUCH + ", customer_display = :d"
         ),
         ExpressionAttributeValues={
             ":s": str(status),
             ":c": customer_id,
             ":now": datetime.now(UTC).isoformat(),
+            ":expires": _expires_at(),
             ":d": display or {},
         },
     )
@@ -164,7 +185,7 @@ def record_risk_signal(signal: RiskSignal) -> None:
         {"conversation_id": signal.conversation_id},
         UpdateExpression=(
             "SET risk_signals = list_append(if_not_exists(risk_signals, :empty), :signal), "
-            "started_at = if_not_exists(started_at, :now)"
+            + _TOUCH
         ),
         ExpressionAttributeValues={
             ":empty": [],
@@ -177,6 +198,7 @@ def record_risk_signal(signal: RiskSignal) -> None:
                 }
             ],
             ":now": datetime.now(UTC).isoformat(),
+            ":expires": _expires_at(),
         },
     )
 
@@ -239,12 +261,11 @@ def record_factor_attempts(
     dynamo.upsert(
         _TABLE,
         {"conversation_id": conversation_id},
-        UpdateExpression=(
-            "SET factor_attempts = :attempts, started_at = if_not_exists(started_at, :now)"
-        ),
+        UpdateExpression=("SET factor_attempts = :attempts, " + _TOUCH),
         ExpressionAttributeValues={
             ":attempts": seen,
             ":now": datetime.now(UTC).isoformat(),
+            ":expires": _expires_at(),
         },
     )
 
@@ -283,12 +304,11 @@ def record_wrong_values(conversation_id: str, fingerprints: dict[str, str]) -> i
         dynamo.upsert(
             _TABLE,
             {"conversation_id": conversation_id},
-            UpdateExpression=(
-                "SET wrong_values = :wrong, started_at = if_not_exists(started_at, :now)"
-            ),
+            UpdateExpression=("SET wrong_values = :wrong, " + _TOUCH),
             ExpressionAttributeValues={
                 ":wrong": {field: sorted(values) for field, values in seen.items()},
                 ":now": datetime.now(UTC).isoformat(),
+                ":expires": _expires_at(),
             },
         )
 
@@ -341,8 +361,7 @@ def record_callback(
         {"conversation_id": conversation_id},
         UpdateExpression=(
             "SET callback_required = :yes, callback_reason = :reason, "
-            "callback_ticket_id = :ticket, callback_customer_id = :customer, "
-            "started_at = if_not_exists(started_at, :now)"
+            "callback_ticket_id = :ticket, callback_customer_id = :customer, " + _TOUCH
         ),
         ExpressionAttributeValues={
             ":yes": True,
@@ -350,6 +369,7 @@ def record_callback(
             ":ticket": ticket_id or "",
             ":customer": customer_id or "",
             ":now": datetime.now(UTC).isoformat(),
+            ":expires": _expires_at(),
         },
     )
 
@@ -369,12 +389,11 @@ def set_resolved_contact(conversation_id: str, contact_id: str) -> None:
     dynamo.upsert(
         _TABLE,
         {"conversation_id": conversation_id},
-        UpdateExpression=(
-            "SET resolved_contact_id = :contact, started_at = if_not_exists(started_at, :now)"
-        ),
+        UpdateExpression=("SET resolved_contact_id = :contact, " + _TOUCH),
         ExpressionAttributeValues={
             ":contact": contact_id,
             ":now": datetime.now(UTC).isoformat(),
+            ":expires": _expires_at(),
         },
     )
 
