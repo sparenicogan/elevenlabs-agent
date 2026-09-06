@@ -49,7 +49,7 @@ def handler(event: dict, _context: Any = None) -> dict:
 
     event: API Gateway proxy event carrying conversation_id, entry_id, amount and reason.
 
-    Returns: an API Gateway response carrying GRANTED or a denial reason, the rule that
+    Returns: an API Gateway response carrying REQUESTED or a denial reason, the rule that
              decided it, and the customer's rolling total.
     """
     try:
