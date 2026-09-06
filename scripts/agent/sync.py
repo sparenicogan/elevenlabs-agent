@@ -75,6 +75,9 @@ class ElevenLabs:
             return existing[name]
         return self._call("POST", "/convai/tools", json={"tool_config": config})["id"]
 
+    def agent(self, agent_id: str) -> dict:
+        return self._call("GET", f"/convai/agents/{agent_id}")
+
     def update_agent(self, agent_id: str, payload: dict) -> dict:
         return self._call("PATCH", f"/convai/agents/{agent_id}", json=payload)
 
@@ -83,6 +86,29 @@ class ElevenLabs:
             if entry["name"] == name:
                 return entry["secret_id"]
         raise SystemExit(f"workspace secret not found: {name}")
+
+
+def merged_platform_settings(declared: dict, live: dict) -> dict:
+    """
+    Lays the settings this repository declares over the ones the agent already has.
+
+    declared: the platform_settings block from agent.json. A subset, deliberately.
+    live:     what the agent currently carries.
+
+    Returns: the merged settings.
+
+    Merged rather than replaced because agent.json declares only what this project has an
+    opinion about -- retention, and which fields a call may override. Sending the subset
+    alone would drop the rest of a settings object that has some thirty keys in it, most of
+    them nothing to do with us.
+    """
+    merged = dict(live)
+    for key, value in declared.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = {**merged[key], **value}
+        else:
+            merged[key] = value
+    return merged
 
 
 def build_tools(base_url: str, tool_secret_id: str) -> list[dict]:
@@ -111,7 +137,11 @@ def main() -> int:
              write endpoints.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--agent-id", required=True)
+    parser.add_argument(
+        "--agent-id",
+        default=json.loads((ROOT / "agent" / "agent.json").read_text())["agent_id"],
+        help="defaults to the id in agent.json",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -124,6 +154,8 @@ def main() -> int:
 
     if args.dry_run:
         print(f"would sync {len(tools)} tools and a {len(prompt)}-character prompt")
+        declared = (agent_config.get("platform_settings") or {}).get("privacy", {})
+        print(f"  retention_days -> {declared.get('retention_days')}")
         for tool in tools:
             print(f"  {tool['name']:22} {tool['api_schema']['url']}")
         return 0
@@ -135,11 +167,21 @@ def main() -> int:
     conversation_config["agent"]["prompt"]["prompt"] = prompt
     conversation_config["agent"]["prompt"]["tool_ids"] = tool_ids
 
+    settings = merged_platform_settings(
+        agent_config.get("platform_settings") or {},
+        client.agent(args.agent_id).get("platform_settings") or {},
+    )
+
     client.update_agent(
         args.agent_id,
-        {"name": agent_config["name"], "conversation_config": conversation_config},
+        {
+            "name": agent_config["name"],
+            "conversation_config": conversation_config,
+            "platform_settings": settings,
+        },
     )
     print(f"synced {len(tool_ids)} tools and a {len(prompt)}-character prompt")
+    print(f"retention set to {settings.get('privacy', {}).get('retention_days')} days")
     print(f"agent {args.agent_id} updated")
     return 0
 

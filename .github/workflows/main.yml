@@ -50,4 +50,14 @@ jobs:
       - run: terraform apply -auto-approve
         working-directory: infra/terraform
 
+      # The prompt and the tool definitions are the security boundary the model reads, so a
+      # change to them should arrive the way a change to a Lambda does: reviewed, merged, and
+      # applied by the pipeline. Edited in the dashboard instead, it leaves no trace and the
+      # next sync silently reverts it.
+      #
+      # After apply, because the tool URLs are read from terraform outputs and a new endpoint
+      # has to exist before the agent is pointed at it.
+      - name: Sync the agent configuration to ElevenLabs
+        run: uv run python -m scripts.agent.sync
+
       # The smoke test against the tool endpoints lands with the first endpoint in T038.
