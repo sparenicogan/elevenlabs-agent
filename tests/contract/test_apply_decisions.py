@@ -135,20 +135,48 @@ class TestAllocations:
     as already applied and silently did nothing, so the golden path ended at a ticket nobody
     could action without opening the table."""
 
+    @staticmethod
+    def _write_for(stubs, entry_id: str):
+        """One run now writes the payment and every invoice it settles, so a test has to say
+        which row it means rather than reading whichever call happened to be last."""
+        for call in stubs["update"].call_args_list:
+            if call.args[1]["entry_id"] == entry_id:
+                return call.kwargs["ExpressionAttributeValues"]
+        raise AssertionError(f"nothing was written to {entry_id}")
+
     def test_an_accepted_allocation_moves_the_payment(self, stubs):
         stubs["accepted"].return_value = [dict(ALLOCATION)]
         stubs["query"].return_value = [dict(CHARGE), dict(PAYMENT)]
         assert stubs["module"].handler()["applied"] == 1
-        kwargs = stubs["update"].call_args.kwargs
-        assert kwargs["ExpressionAttributeValues"][":new"] == "ALLOCATED"
-        assert kwargs["ExpressionAttributeValues"][":invoices"] == ["inv_00982_004"]
+        values = self._write_for(stubs, "pay_1")
+        assert values[":new"] == "ALLOCATED"
+        assert values[":invoices"] == ["inv_00982_004"]
 
     def test_the_move_is_conditional_so_a_second_run_writes_nothing(self, stubs):
         stubs["accepted"].return_value = [dict(ALLOCATION)]
         stubs["query"].return_value = [dict(CHARGE), dict(PAYMENT)]
         stubs["module"].handler()
-        kwargs = stubs["update"].call_args.kwargs
-        assert kwargs["ExpressionAttributeValues"][":expected"] == "UNALLOCATED"
+        assert self._write_for(stubs, "pay_1")[":expected"] == "UNALLOCATED"
+
+    def test_the_invoice_it_covers_stops_being_overdue(self, stubs):
+        """The payment read ALLOCATED while the invoice it paid still read OVERDUE, so the
+        next caller was told the thing they rang about last week was still outstanding."""
+        stubs["accepted"].return_value = [dict(ALLOCATION)]
+        stubs["query"].return_value = [dict(CHARGE), dict(PAYMENT)]
+        stubs["module"].handler()
+        values = self._write_for(stubs, "inv_00982_004")
+        assert values[":paid"] == "PAID"
+        assert values[":payment"] == "pay_1"
+
+    def test_settling_an_invoice_twice_writes_once(self, stubs):
+        stubs["accepted"].return_value = [dict(ALLOCATION)]
+        stubs["query"].return_value = [dict(CHARGE), dict(PAYMENT)]
+        stubs["module"].handler()
+        for call in stubs["update"].call_args_list:
+            if call.args[1]["entry_id"] == "inv_00982_004":
+                assert call.kwargs["condition"] == "#s <> :paid"
+                return
+        raise AssertionError("the invoice was never settled")
 
     def test_a_payment_already_allocated_is_not_moved_again(self, stubs):
         stubs["accepted"].return_value = [dict(ALLOCATION)]

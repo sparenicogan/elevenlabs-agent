@@ -5,6 +5,8 @@ a future handler cannot leak a date of birth into a ticket by passing the wrong 
 allowlist strips it before the request is built.
 """
 
+from datetime import UTC, datetime
+
 import httpx
 
 from src.adapters import secrets
@@ -127,6 +129,37 @@ def create_unassociated_ticket(properties: dict) -> str:
     return result["id"]
 
 
+def _note(body: str, object_type: str, object_id: str, label: str) -> None:
+    """
+    Writes one note and hangs it off a ticket or a contact.
+
+    body:        the note text. Must already be free of identity and payment detail.
+    object_type: "tickets" or "contacts".
+    object_id:   the object to associate it with.
+    label:       HubSpot's association type, e.g. "note_to_ticket".
+
+    Returns: nothing.
+
+    hs_timestamp is required, and both callers omitted it -- so every note this project ever
+    tried to write was refused with a 400, and neither the applier's record of what it did nor
+    the per-call CRM log (FR-044) has ever reached HubSpot.
+    """
+    note = _request(
+        "POST",
+        "/crm/v3/objects/notes",
+        {
+            "properties": {
+                "hs_note_body": body,
+                "hs_timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+        },
+    )
+    _request(
+        "PUT",
+        f"/crm/v3/objects/notes/{note['id']}/associations/{object_type}/{object_id}/{label}",
+    )
+
+
 def append_note(ticket_id: str, body: str) -> None:
     """
     Adds a note to an existing ticket, so a second finding on one call does not create a
@@ -137,11 +170,7 @@ def append_note(ticket_id: str, body: str) -> None:
 
     Returns: nothing.
     """
-    note = _request("POST", "/crm/v3/objects/notes", {"properties": {"hs_note_body": body}})
-    _request(
-        "PUT",
-        f"/crm/v3/objects/notes/{note['id']}/associations/tickets/{ticket_id}/note_to_ticket",
-    )
+    _note(body, "tickets", ticket_id, "note_to_ticket")
 
 
 def log_interaction(contact_id: str, body: str) -> None:
@@ -154,12 +183,7 @@ def log_interaction(contact_id: str, body: str) -> None:
 
     Returns: nothing.
     """
-    engagement = _request("POST", "/crm/v3/objects/notes", {"properties": {"hs_note_body": body}})
-    _request(
-        "PUT",
-        f"/crm/v3/objects/notes/{engagement['id']}"
-        f"/associations/contacts/{contact_id}/note_to_contact",
-    )
+    _note(body, "contacts", contact_id, "note_to_contact")
 
 
 def get_contact(contact_id: str) -> dict:
