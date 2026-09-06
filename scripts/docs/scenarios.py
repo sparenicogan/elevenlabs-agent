@@ -286,7 +286,7 @@ def _primary(company: dict) -> dict:
 
 # Calls that are not about one company's account, so they hang off no fixture. Written out
 # rather than generated, because there is no data behind them -- which is the point.
-NO_ACCOUNT = """## Before you are a customer
+NO_ACCOUNT_TEMPLATE = """## Before you are a customer
 
 *US10 — a question that needs no account* · any language
 
@@ -315,7 +315,7 @@ point** and not before. That is the whole rule: the lookup decides, not the subj
 
 ## Calling second, about something already raised
 
-*US11 — a colleague finds the work in hand* · Alpina Tech · `445909044455`
+*US11 — a colleague finds the work in hand* · Alpina Tech · `{alpina}`
 
 ### The situation
 
@@ -364,7 +364,11 @@ def render() -> str:
         "",
         "---",
         "",
-        NO_ACCOUNT,
+        # Filled from the fixtures rather than written in: the id is generated, and a copy
+        # in the source both drifts and reads to a secret scanner as an AWS account number.
+        NO_ACCOUNT_TEMPLATE.format(
+            alpina=next(c["customer_id"] for c in fixtures.COMPANIES if c["key"] == "alpina")
+        ),
         "",
     ]
 
