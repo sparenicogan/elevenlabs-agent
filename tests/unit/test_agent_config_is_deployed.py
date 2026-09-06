@@ -12,6 +12,8 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 AGENT = json.loads((ROOT / "agent" / "agent.json").read_text())
 DEPLOY = (ROOT / ".github" / "workflows" / "main.yml").read_text()
+_TOOLS = json.loads((ROOT / "agent" / "tools.json").read_text())
+AGENT_TOOLS = _TOOLS if isinstance(_TOOLS, list) else _TOOLS["tools"]
 
 
 class TestThePipelineSyncsTheAgent:
@@ -55,3 +57,35 @@ class TestTheSyncOnlyOverridesWhatWeDeclare:
         assert merged["privacy"]["retention_days"] == 3650
         assert merged["privacy"]["record_voice"] is False
         assert merged["widget"] == {"x": 1}
+
+
+class TestToolDescriptionsTellTheTruth:
+    """A tool description is read by the model on every turn, closer to the decision than the
+    prompt is. request_credit's said "issues it in one step. Returns GRANTED" long after the
+    design changed to recording a request a person decides. On conv_7001m1vfzm2bf86s9f1cthd1n3bn
+    the agent told a caller three times that a credit had been requested and never called the
+    tool -- a coherent thing to do when the description says the tool issues credits and the
+    prompt says it only asks for them."""
+
+    TOOLS = {t["name"]: t for t in (AGENT_TOOLS if isinstance(AGENT_TOOLS, list) else [])}
+
+    def test_request_credit_does_not_claim_to_grant(self):
+        text = self.TOOLS["request_credit"]["description"]
+        assert "GRANTED" not in text
+        assert "REQUESTED" in text
+
+    def test_the_wire_status_is_the_one_the_description_names(self):
+        """GRANTED is a domain outcome meaning the rules permit it. It is deliberately never
+        what the agent sees, and the handler says so in a comment."""
+        import pathlib
+
+        handler = (
+            pathlib.Path(__file__).resolve().parents[2] / "src/handlers/request_credit.py"
+        ).read_text()
+        assert '"status": "REQUESTED"' in handler
+
+    def test_the_action_tools_say_when_to_call_them(self):
+        """The failure was announcing an action without taking it, so the description says
+        where the call sits relative to the sentence."""
+        for name in ("request_credit", "propose_allocation", "create_escalation"):
+            assert "before" in self.TOOLS[name]["description"].lower(), name
