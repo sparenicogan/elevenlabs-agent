@@ -112,3 +112,53 @@ class TestTheVoiceModelMatchesThePrimaryLanguage:
         """Anything that looks like an attempt to pick the multilingual model by hand."""
         assert "_2_5" not in AGENT["conversation_config"]["tts"]["model_id"]
         assert "multilingual" not in AGENT["conversation_config"]["tts"]["model_id"]
+
+
+class TestTheKnowledgeBaseIsVersioned:
+    """The knowledge base is company fact the agent states to callers -- opening hours, which
+    site closes when. Edited in the dashboard it leaves no trace and no review; here it is a
+    file the pipeline publishes, like the prompt and the tool schemas."""
+
+    KNOWLEDGE = ROOT / "agent" / "knowledge"
+
+    def test_every_declared_document_exists(self):
+        for filename in AGENT["knowledge_base"]["documents"]:
+            assert (self.KNOWLEDGE / filename).is_file(), filename
+
+    def test_the_holiday_dates_are_the_ones_the_calendar_gives(self):
+        """Good Friday, Easter Monday, Ascension, Whit Monday and Corpus Christi move with
+        Easter. Recomputed rather than trusted: a wrong date here is a caller told the office
+        is open on a day it is shut."""
+        from datetime import date, timedelta
+
+        def easter(year: int) -> date:
+            a, b, c = year % 19, year // 100, year % 100
+            d, e, g = b // 4, b % 4, (b - (b + 8) // 25 + 1) // 3
+            h = (19 * a + b - d - g + 15) % 30
+            i, k = c // 4, c % 4
+            el = (32 + 2 * e + 2 * i - h - k) % 7
+            m = (a + 11 * h + 22 * el) // 451
+            return date(year, (h + el - 7 * m + 114) // 31, ((h + el - 7 * m + 114) % 31) + 1)
+
+        text = (self.KNOWLEDGE / "company.md").read_text()
+        for year in (2026, 2027):
+            for offset in (-2, 1, 39, 50, 60):
+                day = easter(year) + timedelta(days=offset)
+                assert f"{day.day} {day:%B}" in text, f"{year}: {day:%d %B} missing"
+
+    def test_the_three_sites_close_on_different_days(self):
+        """Holidays are cantonal. One shared list would tell a Ticino caller the agency is
+        open on the sixth of January."""
+        text = (self.KNOWLEDGE / "company.md").read_text()
+        for site in ("Fribourg", "Zug", "Ticino"):
+            assert site in text
+        assert "Fribourg also closes" in text
+        assert "Ticino also closes" in text
+
+    def test_it_carries_no_prices_and_no_bank_details(self):
+        """A price list would let the agent adjudicate a disputed charge from figures that may
+        not match that customer's contract, and an IBAN read aloud on an inbound call is a
+        fraud vector. The invoice is the record for both."""
+        text = (self.KNOWLEDGE / "company.md").read_text().lower()
+        for absent in ("iban", "ch93", "account number", "price list", "per tonne", "per kg"):
+            assert absent not in text
