@@ -29,7 +29,6 @@ locals {
     allocation_authority_max  = "0"
     tool_timeout_seconds      = "5"
     read_retry_count          = "1"
-    transcript_retention_days = tostring(var.transcript_retention_days)
     summary_max_chars         = "2000"
     resolution_target_hours   = "24"
   }

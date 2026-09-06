@@ -30,15 +30,15 @@ class TestThePipelineSyncsTheAgent:
 
 
 class TestRetentionIsDeclaredNotClicked:
-    """Transcripts live at ElevenLabs rather than in our own store, so their retention is a
-    real setting and belongs under review like any other."""
+    """Transcripts live at ElevenLabs rather than in our own store, so their retention is not
+    a convenience setting -- it is the only thing expiring them, and it belongs under review.
+    The S3 lifecycle rule that used to do this job is gone with the bucket."""
 
     def test_retention_is_declared_in_the_repository(self):
-        assert AGENT["platform_settings"]["privacy"]["retention_days"] == 3650
+        assert AGENT["platform_settings"]["privacy"]["retention_days"] == 90
 
     def test_it_is_a_definite_period_rather_than_for_ever(self):
-        """The workspace default was -1, which is unlimited. Personal data on financial calls
-        should have an end date even when that date is distant."""
+        """The workspace default was -1, which is unlimited."""
         assert AGENT["platform_settings"]["privacy"]["retention_days"] > 0
 
 

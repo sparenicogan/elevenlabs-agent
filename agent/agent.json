@@ -40,7 +40,7 @@
       }
     },
     "privacy": {
-      "retention_days": 3650,
+      "retention_days": 90,
       "delete_transcript_and_pii": false,
       "delete_audio": false
     }

@@ -34,7 +34,6 @@ def stubs(mocker):
             module.conversation_state, "claim_post_call", return_value=True
         ),
         "callback": mocker.patch.object(module.conversation_state, "record_callback"),
-        "put": mocker.patch.object(module.s3, "put_transcript"),
         "upsert": mocker.patch.object(module.dynamo, "upsert"),
         # The summary is written conditionally, so update_if is a second seam. Unstubbed it
         # reached real DynamoDB on a developer machine and failed only in CI, where there is
@@ -78,7 +77,7 @@ class TestOnlyElevenLabsGetsIn:
         body = json.dumps(PAYLOAD)
         status, _ = call(stubs, PAYLOAD, signature=_signed(body, secret="not-the-secret"))
         assert status == 401
-        stubs["put"].assert_not_called()
+        stubs["put_if_absent"].assert_not_called()
 
     def test_a_signature_from_an_hour_ago_is_rejected(self, stubs):
         """A valid signature on a request captured an hour ago is still a replay."""
@@ -110,7 +109,7 @@ class TestADuplicateDeliveryDoesNothingTwice:
         status, body = call(stubs, PAYLOAD)
         assert status == 200
         assert body["status"] == "DUPLICATE"
-        stubs["put"].assert_not_called()
+        stubs["put_if_absent"].assert_not_called()
 
     def test_it_returns_200_rather_than_an_error(self, stubs):
         """An error invites a redelivery, and a redelivery is what we are declining."""
@@ -119,30 +118,33 @@ class TestADuplicateDeliveryDoesNothingTwice:
 
 
 class TestOneFailedStepDoesNotLoseTheOthers:
-    def test_a_failed_summary_still_leaves_the_transcript(self, stubs):
+    def test_a_failed_summary_still_leaves_the_performance_record(self, stubs):
         stubs["update_if"].side_effect = ValueError("summary failed")
         status, body = call(stubs, PAYLOAD)
         assert status == 200
-        assert "transcript" in body["completed"]
+        assert "performance" in body["completed"]
 
-    def test_a_failed_transcript_still_records_the_metrics(self, stubs):
-        stubs["put"].side_effect = ValueError("s3 down")
+    def test_a_failed_performance_write_still_records_the_metrics(self, stubs):
+        stubs["put_if_absent"].side_effect = ValueError("dynamo down")
         status, body = call(stubs, PAYLOAD)
         assert status == 200
         assert "metrics" in body["completed"]
-        assert "transcript" not in body["completed"]
+        assert "performance" not in body["completed"]
 
 
 class TestWhatIsStored:
-    def test_the_transcript_goes_to_s3_and_only_its_key_to_the_table(self, stubs):
-        """The transcript expires in 90 days; the metadata lives for ten years."""
-        call(stubs, PAYLOAD)
-        assert stubs["put"].called
-        keys = [
-            c.kwargs.get("ExpressionAttributeValues", {}) for c in stubs["upsert"].call_args_list
-        ]
-        assert any(":key" in k for k in keys)
-        assert not any("transcript" in json.dumps(k, default=str)[:0] for k in keys)
+    def test_the_transcript_is_not_copied_into_our_stores(self, stubs):
+        """It expires at ElevenLabs in 90 days (FR-038a). Everything derived from it is in
+        the performance table, which does not expire -- so a copy here would be the one thing
+        outliving the retention it is subject to."""
+        call(stubs, {**PAYLOAD, "transcript": [{"role": "agent", "message": "hello"}]})
+        written = json.dumps(
+            [c.kwargs.get("ExpressionAttributeValues", {}) for c in stubs["upsert"].call_args_list]
+            + [stubs["put_if_absent"].call_args.args[1]],
+            default=str,
+        )
+        assert "hello" not in written
+        assert "transcript_s3_key" not in written
 
     def test_no_summary_is_written_for_an_unidentified_caller(self, stubs):
         """There is no account to remember anything against."""
