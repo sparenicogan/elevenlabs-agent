@@ -8,8 +8,6 @@ conversations table, and the model's opinion is irrelevant.
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
-from boto3.dynamodb.conditions import Key
-
 from src.adapters import dynamo
 from src.adapters.errors import ErrorCategory, ToolError
 from src.domain.risk import RiskSignal
@@ -22,7 +20,7 @@ _TABLE = "conversations"
 # days once the performance table serves that history: verification outcomes, lockout
 # counters and fingerprints of what a caller guessed are useful for minutes and a liability
 # for months.
-STATE_RETENTION_DAYS = 400
+STATE_RETENTION_DAYS = 2
 
 # Appended to every write that might be the one creating the row. There is no single place a
 # conversation is opened -- nothing calls start(), and the record appears when whichever tool
@@ -313,27 +311,6 @@ def record_wrong_values(conversation_id: str, fingerprints: dict[str, str]) -> i
         )
 
     return max((len(values) for values in seen.values()), default=0)
-
-
-def recent_conversations(customer_id: str, limit: int = 50) -> list[dict]:
-    """
-    Reads a customer's recent calls, newest first.
-
-    customer_id: the verified customer.
-    limit:       how many to read. Fifty is far more than any pattern needs and small enough
-                 to stay a single query.
-
-    Returns: conversation records carrying started_at and outcome. Empty when the customer
-             has never called before, which is the ordinary case for a new customer and must
-             not look like a failure.
-    """
-    return dynamo.query(
-        _TABLE,
-        index="customer-index",
-        KeyConditionExpression=Key("customer_id").eq(customer_id),
-        ScanIndexForward=False,
-        Limit=limit,
-    )
 
 
 def record_callback(

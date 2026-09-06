@@ -19,7 +19,7 @@ from typing import Any
 
 from src.adapters import dynamo, s3, secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import conversation_state
+from src.common import call_history, conversation_state
 from src.common import logging as log
 from src.domain import locale
 from src.domain import performance as performance_domain
@@ -72,6 +72,7 @@ def handler(event: dict, _context: Any = None) -> dict:
     steps = {
         "transcript": lambda: _store_transcript(conversation_id, payload),
         "performance": lambda: _store_performance(conversation_id, payload),
+        "history": lambda: _record_history(conversation_id, payload),
         "metrics": lambda: _store_metrics(conversation_id, payload),
         "summary": lambda: _regenerate_summary(conversation_id, payload),
         "preferences": lambda: _persist_preferences(payload),
@@ -167,6 +168,27 @@ def _store_performance(conversation_id: str, payload: dict) -> None:
         customer_id=str(record.get("customer_id") or ""),
         outcome=row["outcome"],
         latency_ms=max((t["latency_max_ms"] for t in row["tools"].values()), default=0),
+    )
+
+
+def _record_history(conversation_id: str, payload: dict) -> None:
+    """
+    Notes the call against the customer, for the rules that decide about money.
+
+    conversation_id: the call.
+    payload:         the post-call payload.
+
+    Returns: nothing. A call nobody verified belongs to no customer and is skipped -- there is
+             no history to attach it to.
+    """
+    record = dynamo.get(CONVERSATIONS_TABLE, {"conversation_id": conversation_id}) or {}
+    customer_id = str(record.get("customer_id") or "")
+    row = performance_domain.build(payload, customer_id=customer_id)
+    call_history.record(
+        customer_id=customer_id,
+        conversation_id=conversation_id,
+        started_at=row["started_at"],
+        outcome=row["outcome"],
     )
 
 

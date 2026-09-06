@@ -20,7 +20,7 @@ from boto3.dynamodb.conditions import Key
 
 from src.adapters import dynamo, hubspot, secrets
 from src.adapters.errors import ErrorCategory, ToolError
-from src.common import audit, auth, conversation_state, http, validation
+from src.common import audit, auth, call_history, conversation_state, http, validation
 from src.common import logging as log
 from src.domain import policy as policy_module
 from src.domain.credit import (
@@ -94,7 +94,7 @@ def _request(conversation_id: str, customer_id: str, display: dict, body: dict) 
     # caller working through values — are already on the conversation and count too.
     history_signals = detect_history_signals(
         ledger=ledger,
-        conversations=conversation_state.recent_conversations(customer_id),
+        conversations=call_history.recent(customer_id),
         customer_id=customer_id,
         conversation_id=conversation_id,
         today=date.today(),

@@ -14,7 +14,7 @@ import boto3
 
 from src.domain.metrics import derive, from_record
 
-TABLE = "voice-agent-conversations"
+TABLE = "voice-agent-performance"
 
 # How each rate reads to somebody who has not read the specification.
 LABELS = {
@@ -52,6 +52,28 @@ def _recent(days: int) -> list[dict]:
             return records
 
 
+def _medium(record: dict) -> str:
+    """Whether somebody phoned in or used the web widget. Both are real interactions."""
+    return "phone" if record.get("is_phone_call") else "web"
+
+
+def _counts(records: list[dict]) -> dict[str, int]:
+    """How many interactions arrived by each medium."""
+    counts: dict[str, int] = {}
+    for record in records:
+        medium = _medium(record)
+        counts[medium] = counts.get(medium, 0) + 1
+    return counts
+
+
+def _split(records: list[dict]) -> str:
+    """The medium breakdown as a phrase, or nothing when they all came the same way."""
+    counts = _counts(records)
+    if len(counts) < 2:
+        return ""
+    return " (" + ", ".join(f"{n} {medium}" for medium, n in sorted(counts.items())) + ")"
+
+
 def main() -> int:
     """
     Prints the rates for the period.
@@ -63,16 +85,36 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", type=int, default=30)
     parser.add_argument("--json", action="store_true")
+    # Everything counts. The medium is reported rather than filtered on, because a web
+    # session is a real interaction and leaving it out would describe a quieter, tidier
+    # service than the one running.
+    parser.add_argument(
+        "--medium",
+        choices=("phone", "web"),
+        help="narrow to one medium; the default counts both",
+    )
     args = parser.parse_args()
 
     records = _recent(args.days)
+    if args.medium:
+        records = [r for r in records if _medium(r) == args.medium]
     rates = derive([from_record(r) for r in records])
 
     if args.json:
-        print(json.dumps({"days": args.days, "calls": len(records), **rates}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "days": args.days,
+                    "interactions": len(records),
+                    "by_medium": _counts(records),
+                    **rates,
+                },
+                indent=2,
+            )
+        )
         return 0
 
-    print(f"{len(records)} calls in the last {args.days} days\n")
+    print(f"{len(records)} interactions in the last {args.days} days{_split(records)}\n")
     if not records:
         print("  nothing to derive from yet")
         return 0

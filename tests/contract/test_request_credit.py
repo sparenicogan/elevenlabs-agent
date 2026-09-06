@@ -55,9 +55,7 @@ def stubs(mocker):
         ),
         "signals": mocker.patch.object(module.conversation_state, "risk_signals", return_value=[]),
         # Read for the history patterns. Empty unless a test seeds a shape.
-        "history": mocker.patch.object(
-            module.conversation_state, "recent_conversations", return_value=[]
-        ),
+        "history": mocker.patch.object(module.call_history, "recent", return_value=[]),
         "record_signal": mocker.patch.object(module.conversation_state, "record_risk_signal"),
         "query": mocker.patch.object(module.dynamo, "query", return_value=[dict(INVOICE)]),
         # The company's undecided requests. Empty unless a test seeds one.

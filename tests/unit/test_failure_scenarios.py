@@ -111,6 +111,9 @@ def wired(mocker):
             mocker.patch.object(module.hubspot, "append_note")
         if hasattr(module, "audit"):
             mocker.patch.object(module.audit, "write")
+        if hasattr(module, "call_history"):
+            mocker.patch.object(module.call_history, "recent", return_value=[])
+            mocker.patch.object(module.call_history, "record")
         if hasattr(module, "conversation_state"):
             mocker.patch.object(
                 module.conversation_state,
@@ -122,7 +125,6 @@ def wired(mocker):
             )
             mocker.patch.object(module.conversation_state, "set_verification")
             mocker.patch.object(module.conversation_state, "risk_signals", return_value=[])
-            mocker.patch.object(module.conversation_state, "recent_conversations", return_value=[])
             mocker.patch.object(module.conversation_state, "record_risk_signal")
             mocker.patch.object(module.conversation_state, "record_callback")
             mocker.patch.object(module.conversation_state, "record_wrong_values", return_value=0)

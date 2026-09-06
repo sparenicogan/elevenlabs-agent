@@ -23,6 +23,14 @@ data "aws_iam_policy_document" "post_call" {
     resources = [aws_dynamodb_table.performance.arn]
   }
 
+  # The behavioural record the credit rules read. UpdateItem because the row is keyed on the
+  # call's start, so a redelivery rewrites the same row rather than adding one.
+  statement {
+    effect    = "Allow"
+    actions   = ["dynamodb:UpdateItem"]
+    resources = [aws_dynamodb_table.call_history.arn]
+  }
+
   statement {
     effect    = "Allow"
     actions   = ["s3:PutObject"]

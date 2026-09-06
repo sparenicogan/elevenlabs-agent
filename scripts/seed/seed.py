@@ -59,23 +59,29 @@ def _purge_orphans(table, keys: set[tuple[str, ...]], key_fields: tuple[str, ...
     return removed
 
 
-def _clear_conversations(table) -> int:
+def _clear(table, key_fields: tuple[str, ...]) -> int:
     """
-    Deletes every conversation record.
+    Deletes every row in a table.
 
-    table: the conversations table.
+    table:      the boto3 Table.
+    key_fields: the attributes forming its primary key.
 
     Returns: how many were removed.
 
-    Conversation history feeds the risk rules — a customer with several calls in the last
-    month raises a contact-frequency signal. Rehearsing against the same fixtures generates
-    exactly that history, so without this a demo customer eventually starts being refused
-    for behaviour that belongs to the person testing them.
+    Two tables are reset this way. Conversations holds live call state, which is worthless
+    once the call has ended. Call history feeds the risk rules -- a customer with several
+    calls in the last month raises a contact-frequency signal -- and rehearsing against the
+    same fixtures generates exactly that history, so without this a demo customer eventually
+    starts being refused for behaviour that belongs to the person testing them.
+
+    The performance table is deliberately not among them, and neither are the transcripts in
+    S3. Those are the record of what happened, and a reset is about the data a demo starts
+    from, not about forgetting the calls that have already been made.
     """
     removed = 0
-    scan = table.scan(ProjectionExpression="conversation_id")
+    scan = table.scan(ProjectionExpression=", ".join(key_fields))
     for item in scan.get("Items", []):
-        table.delete_item(Key={"conversation_id": item["conversation_id"]})
+        table.delete_item(Key={field: item[field] for field in key_fields})
         removed += 1
     return removed
 
@@ -96,13 +102,15 @@ def main() -> int:
     identity = dynamodb.Table(f"{PROJECT}-customer-identity")
     ledger = dynamodb.Table(f"{PROJECT}-ledger")
     conversations = dynamodb.Table(f"{PROJECT}-conversations")
+    history = dynamodb.Table(f"{PROJECT}-call-history")
 
     identity_keys = {(c["contact_id"],) for c in fixtures.CONTACTS}
     ledger_keys = {(e["customer_id"], e["entry_id"]) for e in fixtures.LEDGER}
 
     dropped_identity = _purge_orphans(identity, identity_keys, ("contact_id",))
     dropped_ledger = _purge_orphans(ledger, ledger_keys, ("customer_id", "entry_id"))
-    dropped_conversations = _clear_conversations(conversations)
+    dropped_conversations = _clear(conversations, ("conversation_id",))
+    dropped_history = _clear(history, ("customer_id", "started_at"))
 
     for contact in fixtures.CONTACTS:
         identity.put_item(Item=_decimalise(contact))
@@ -119,6 +127,8 @@ def main() -> int:
         f"({dropped_ledger} stale removed)"
     )
     print(f"cleared {dropped_conversations} conversation records")
+    print(f"cleared {dropped_history} call history records")
+    print("performance table and S3 transcripts left untouched")
     return 0
 
 
