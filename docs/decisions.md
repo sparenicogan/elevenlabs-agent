@@ -2119,3 +2119,19 @@ for a dropped transfer. None of it has run on a real call.
 Two changes beyond the unwrap. The rejection logs, because whatever else it does it has to be
 visible. And an event type we do not handle is now accepted and ignored rather than refused: a
 400 counts as a failure, and an audio event must not be able to switch off transcription.
+
+
+### 12.71 Webhook delivery settings are declared, and re-enabling is not
+
+`retry_enabled` was false, so a single dropped delivery was gone for good. It is declared in
+agent.json now and applied by the same deploy that applies the prompt and the retention period.
+
+**Retries would not have saved the webhook.** They cover transient failures -- 5xx, 429,
+timeout. The envelope bug returned 400, which is permanent and never retried, so every delivery
+failed on the first attempt and ten of them switched the webhook off. Retries are worth having
+for a cold start or a 5xx; they are not a substitute for the endpoint being right.
+
+**The sync deliberately does not touch `is_disabled`.** A webhook disables itself after ten
+consecutive failures, which is a useful signal. A deploy that quietly switched it back on would
+hide whatever disabled it and spend ten more deliveries rediscovering the same fault. Turning it
+back on stays a deliberate act by a person who has read the failure.
