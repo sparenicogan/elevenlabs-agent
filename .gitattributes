@@ -1,0 +1,6 @@
+# Append-only logs. Every branch adds a section to the end, so two branches always touch the
+# same lines and always conflict -- ten times so far, none of them a real disagreement. The
+# union driver keeps both sides instead of stopping to ask, which is the right answer for a
+# file nobody edits in the middle.
+docs/decisions.md          merge=union
+docs/implementation-log.md merge=union

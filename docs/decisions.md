@@ -1900,6 +1900,34 @@ It is still a tendency, not a control. The address question cannot be enforced b
 because nothing about it is a write. What can be said is that the model is no longer being
 handed its closing line before its last instruction.
 
+
+### 12.64 The agent has been speaking Italian through an English-only voice model
+
+Heard on conv_4001m1vfkr1cf50b2t5qvmnrbpde: the Italian was fluent but the accent was wrong,
+most audibly on the first word of each sentence.
+
+`conversation_config.tts.model_id` was `eleven_turbo_v2`. Asking the models endpoint how many
+languages that supports returns **one**: English. Every German, French and Italian call this
+project has ever made was rendered through an English phoneme set. `eleven_turbo_v2_5` covers
+32 languages at the same latency, and is now what agent.json declares.
+
+The multilingual work was never wrong -- the prompts, the language detection, the greeting from
+the calling number all did their job. The voice on the other end of them could not pronounce
+the result. It is worth naming how long that went unnoticed: every test until now was in
+English, and the one property no test asserts is what the call sounded like.
+
+**Verbosity, same call.** Four paragraphs where one would do: the caller's own words repeated
+back, then an explanation of what the agent could not see, then an offer, then a second offer.
+The tone section said "brief"; brief is not a measurable instruction. It now says one or two
+sentences, do not repeat back what they just told you, and do not narrate what you cannot see
+or do.
+
+**And it read a twelve-digit ticket number aloud**, in the one branch whose prompt already says
+"Do not read out the ticket identifier". The instruction is there and was ignored, which makes
+it a tendency and not worth strengthening. The control is available: the agent uses
+`request_credit`'s `ticket_id` for nothing -- only `propose_allocation`'s is ever passed back,
+as `existing_ticket_id` -- so removing it from the response makes reading it out impossible.
+That is a contract change and is not taken here.
 ### 12.65 The tool description contradicted the tool
 
 On conv_7001m1vfzm2bf86s9f1cthd1n3bn the agent told a caller three times that a credit of a
@@ -1932,30 +1960,22 @@ the tool never reaches it. The honest position is that the reasons not to call c
 and the recovery can be guaranteed; the call itself cannot be compelled. The recovery half is
 not built: post_call has the transcript and the tool calls and could raise a callback when an
 action was promised and never taken, the way it already does for a failed transfer.
-### 12.64 The agent has been speaking Italian through an English-only voice model
+### 12.66 One outcome, two origins
 
-Heard on conv_4001m1vfkr1cf50b2t5qvmnrbpde: the Italian was fluent but the accent was wrong,
-most audibly on the first word of each sentence.
+§12.63 added `ALREADY_UNDER_REVIEW` to the prompt by writing a second paragraph beside the
+`UNDER_REVIEW` one. Read back, the two looked like the same instruction twice: both ended with
+a payment being found, a person confirming within twenty-four hours, and nothing further for the
+caller to do. The single clause that differs was buried in the middle of the second.
 
-`conversation_config.tts.model_id` was `eleven_turbo_v2`. Asking the models endpoint how many
-languages that supports returns **one**: English. Every German, French and Italian call this
-project has ever made was rendered through an English phoneme set. `eleven_turbo_v2_5` covers
-32 languages at the same latency, and is now what agent.json declares.
+It is one outcome with two origins. The review either was raised by this call or existed before
+it -- quite possibly by a colleague of the caller, which is the case worth telling them about,
+because a second person from a company being told "a person will confirm this within
+twenty-four hours" as though it were just arranged learns nothing about the colleague who
+already rang.
 
-The multilingual work was never wrong -- the prompts, the language detection, the greeting from
-the calling number all did their job. The voice on the other end of them could not pronounce
-the result. It is worth naming how long that went unnoticed: every test until now was in
-English, and the one property no test asserts is what the call sounded like.
+The block now names the difference once, as two bullets, and states the shared outcome once
+underneath. Shorter, and it stops the model choosing between two paragraphs that appear to say
+the same thing -- which is a way of asking it to guess.
 
-**Verbosity, same call.** Four paragraphs where one would do: the caller's own words repeated
-back, then an explanation of what the agent could not see, then an offer, then a second offer.
-The tone section said "brief"; brief is not a measurable instruction. It now says one or two
-sentences, do not repeat back what they just told you, and do not narrate what you cannot see
-or do.
-
-**And it read a twelve-digit ticket number aloud**, in the one branch whose prompt already says
-"Do not read out the ticket identifier". The instruction is there and was ignored, which makes
-it a tendency and not worth strengthening. The control is available: the agent uses
-`request_credit`'s `ticket_id` for nothing -- only `propose_allocation`'s is ever passed back,
-as `existing_ticket_id` -- so removing it from the response makes reading it out impossible.
-That is a contract change and is not taken here.
+The same failure produced §12.61: a rule and a list that could disagree. Duplication in a prompt
+is not redundancy, it is ambiguity.
