@@ -1899,3 +1899,31 @@ told a colleague will sort it, there is no reason left for them to still be on t
 It is still a tendency, not a control. The address question cannot be enforced by the backend,
 because nothing about it is a write. What can be said is that the model is no longer being
 handed its closing line before its last instruction.
+
+### 12.64 The agent has been speaking Italian through an English-only voice model
+
+Heard on conv_4001m1vfkr1cf50b2t5qvmnrbpde: the Italian was fluent but the accent was wrong,
+most audibly on the first word of each sentence.
+
+`conversation_config.tts.model_id` was `eleven_turbo_v2`. Asking the models endpoint how many
+languages that supports returns **one**: English. Every German, French and Italian call this
+project has ever made was rendered through an English phoneme set. `eleven_turbo_v2_5` covers
+32 languages at the same latency, and is now what agent.json declares.
+
+The multilingual work was never wrong -- the prompts, the language detection, the greeting from
+the calling number all did their job. The voice on the other end of them could not pronounce
+the result. It is worth naming how long that went unnoticed: every test until now was in
+English, and the one property no test asserts is what the call sounded like.
+
+**Verbosity, same call.** Four paragraphs where one would do: the caller's own words repeated
+back, then an explanation of what the agent could not see, then an offer, then a second offer.
+The tone section said "brief"; brief is not a measurable instruction. It now says one or two
+sentences, do not repeat back what they just told you, and do not narrate what you cannot see
+or do.
+
+**And it read a twelve-digit ticket number aloud**, in the one branch whose prompt already says
+"Do not read out the ticket identifier". The instruction is there and was ignored, which makes
+it a tendency and not worth strengthening. The control is available: the agent uses
+`request_credit`'s `ticket_id` for nothing -- only `propose_allocation`'s is ever passed back,
+as `existing_ticket_id` -- so removing it from the response makes reading it out impossible.
+That is a contract change and is not taken here.
