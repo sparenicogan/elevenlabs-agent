@@ -24,7 +24,7 @@
       "turn_eagerness": "patient"
     },
     "tts": {
-      "model_id": "eleven_turbo_v2",
+      "model_id": "eleven_turbo_v2_5",
       "optimize_streaming_latency": 3,
       "stability": 0.5,
       "similarity_boost": 0.75
@@ -59,6 +59,7 @@
     "turn": "Patient rather than normal eagerness: the first real call showed the agent answering a half-finished sentence. 12s timeout because callers are asked to look up a payment date mid-call and the agent explicitly offers to wait.",
     "transfer": "Conference transfer via the transfer_to_number built-in tool, configured on the agent rather than in this file because the destination is a real phone number and does not belong in the repository. Conference rather than blind or SIP REFER because it is the only type where the agent stays on the line long enough to hand over context, and where a failed transfer leaves the caller with the agent rather than with silence. Set it with scripts/agent/transfer.py.",
     "escalation_triggers": "The ten reasons in create_escalation's enum, which mirror FR-018. Four are valid from an unverified conversation because they are statements about the call rather than claims about an account.",
-    "languages": "DE, FR, IT and EN. The greeting language comes from the conversation initiation webhook, which resolves it from the calling number and falls back to German. language_detection is enabled on the agent so a caller who opens in another language is followed rather than corrected -- a Swiss caller switching to French mid-sentence is ordinary, not an error."
+    "languages": "DE, FR, IT and EN. The greeting language comes from the conversation initiation webhook, which resolves it from the calling number and falls back to German. language_detection is enabled on the agent so a caller who opens in another language is followed rather than corrected -- a Swiss caller switching to French mid-sentence is ordinary, not an error.",
+    "tts_model": "eleven_turbo_v2_5, not eleven_turbo_v2. The v2 turbo model supports exactly one language -- English -- so German, French and Italian calls were being spoken through an English phoneme set. It was audible as an English accent, worst on the first word of a sentence. v2_5 covers 32 languages at the same latency."
   }
 }
