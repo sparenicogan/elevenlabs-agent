@@ -102,15 +102,85 @@ def _llm_usage(payload: dict) -> dict:
     return {"models": sorted(by_model), **totals}
 
 
-def build(payload: dict, customer_id: str, outcome: str) -> dict:
+# Termination reasons that mean the call did not finish on its own terms. Read from 40 real
+# calls rather than assumed: everything else observed was a normal client disconnect.
+_UNFINISHED = (
+    "exceeded maximum duration",
+    "quota limit",
+    "1006",  # abnormal websocket closure -- the connection dropped, nobody hung up
+)
+
+
+def transfer(payload: dict) -> tuple[bool, bool]:
+    """
+    Whether a transfer was attempted, and whether it worked.
+
+    payload: the post-call payload.
+
+    Returns: (attempted, succeeded).
+
+    Read from features_usage and the tool result, because analysis.transfer_attempted and
+    analysis.transfer_result -- which this used to consult -- are not fields ElevenLabs sends.
+    They were absent from all 40 calls surveyed, so the check silently answered "no transfer"
+    every time and the callback backstop behind it never once fired.
+    """
+    used = bool(
+        ((payload.get("metadata") or {}).get("features_usage") or {})
+        .get("transfer_to_number", {})
+        .get("used")
+    )
+    results = [
+        r
+        for turn in payload.get("transcript") or []
+        for r in (turn.get("tool_results") or [])
+        if r.get("tool_name") == "transfer_to_number"
+    ]
+    if not used and not results:
+        return False, False
+    return True, bool(results) and not any(r.get("is_error") for r in results)
+
+
+def outcome(payload: dict) -> str:
+    """
+    Which of the five outcomes in data-model.md this call had.
+
+    payload: the post-call payload.
+
+    Returns: one of RESOLVED_AUTONOMOUS, ESCALATED, TRANSFERRED, ABANDONED, FAILED.
+
+    Every branch reads something ElevenLabs actually sends. The previous rule keyed on
+    analysis.transfer_attempted and analysis.escalated, neither of which exists, so every
+    call on record was labelled RESOLVED_AUTONOMOUS -- which made the escalation rate,
+    containment rate and autonomous resolution rate all report a system that never escalates.
+    """
+    attempted, _ = transfer(payload)
+    if attempted:
+        return "TRANSFERRED"
+
+    called = {
+        r.get("tool_name")
+        for turn in payload.get("transcript") or []
+        for r in (turn.get("tool_results") or [])
+    }
+    if "create_escalation" in called:
+        return "ESCALATED"
+
+    reason = str((payload.get("metadata") or {}).get("termination_reason") or "").lower()
+    if any(mark in reason for mark in _UNFINISHED):
+        return "ABANDONED"
+    return "RESOLVED_AUTONOMOUS"
+
+
+def build(payload: dict, customer_id: str) -> dict:
     """
     Assembles the row for one completed call.
 
     payload:     the post-call payload from ElevenLabs.
     customer_id: the account, where the caller verified. Empty for a call that did not, which
                  still belongs in the record -- an unverified call is a data point, not a gap.
-    outcome:     which of the five outcomes in data-model.md this call had. Decided by the
-                 caller of this function, because it depends on state this module cannot see.
+
+    The outcome is derived here rather than passed in, so a row written live and a row
+    written by a backfill cannot disagree about what the same call was.
 
     Returns: the item to write. Flat fields for querying and aggregation, plus the whole
              ElevenLabs payload under `elevenlabs` so nothing is lost to a schema decision
@@ -132,7 +202,7 @@ def build(payload: dict, customer_id: str, outcome: str) -> dict:
             else datetime.now(UTC).isoformat()
         ),
         "recorded_at": datetime.now(UTC).isoformat(),
-        "outcome": outcome,
+        "outcome": outcome(payload),
         "duration_seconds": int(metadata.get("call_duration_secs") or 0),
         "language": str(metadata.get("main_language") or metadata.get("language") or "en"),
         "agent_version": str(payload.get("version_id") or ""),
