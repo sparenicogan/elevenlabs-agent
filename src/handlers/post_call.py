@@ -159,11 +159,7 @@ def _store_interaction(conversation_id: str, payload: dict) -> None:
              outlives the conversation record it is derived from, and no reset removes it.
     """
     record = dynamo.get(CONVERSATIONS_TABLE, {"conversation_id": conversation_id}) or {}
-    row = interaction_domain.build(
-        payload,
-        customer_id=str(record.get("customer_id") or ""),
-        outcome=_outcome(payload),
-    )
+    row = interaction_domain.build(payload, customer_id=str(record.get("customer_id") or ""))
     written = dynamo.put_if_absent(INTERACTIONS_TABLE, row, "conversation_id")
     log.info(
         "interaction recorded" if written else "interaction already recorded",
@@ -236,15 +232,9 @@ def _tool_counts(payload: dict) -> dict:
 
 
 def _outcome(payload: dict) -> str:
-    """Which of the five outcomes in data-model.md this call had."""
-    analysis = payload.get("analysis") or {}
-    if analysis.get("transfer_attempted"):
-        return "TRANSFERRED"
-    if analysis.get("escalated"):
-        return "ESCALATED"
-    if (payload.get("metadata") or {}).get("termination_reason") == "abandoned":
-        return "ABANDONED"
-    return "RESOLVED_AUTONOMOUS"
+    """Which of the five outcomes in data-model.md this call had. See interaction.outcome:
+    the rule reads fields ElevenLabs actually sends, which the previous one did not."""
+    return interaction_domain.outcome(payload)
 
 
 def _regenerate_summary(conversation_id: str, payload: dict) -> None:
@@ -339,8 +329,8 @@ def _reconcile_transfer(conversation_id: str, payload: dict) -> None:
     the call without warning. When it does, nothing on the call is left to keep that promise,
     and this is the last place that knows it was made (FR-020, research D4).
     """
-    analysis = payload.get("analysis") or {}
-    if not analysis.get("transfer_attempted") or analysis.get("transfer_result") == "SUCCESS":
+    attempted, succeeded = interaction_domain.transfer(payload)
+    if not attempted or succeeded:
         return
 
     record = dynamo.get(CONVERSATIONS_TABLE, {"conversation_id": conversation_id}) or {}

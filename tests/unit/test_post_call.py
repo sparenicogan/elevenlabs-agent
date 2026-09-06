@@ -155,54 +155,111 @@ class TestWhatIsStored:
 
 
 class TestTheCallbackBackstop:
+    """These tests used to assert against analysis.transfer_attempted and
+    analysis.transfer_result. Neither field exists -- they were absent from all 40 real calls
+    surveyed -- so the code and the tests agreed with each other and with nothing else, and
+    the backstop never fired. The payloads below are the shape ElevenLabs actually sends."""
+
+    @staticmethod
+    def _transfer(used: bool, error: bool):
+        return {
+            **PAYLOAD,
+            "metadata": {
+                **PAYLOAD["metadata"],
+                "features_usage": {"transfer_to_number": {"used": used}},
+            },
+            "transcript": [
+                {"tool_results": [{"tool_name": "transfer_to_number", "is_error": error}]}
+            ]
+            if used
+            else [],
+        }
+
     def test_a_failed_transfer_records_the_callback_the_agent_promised(self, stubs):
         """The agent promises a callback before it transfers, precisely because a transfer can
         drop the call. When it does, this is the last thing that knows (research D4)."""
-        call(
-            stubs,
-            {**PAYLOAD, "analysis": {"transfer_attempted": True, "transfer_result": "FAILED"}},
-        )
+        call(stubs, self._transfer(used=True, error=True))
         assert stubs["callback"].called
 
     def test_a_successful_transfer_records_nothing(self, stubs):
-        call(
-            stubs,
-            {**PAYLOAD, "analysis": {"transfer_attempted": True, "transfer_result": "SUCCESS"}},
-        )
+        call(stubs, self._transfer(used=True, error=False))
+        stubs["callback"].assert_not_called()
+
+    def test_a_call_with_no_transfer_records_nothing(self, stubs):
+        call(stubs, PAYLOAD)
         stubs["callback"].assert_not_called()
 
     def test_a_callback_already_recorded_is_not_duplicated(self, stubs):
         stubs["get"].return_value = {"callback": {"reason": "TRANSFER_FAILED"}}
-        call(
-            stubs,
-            {**PAYLOAD, "analysis": {"transfer_attempted": True, "transfer_result": "FAILED"}},
-        )
+        call(stubs, self._transfer(used=True, error=True))
         stubs["callback"].assert_not_called()
 
 
-class TestTheAdaptersAreCalledCorrectly:
-    """Every adapter is mocked in the tests above, which is what makes them fast and is also
-    what let a wrong keyword reach production. The webhook returned 500 on its first real
-    delivery because upsert was passed a condition, which only update_if takes."""
+class TestWhatTheCallWas:
+    """The outcome rule decides the escalation rate, the containment rate and the autonomous
+    resolution rate. It read two fields that do not exist, so every call ever recorded was
+    labelled RESOLVED_AUTONOMOUS and those three rates described a system that never
+    escalates."""
 
-    def test_upsert_refuses_a_condition_rather_than_passing_it_to_boto(self):
-        import pytest as _pytest
+    @staticmethod
+    def _outcome(stubs, payload):
+        call(stubs, payload)
+        return stubs["put_if_absent"].call_args.args[1]["outcome"]
 
-        from src.adapters import dynamo
+    def test_a_transfer_is_a_transfer(self, stubs):
+        assert self._outcome(stubs, TestTheCallbackBackstop._transfer(True, False)) == "TRANSFERRED"
 
-        with _pytest.raises(TypeError, match="use update_if"):
-            dynamo.upsert("conversations", {"conversation_id": "c"}, condition="x")
+    def test_raising_a_ticket_is_an_escalation(self, stubs):
+        payload = {
+            **PAYLOAD,
+            "transcript": [
+                {"tool_results": [{"tool_name": "create_escalation", "is_error": False}]}
+            ],
+        }
+        assert self._outcome(stubs, payload) == "ESCALATED"
 
-    def test_the_summary_is_written_conditionally(self):
-        """Two calls ending at once must not overwrite each other's work: the loser reads
-        again and re-folds rather than winning by arriving second."""
+    def test_a_call_that_ran_out_of_time_did_not_resolve(self, stubs):
+        payload = {
+            **PAYLOAD,
+            "metadata": {
+                **PAYLOAD["metadata"],
+                "termination_reason": "Conversation has exceeded maximum duration",
+            },
+        }
+        assert self._outcome(stubs, payload) == "ABANDONED"
+
+    def test_a_call_that_died_on_quota_did_not_resolve(self, stubs):
+        """Seen once in 40 calls. It is a failure of ours, not a resolution."""
+        payload = {
+            **PAYLOAD,
+            "metadata": {
+                **PAYLOAD["metadata"],
+                "termination_reason": "This request exceeds your quota limit.",
+            },
+        }
+        assert self._outcome(stubs, payload) == "ABANDONED"
+
+    def test_an_ordinary_hangup_resolved(self, stubs):
+        payload = {
+            **PAYLOAD,
+            "metadata": {
+                **PAYLOAD["metadata"],
+                "termination_reason": "Client disconnected: 1000",
+            },
+        }
+        assert self._outcome(stubs, payload) == "RESOLVED_AUTONOMOUS"
+
+    def test_the_rule_never_reads_a_field_elevenlabs_does_not_send(self):
+        """The fields that caused this. Naming them keeps them out."""
         import inspect
 
-        from src.handlers import post_call
+        from src.domain import interaction
 
-        source = inspect.getsource(post_call._regenerate_summary)
-        assert "update_if" in source
-        assert "version = :expected" in source
+        source = inspect.getsource(interaction)
+        for absent in ("transfer_attempted", "transfer_result", '"escalated"'):
+            assert absent not in source.split('"""')[0] + "".join(
+                part for i, part in enumerate(source.split('"""')) if i % 2 == 0
+            ), f"the rule keys on {absent}, which is not a field"
 
 
 class TestThePermanentRecord:
