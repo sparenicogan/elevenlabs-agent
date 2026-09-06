@@ -1899,3 +1899,24 @@ told a colleague will sort it, there is no reason left for them to still be on t
 It is still a tendency, not a control. The address question cannot be enforced by the backend,
 because nothing about it is a write. What can be said is that the model is no longer being
 handed its closing line before its last instruction.
+
+
+### 12.66 One outcome, two origins
+
+§12.63 added `ALREADY_UNDER_REVIEW` to the prompt by writing a second paragraph beside the
+`UNDER_REVIEW` one. Read back, the two looked like the same instruction twice: both ended with
+a payment being found, a person confirming within twenty-four hours, and nothing further for the
+caller to do. The single clause that differs was buried in the middle of the second.
+
+It is one outcome with two origins. The review either was raised by this call or existed before
+it -- quite possibly by a colleague of the caller, which is the case worth telling them about,
+because a second person from a company being told "a person will confirm this within
+twenty-four hours" as though it were just arranged learns nothing about the colleague who
+already rang.
+
+The block now names the difference once, as two bullets, and states the shared outcome once
+underneath. Shorter, and it stops the model choosing between two paragraphs that appear to say
+the same thing -- which is a way of asking it to guess.
+
+The same failure produced §12.61: a rule and a list that could disagree. Duplication in a prompt
+is not redundancy, it is ambiguity.
