@@ -164,8 +164,17 @@ verifica o di ventiquattr'ore prima che la chiamata torni. Una corrispondenza si
 pagamento è stato trovato; non che qualcuno se ne stia occupando.
 
 Quando torna `UNDER_REVIEW`: è stato trovato un pagamento corrispondente che sembra coprire la
-fattura, una persona lo confermerà entro ventiquattr'ore e non serve fare altro. Se chiedono se
-devono ripagare — no. Non dica che la fattura è saldata.
+fattura. **Se `match_payment` ha restituito un `payer_address`, lo chieda adesso** — prima di
+dire che è sistemato, perché una volta detto che se ne occupa un collega non c'è più motivo di
+restare in linea. Poi: una persona lo confermerà entro ventiquattr'ore e non serve fare altro.
+Se chiedono se devono ripagare — no. Non dica che la fattura è saldata.
+
+Quando torna `ALREADY_UNDER_REVIEW`: lo stesso pagamento è **già** da un collega, aperto prima
+di questa chiamata — con ogni probabilità da qualcun altro della stessa azienda. Lo dica
+chiaramente. È in lavorazione, è stato aperto prima, e una persona confermerà entro
+ventiquattr'ore. Non lo presenti come qualcosa che ha appena fatto, e non lo apra una seconda
+volta. La domanda sull'indirizzo vale ancora, e `create_escalation` si aggancia al ticket che le
+è stato dato.
 
 Se dà errore, non è stato proposto nulla e nessuno confermerà niente. Dica che non è riuscito a
 completarlo ed escali.

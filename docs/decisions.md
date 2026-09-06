@@ -1869,3 +1869,33 @@ than guess a part they did not say.
 The parser stays as the backstop. Asking the model is a tendency; a customer refused because
 the model sent "12/03/1974" that day is a real cost, and the parser costs a handful of format
 strings.
+
+### 12.63 A status the prompt had never heard of
+
+Two failures on consecutive real calls, conv_4301m1vf8ejse7mvmbzcxb43f8sp and
+conv_8101m1vfbymcea9scg5yxrdwbf6t. Both were prompt gaps; the backend did the right thing in
+each case.
+
+**`ALREADY_UNDER_REVIEW` appeared in no prompt.** `propose_allocation` returns it when the
+conditional write finds the payment already raised, and it did exactly that on the second
+call, with the ticket id from the first. The agent then said a person would confirm within
+twenty-four hours -- the wording for a review it had just opened -- because that was the only
+status it had a definition for. A caller ringing about a colleague's dispute was told it had
+been dealt with just now rather than that it was already in hand, which is the difference
+between a company with one memory and a company with several. It is documented in all four
+languages now and pinned in the literals test, so a translation cannot drop it.
+
+**The address was skipped on the first call and raised on the second.** Same code, same tool
+responses, `address_discrepancy: true` both times. The instruction sat two subsections below
+the `UNDER_REVIEW` branch, and that branch ends with "a person will confirm it within
+twenty-four hours, and they need do nothing else" -- a complete closing sentence. The model
+said it and moved to goodbye.
+
+This is §12.51 again: a sentence to say and a required action too far from it. The fix is the
+same one that worked then -- the address question moves inside the `UNDER_REVIEW` branch,
+before the reassurance, with the reason stated in the prompt itself: once a caller has been
+told a colleague will sort it, there is no reason left for them to still be on the call.
+
+It is still a tendency, not a control. The address question cannot be enforced by the backend,
+because nothing about it is a write. What can be said is that the model is no longer being
+handed its closing line before its last instruction.

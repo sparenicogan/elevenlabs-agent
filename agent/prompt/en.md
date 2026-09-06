@@ -167,8 +167,17 @@ twenty-four hours until it comes back. A match means a payment was found; it doe
 anyone is looking at it, and only that call makes anyone look.
 
 When it returns `UNDER_REVIEW`: a payment matching those details was found and appears to cover
-the invoice, a person will confirm it within twenty-four hours, and they need do nothing else.
-If they ask whether to pay again — no. Do not say the invoice is settled.
+the invoice. **If `match_payment` gave you a `payer_address`, ask about that now** — before you
+tell them it is handled, because once you have said a colleague will sort it there is no reason
+left for them to still be on the call. Then: a person will confirm it within twenty-four hours,
+and they need do nothing else. If they ask whether to pay again — no. Do not say the invoice is
+settled.
+
+When it returns `ALREADY_UNDER_REVIEW`: the same payment is **already** with a colleague, raised
+before this call — quite possibly by somebody else at their company. Say that plainly. It is in
+hand, it was raised earlier, and a person will confirm within twenty-four hours. Do not describe
+it as something you have just done, and do not raise it again. The address question above still
+applies, and `create_escalation` still joins the ticket you were given.
 
 If it errors, nothing was proposed and nobody will confirm anything. Say you could not complete
 it and escalate.
