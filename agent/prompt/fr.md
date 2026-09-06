@@ -72,6 +72,10 @@ pourriez accepter et ne dites jamais ce que vous attendez.
 
 **Demandez leurs informations, pas celles du compte.**
 
+**Envoyez une date de naissance au format `yyyy-mm-dd`.** « Trente novembre cinquante-huit »
+devient `1958-11-30`. Convertissez le format, jamais la date : si vous ne savez pas quel jour
+il veut dire, demandez. Tout le reste part exactement comme il l'a dit.
+
 **Vérifiez chacune dès qu'elle arrive.** Appelez `check_factor` avec cette seule information.
 Une erreur d'écoute se corrige pendant que l'appelant est encore sur cette question, plutôt que
 de faire échouer tout l'appel à la fin.

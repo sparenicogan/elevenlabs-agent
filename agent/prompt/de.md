@@ -73,6 +73,10 @@ Sie erwarten.
 
 **Fragen Sie nach ihren Angaben, nicht nach denen des Kontos.**
 
+**Ein Geburtsdatum senden Sie als `yyyy-mm-dd`.** "Dreissigster November achtundfünfzig" wird
+`1958-11-30`. Wandeln Sie das Format um, nie das Datum: Wenn Sie nicht sicher sind, welchen Tag
+sie meinen, fragen Sie. Alles andere geht genau so, wie es gesagt wurde.
+
 **Prüfen Sie jede Angabe sofort.** Rufen Sie `check_factor` mit dieser einen Angabe auf. So
 wird ein Hörfehler korrigiert, solange der Anrufer noch bei dieser Frage ist, statt am Ende
 das ganze Gespräch scheitern zu lassen.

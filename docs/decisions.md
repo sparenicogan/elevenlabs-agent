@@ -1838,3 +1838,34 @@ rather than permission, with the decision left to the rule above it.
 
 The general lesson is the one the whole prompt keeps relearning: a rule that reasons from what
 the agent must *do* survives cases nobody thought of, and a list of allowed *topics* does not.
+
+### 12.62 A detail that could not be read was reported as matching
+
+Found on a real call, conv_0901m1veyhwbe7qvxm6rfn22pf71. A caller gave a correct email, a
+correct phone number, and his date of birth as "March 12, '74". All three per-detail checks
+returned MATCHED. `verify_identity` then confirmed two of three and refused him, saying
+nothing about which -- correctly, because it never does. He was exactly who he said he was and
+the call was unrecoverable.
+
+`check_factor` asked whether the answer was *mismatched*. An unreadable date is deliberately
+neither confirmed nor mismatched (§12 on separating unreadable from wrong): counting it as a
+mismatch would discard the answers a caller got right. `_compares` read that absence as a
+match, so the one endpoint whose entire purpose is catching a misheard detail reported the
+misheard detail as fine. It now asks whether the factor was confirmed.
+
+**Three separate faults, one call.** The comparison above; `"March 12, '74"` being unreadable
+at all, because no format handled a two-digit year behind an apostrophe and a comma; and
+`%y` reading 00-68 as the 2000s, so a caller born in 1958 saying "fifty-eight" parsed to 2058.
+Klaus's "'74" would have worked had it reached the parser, purely because 74 falls in the half
+of the range that maps to the 1900s. Nobody is born in the future, so a parsed date later than
+today is moved back a century -- not a guess, the only reading that can be true.
+
+**And the model is now asked for `yyyy-mm-dd`.** The tool contract says raw values precisely so
+the model cannot tidy a wrong answer into a right one, and that reasoning holds for an email or
+a phone number. A date is different: converting the format is not changing the answer, and the
+schema says so in as many words -- convert the format, never which date it is, and ask rather
+than guess a part they did not say.
+
+The parser stays as the backstop. Asking the model is a tendency; a customer refused because
+the model sent "12/03/1974" that day is a real cost, and the parser costs a handful of format
+strings.

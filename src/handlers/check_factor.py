@@ -136,4 +136,9 @@ def _compares(contact_id: str | None, factor: Factor, value: str) -> bool:
         stored={factor: str(record[factor.value])},
         required_count=1,
     )
-    return not outcome.mismatched_factors
+    # Confirmed, not merely un-mismatched. An unreadable date is deliberately neither -- it
+    # tells us nothing about the caller, so verify_identity refuses to let it discard the
+    # answers they got right. Reading that absence as a match told a caller their date of
+    # birth had landed, then failed them at the gate for the same date, with nothing said
+    # about which of the three was the problem.
+    return outcome.confirmed_count == 1

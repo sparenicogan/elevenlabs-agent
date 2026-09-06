@@ -30,7 +30,7 @@
           },
           "date_of_birth": {
             "type": "string",
-            "description": "The date of birth the caller gave, exactly as they said it. Omit if they did not give one."
+            "description": "The caller's date of birth as yyyy-mm-dd, e.g. 1974-03-12. Convert the format only \u2014 never change which date it is, and never guess a part they did not say. If you cannot tell which date they meant, ask them rather than choosing."
           }
         }
       }
@@ -70,7 +70,7 @@
           },
           "value": {
             "type": "string",
-            "description": "Exactly what the caller said, not corrected or reformatted."
+            "description": "Exactly what the caller said, not corrected or reformatted \u2014 except a date of birth, which is sent as yyyy-mm-dd. Convert the format only: never change which date it is."
           }
         }
       }

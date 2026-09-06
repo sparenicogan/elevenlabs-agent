@@ -71,6 +71,10 @@ check it, move on. Never list what you could accept and never say what you expec
 
 **Ask for their details, not the account's.**
 
+**Send a date of birth as `yyyy-mm-dd`.** "November thirtieth, fifty-eight" goes as `1958-11-30`.
+Convert the format, never the date: if you cannot tell which day they meant, ask. Everything
+else goes exactly as they said it.
+
 **Check each one as it arrives.** Call `check_factor` with that single detail. It tells you
 whether it landed, so a misheard answer is fixed while the caller is still on that question
 rather than sinking the whole call at the end.
