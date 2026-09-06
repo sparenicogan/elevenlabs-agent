@@ -193,7 +193,9 @@ def _verification_block(company: dict) -> str:
     contacts = [c for c in fixtures.CONTACTS if c["account_id"] == company["customer_id"]]
 
     lines = [
-        f"Customer ID (the company, shared by all of them) — `{company['customer_id']}`",
+        f"Account `{company['customer_id']}` — for your reference only. The agent never asks "
+        "for it and you should not offer it; it recognises the account from the number you "
+        "are calling from.",
         "",
         "| Contact | Email | Phone | Date of birth |",
         "|---|---|---|---|",
@@ -216,9 +218,10 @@ def _verification_block(company: dict) -> str:
 
     lines.append("")
     lines.append(
-        "Any of them verifies with **their own** email, phone or date of birth, plus the "
-        "customer ID. Three factors, at least one personal. Somebody not in this table gets "
-        "nowhere, whatever they claim about working here."
+        "The agent asks for three things, in this order: **email, then phone, then date of "
+        "birth** — one at a time, checking each as it arrives. Give one person's details, "
+        "not a mixture: any of these people verifies with **their own**, and somebody not in "
+        "this table gets nowhere whatever they claim about working here."
     )
     return "\n".join(lines)
 
@@ -281,6 +284,61 @@ def _primary(company: dict) -> dict:
     return next(c for c in fixtures.CONTACTS if c["account_id"] == company["customer_id"])
 
 
+# Calls that are not about one company's account, so they hang off no fixture. Written out
+# rather than generated, because there is no data behind them -- which is the point.
+NO_ACCOUNT_TEMPLATE = """## Before you are a customer
+
+*US10 — a question that needs no account* · any language
+
+### The situation
+
+Somebody rings to ask what the standard payment terms are. They may not be a customer at all.
+Nothing about the answer depends on who they are.
+
+### What to say
+
+> "Quick question — what are your standard payment terms?"
+
+Give no name, no email, nothing. If the agent asks who you are, answer that you would rather
+not say and ask the question again.
+
+### What the agent should do
+
+Answer: **30 days from the invoice date**, overdue from the day after. It must not ask you to
+identify yourself and must not call a tool. There is nothing to protect here -- the number is
+on every invoice the company sends and is the same for every customer.
+
+Then, still on the same call, ask about your own invoice. Verification should start **at that
+point** and not before. That is the whole rule: the lookup decides, not the subject.
+
+---
+
+## Calling second, about something already raised
+
+*US11 — a colleague finds the work in hand* · Alpina Tech · `{alpina}`
+
+### The situation
+
+Run the Alpina Tech call first and let it reach a review. Then ring back as **Thomas Weber**,
+a different contact on the same account, about the same overdue invoice.
+
+### What to say to get verified
+
+Thomas verifies with **his own** details, not Klaus's. Being a colleague of somebody verified
+is worth nothing at the gate -- and that is deliberate.
+
+### What the agent should do
+
+Verify Thomas properly, then tell him it is already being dealt with and roughly when he will
+hear back. It must **not** raise a second ticket for the same problem. Two tickets means two
+people working it and two different answers reaching the same company.
+
+If it takes the whole story down again from scratch, that is the failure worth catching.
+
+---
+"""
+
+
 def render() -> str:
     """
     Builds the whole document.
@@ -300,10 +358,17 @@ def render() -> str:
         "this after `make seed` rather than trusting an old copy. All data is synthetic.",
         "",
         "The number to call is the one assigned to the agent in ElevenLabs. Verification",
-        "always needs **three factors, at least one of which is not printed on an invoice** —",
-        "so a customer ID plus two invoice-derived facts will correctly fail.",
+        "asks for **email, phone and date of birth**, one at a time, and all three must belong",
+        "to the same person. None of them is printed on an invoice, which is the point: holding",
+        "a customer's paperwork is not being that customer.",
         "",
         "---",
+        "",
+        # Filled from the fixtures rather than written in: the id is generated, and a copy
+        # in the source both drifts and reads to a secret scanner as an AWS account number.
+        NO_ACCOUNT_TEMPLATE.format(
+            alpina=next(c["customer_id"] for c in fixtures.COMPANIES if c["key"] == "alpina")
+        ),
         "",
     ]
 
