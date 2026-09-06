@@ -1,0 +1,103 @@
+{
+  "story": "US5",
+  "title": "Degradation, escalation and transfer",
+  "timestamp": "2026-09-05T09:49:18+00:00",
+  "verdict": "SUCCESS",
+  "checks_passed": 2,
+  "checks_total": 2,
+  "good": [
+    {
+      "behaviour": "asking for a human is enough",
+      "why_it_matters": "Do not talk them out of it."
+    },
+    {
+      "behaviour": "the callback is promised before the transfer",
+      "why_it_matters": "A transfer can drop the call, and a promise made only afterwards is one that sometimes never gets made."
+    }
+  ],
+  "bad": [],
+  "metadata": {
+    "git_commit": "abeac86",
+    "git_dirty": true,
+    "agent_id": "agent_3501m1k6hy8yech93pn3gfets2tx",
+    "prompt_chars": 16001,
+    "tools_executed": false,
+    "tool_results_are": "simulated by ElevenLabs, not returned by the deployed backend",
+    "turns": 13,
+    "tools_called": [
+      "create_escalation",
+      "transfer_to_number"
+    ]
+  },
+  "transcript": [
+    {
+      "role": "agent",
+      "message": "Helvetia Werkstoffe, accounts department. How can I help you?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "Hello, my name is Klaus Mueller from Alpina Tech.  I would like to speak to a human being, please.  I would prefer to speak with a person.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "I understand you'd prefer to speak with a person.  Before I transfer you, could you tell me briefly what this is about so I can pass that along to my colleague?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "I would prefer to speak with a person.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "That is absolutely fine, and I will arrange that for you right away.  I have noted your request to speak with a human,  and a colleague will take over this call shortly.",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "Are you still there?  I am ready to transfer you to a colleague now.",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "Yes, I'm still here.  Please go ahead and transfer me to a colleague.  Thank you.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "create_escalation"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "I have got all of this written down,  and a colleague will call you back if we get cut off.   Let me put you through now.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "transfer_to_number"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    }
+  ]
+}

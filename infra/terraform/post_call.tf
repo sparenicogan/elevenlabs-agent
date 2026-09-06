@@ -15,6 +15,14 @@ data "aws_iam_policy_document" "post_call" {
     ]
   }
 
+  # The permanent record. PutItem only: the row is written once and never updated, and the
+  # handler has no reason to be able to change one after the fact.
+  statement {
+    effect    = "Allow"
+    actions   = ["dynamodb:PutItem"]
+    resources = [aws_dynamodb_table.interactions.arn]
+  }
+
   statement {
     effect    = "Allow"
     actions   = ["s3:PutObject"]

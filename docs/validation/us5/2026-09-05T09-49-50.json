@@ -1,0 +1,88 @@
+{
+  "story": "US5",
+  "title": "Degradation, escalation and transfer",
+  "timestamp": "2026-09-05T09:49:50+00:00",
+  "verdict": "SUCCESS",
+  "checks_passed": 2,
+  "checks_total": 2,
+  "good": [
+    {
+      "behaviour": "asking for a human is enough",
+      "why_it_matters": "Do not talk them out of it."
+    },
+    {
+      "behaviour": "the callback is promised before the transfer",
+      "why_it_matters": "A transfer can drop the call, and a promise made only afterwards is one that sometimes never gets made."
+    }
+  ],
+  "bad": [],
+  "metadata": {
+    "git_commit": "abeac86",
+    "git_dirty": true,
+    "agent_id": "agent_3501m1k6hy8yech93pn3gfets2tx",
+    "prompt_chars": 16001,
+    "tools_executed": false,
+    "tool_results_are": "simulated by ElevenLabs, not returned by the deployed backend",
+    "turns": 10,
+    "tools_called": [
+      "create_escalation",
+      "transfer_to_number"
+    ]
+  },
+  "transcript": [
+    {
+      "role": "agent",
+      "message": "Helvetia Werkstoffe, accounts department. How can I help you?",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "Hello, my name is Klaus Mueller from Alpina Tech.  I would like to speak to a human being, please.  I would prefer to speak with a person.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "I understand you'd prefer to speak with a person.  Before I transfer you, could you tell me briefly what this is regarding?  That will help my colleague assist you when they take the call.",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "I would prefer to speak with a person.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "That is absolutely fine, and I can arrange that for you right away.   I will make sure a colleague has the details of your request so you do not have to repeat yourself.   I have noted everything down,  and if we get cut off during the transfer,  someone will call you back.   Let me put you through now.",
+      "tool_calls": []
+    },
+    {
+      "role": "user",
+      "message": "Thank you.",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "create_escalation"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": [
+        "transfer_to_number"
+      ]
+    },
+    {
+      "role": "agent",
+      "message": "",
+      "tool_calls": []
+    }
+  ]
+}

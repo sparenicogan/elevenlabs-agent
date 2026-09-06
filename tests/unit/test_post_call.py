@@ -41,6 +41,8 @@ def stubs(mocker):
         # no region -- which is the wrong way round for a test to tell you something.
         "update_if": mocker.patch.object(module.dynamo, "update_if", return_value={}),
         "get": mocker.patch.object(module.dynamo, "get", return_value={}),
+        # The interaction row is written once and never updated, so it is a third seam.
+        "put_if_absent": mocker.patch.object(module.dynamo, "put_if_absent", return_value=True),
         "module": module,
     }
 
@@ -201,3 +203,69 @@ class TestTheAdaptersAreCalledCorrectly:
         source = inspect.getsource(post_call._regenerate_summary)
         assert "update_if" in source
         assert "version = :expected" in source
+
+
+class TestThePermanentRecord:
+    """The row that outlives the call, and every reset."""
+
+    def test_it_is_written_once_and_never_updated(self, stubs):
+        call(stubs, PAYLOAD)
+        table, row, key_field = stubs["put_if_absent"].call_args.args
+        assert table == "interactions"
+        assert key_field == "conversation_id"
+        assert row["conversation_id"] == "conv_1"
+
+    def test_a_duplicate_delivery_writes_nothing_new(self, stubs):
+        stubs["put_if_absent"].return_value = False
+        status, body = call(stubs, PAYLOAD)
+        assert status == 200
+        assert "interaction" in body["completed"]
+
+    def test_it_carries_the_whole_elevenlabs_payload(self, stubs):
+        """A question nobody has asked yet should still be answerable next year."""
+        call(stubs, PAYLOAD)
+        row = stubs["put_if_absent"].call_args.args[1]
+        assert row["elevenlabs"]["analysis"]["transcript_summary"]
+
+    def test_the_transcript_is_not_duplicated_into_it(self, stubs):
+        """It is already in S3, where it is cheaper and cannot burst the item limit."""
+        call(stubs, {**PAYLOAD, "transcript": [{"role": "agent", "message": "hello"}]})
+        row = stubs["put_if_absent"].call_args.args[1]
+        assert "transcript" not in row["elevenlabs"]
+
+    def test_our_own_tool_latency_is_recorded(self, stubs):
+        """ElevenLabs times its model, not our webhooks. A slow tool reaches their metrics
+        only as silence on the line, so the number has to come from the tool results."""
+        call(
+            stubs,
+            {
+                **PAYLOAD,
+                "transcript": [
+                    {
+                        "tool_results": [
+                            {"tool_name": "get_account_context", "tool_latency_secs": 2.5},
+                            {"tool_name": "get_account_context", "tool_latency_secs": 3.5},
+                            {
+                                "tool_name": "check_factor",
+                                "tool_latency_secs": 5.0,
+                                "is_error": True,
+                            },
+                        ]
+                    },
+                ],
+            },
+        )
+        tools = stubs["put_if_absent"].call_args.args[1]["tools"]
+        assert tools["get_account_context"] == {
+            "calls": 2,
+            "errors": 0,
+            "latency_p50_ms": 3000,
+            "latency_max_ms": 3500,
+        }
+        assert tools["check_factor"]["errors"] == 1
+
+    def test_an_unverified_call_is_still_recorded(self, stubs):
+        """A call nobody could verify is a data point, not a gap."""
+        stubs["get"].return_value = {}
+        call(stubs, PAYLOAD)
+        assert stubs["put_if_absent"].call_args.args[1]["customer_id"] == ""
