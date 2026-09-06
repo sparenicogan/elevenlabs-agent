@@ -104,6 +104,14 @@ def _llm_usage(payload: dict) -> dict:
 
 # Termination reasons that mean the call did not finish on its own terms. Read from 40 real
 # calls rather than assumed: everything else observed was a normal client disconnect.
+# The channel a call arrived on. Only twilio is a real inbound phone call; react_sdk is the
+# browser widget, which on this deployment is testing. Of 57 conversations on record, 39 were
+# react_sdk and 18 twilio -- so a metric that does not separate them is two thirds noise.
+# Stored verbatim rather than reduced to a flag, because the same widget is a legitimate
+# production channel elsewhere and the judgement belongs to whoever reads the numbers.
+PHONE_CHANNELS = ("twilio", "exotel", "sip_trunking")
+
+
 _UNFINISHED = (
     "exceeded maximum duration",
     "quota limit",
@@ -207,6 +215,12 @@ def build(payload: dict, customer_id: str) -> dict:
         "language": str(metadata.get("main_language") or metadata.get("language") or "en"),
         "agent_version": str(payload.get("version_id") or ""),
         "termination_reason": str(metadata.get("termination_reason") or ""),
+        "channel": str(metadata.get("conversation_initiation_source") or "unknown"),
+        # Whether this was somebody phoning in, as against a widget session or a test. The
+        # simulator never reaches here at all: simulate-conversation returns its transcript
+        # inline and persists nothing, so it appears in neither the webhook nor the API.
+        "is_phone_call": str(metadata.get("conversation_initiation_source") or "")
+        in PHONE_CHANNELS,
         "cost_credits": int(metadata.get("cost") or 0),
         "cost_fiat": metadata.get("cost_fiat"),
         "call_successful": str(analysis.get("call_successful") or ""),

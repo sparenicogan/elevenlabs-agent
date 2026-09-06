@@ -188,8 +188,8 @@ resource "aws_dynamodb_table" "conversations" {
 # opposite lifetimes: call state is worthless an hour later, and what a call cost, how long
 # the caller waited and whether it resolved is worth years. Sharing a row meant the only
 # available reset destroyed both.
-resource "aws_dynamodb_table" "interactions" {
-  name         = "${var.project}-interactions"
+resource "aws_dynamodb_table" "performance" {
+  name         = "${var.project}-performance"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "conversation_id"
 

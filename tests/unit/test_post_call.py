@@ -253,9 +253,9 @@ class TestWhatTheCallWas:
         """The fields that caused this. Naming them keeps them out."""
         import inspect
 
-        from src.domain import interaction
+        from src.domain import performance
 
-        source = inspect.getsource(interaction)
+        source = inspect.getsource(performance)
         for absent in ("transfer_attempted", "transfer_result", '"escalated"'):
             assert absent not in source.split('"""')[0] + "".join(
                 part for i, part in enumerate(source.split('"""')) if i % 2 == 0
@@ -268,7 +268,7 @@ class TestThePermanentRecord:
     def test_it_is_written_once_and_never_updated(self, stubs):
         call(stubs, PAYLOAD)
         table, row, key_field = stubs["put_if_absent"].call_args.args
-        assert table == "interactions"
+        assert table == "performance"
         assert key_field == "conversation_id"
         assert row["conversation_id"] == "conv_1"
 
@@ -276,7 +276,7 @@ class TestThePermanentRecord:
         stubs["put_if_absent"].return_value = False
         status, body = call(stubs, PAYLOAD)
         assert status == 200
-        assert "interaction" in body["completed"]
+        assert "performance" in body["completed"]
 
     def test_it_carries_the_whole_elevenlabs_payload(self, stubs):
         """A question nobody has asked yet should still be answerable next year."""
@@ -326,3 +326,37 @@ class TestThePermanentRecord:
         stubs["get"].return_value = {}
         call(stubs, PAYLOAD)
         assert stubs["put_if_absent"].call_args.args[1]["customer_id"] == ""
+
+
+class TestTestTrafficIsSeparable:
+    """Of 57 conversations on record 39 were widget sessions and 18 real phone calls. A
+    performance number that does not separate them is two thirds noise."""
+
+    @staticmethod
+    def _row(stubs, source):
+        call(
+            stubs,
+            {
+                **PAYLOAD,
+                "metadata": {
+                    **PAYLOAD["metadata"],
+                    "conversation_initiation_source": source,
+                },
+            },
+        )
+        return stubs["put_if_absent"].call_args.args[1]
+
+    def test_a_phone_call_is_marked_as_one(self, stubs):
+        row = self._row(stubs, "twilio")
+        assert row["channel"] == "twilio"
+        assert row["is_phone_call"] is True
+
+    def test_a_widget_session_is_not(self, stubs):
+        row = self._row(stubs, "react_sdk")
+        assert row["channel"] == "react_sdk"
+        assert row["is_phone_call"] is False
+
+    def test_the_channel_is_kept_verbatim(self, stubs):
+        """Not reduced to a flag: the same widget is a real channel on another deployment,
+        and that judgement belongs to whoever reads the numbers."""
+        assert self._row(stubs, "some_future_channel")["channel"] == "some_future_channel"

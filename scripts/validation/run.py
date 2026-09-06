@@ -20,7 +20,8 @@ import httpx
 
 from scripts.validation.scenarios import SCENARIOS, Scenario
 
-AGENT_ID = "agent_3501m1k6hy8yech93pn3gfets2tx"
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+AGENT_ID = json.loads((ROOT / "agent" / "agent.json").read_text())["agent_id"]
 API = "https://api.elevenlabs.io/v1"
 OUT = pathlib.Path("docs/validation")
 
