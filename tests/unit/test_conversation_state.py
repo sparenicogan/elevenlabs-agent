@@ -165,10 +165,27 @@ class TestStateExpiresOnItsOwn:
         )[0]
         assert "ttl {" not in interactions
 
-    def test_state_outlives_the_window_the_risk_rules_read(self):
-        """The credit rules still read this table over 365 days. An expiry shorter than that
-        would silently stop raising contact-frequency signals rather than fail."""
-        from src.common.conversation_state import STATE_RETENTION_DAYS
+    def test_the_history_the_risk_rules_read_outlives_their_window(self):
+        """An expiry inside the 365 days the credit rules look back over would stop raising
+        contact-frequency signals rather than fail -- the quiet kind of wrong."""
+        from src.common.call_history import RETENTION_DAYS
         from src.domain.risk import HISTORY_WINDOW_DAYS
 
-        assert STATE_RETENTION_DAYS > HISTORY_WINDOW_DAYS
+        assert RETENTION_DAYS > HISTORY_WINDOW_DAYS
+
+    def test_live_state_does_not_outlive_the_call_by_much(self):
+        """It is the state of a call that has ended. Holding verification outcomes and the
+        fingerprints of what a caller guessed for a year was the point of separating these."""
+        from src.common.conversation_state import STATE_RETENTION_DAYS
+
+        assert STATE_RETENTION_DAYS <= 7
+
+    def test_the_credit_rules_no_longer_read_the_conversation_table(self):
+        """A financial control must not depend on a store that expires in days."""
+        import inspect
+
+        from src.handlers import request_credit
+
+        source = inspect.getsource(request_credit)
+        assert "call_history.recent" in source
+        assert "recent_conversations" not in source

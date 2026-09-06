@@ -172,7 +172,7 @@ resource "aws_dynamodb_table" "conversations" {
 
   # Live call state expires on its own. Verification outcomes, lockout counters and the
   # fingerprints of what a caller guessed are useful for minutes and a liability for months.
-  # What survives a call is written to the interactions table instead.
+  # What survives a call is written to call-history and performance instead.
   ttl {
     attribute_name = "expires_at"
     enabled        = true
@@ -220,6 +220,40 @@ resource "aws_dynamodb_table" "performance" {
   # No TTL. This table is the record of what happened, and it is never reset by seeding.
   point_in_time_recovery {
     enabled = true
+  }
+
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.data.arn
+  }
+}
+
+# What a customer did on previous calls, for the rules that decide about money. Separate
+# from performance because a financial control must not depend on an analytics store that
+# exists to be reshaped, and separate from conversations because that expires in days while
+# this looks back a year.
+resource "aws_dynamodb_table" "call_history" {
+  name         = "${var.project}-call-history"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "customer_id"
+  range_key    = "started_at"
+
+  attribute {
+    name = "customer_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "started_at"
+    type = "S"
+  }
+
+  # Behavioural data about real people. It should not accumulate for ever, and the horizon is
+  # deliberately past the 365 days the credit rules read: an expiry inside that window would
+  # stop raising signals rather than fail.
+  ttl {
+    attribute_name = "expires_at"
+    enabled        = true
   }
 
   server_side_encryption {

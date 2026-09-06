@@ -14,7 +14,7 @@ import boto3
 
 from src.domain.metrics import derive, from_record
 
-TABLE = "voice-agent-conversations"
+TABLE = "voice-agent-performance"
 
 # How each rate reads to somebody who has not read the specification.
 LABELS = {
@@ -63,16 +63,36 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", type=int, default=30)
     parser.add_argument("--json", action="store_true")
+    # Browser sessions are testing on this deployment, and there are six times as many of
+    # them as real calls. Averaged together they describe nobody.
+    parser.add_argument(
+        "--include-test-traffic",
+        action="store_true",
+        help="count widget sessions as well as phone calls",
+    )
     args = parser.parse_args()
 
     records = _recent(args.days)
+    if not args.include_test_traffic:
+        records = [r for r in records if r.get("is_phone_call")]
     rates = derive([from_record(r) for r in records])
 
     if args.json:
-        print(json.dumps({"days": args.days, "calls": len(records), **rates}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "days": args.days,
+                    "calls": len(records),
+                    "phone_calls_only": not args.include_test_traffic,
+                    **rates,
+                },
+                indent=2,
+            )
+        )
         return 0
 
-    print(f"{len(records)} calls in the last {args.days} days\n")
+    scope = "calls" if args.include_test_traffic else "phone calls"
+    print(f"{len(records)} {scope} in the last {args.days} days\n")
     if not records:
         print("  nothing to derive from yet")
         return 0

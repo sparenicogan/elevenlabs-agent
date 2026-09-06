@@ -502,15 +502,19 @@ data "aws_iam_policy_document" "request_credit" {
     resources = [aws_dynamodb_table.ledger.arn, "${aws_dynamodb_table.ledger.arn}/index/*"]
   }
 
-  # Reads the conversation for verification state, updates it to record risk signals, and
-  # queries the customer index for patterns across their recent calls.
+  # Reads the conversation for verification state and updates it to record risk signals.
   statement {
-    effect  = "Allow"
-    actions = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:Query"]
-    resources = [
-      aws_dynamodb_table.conversations.arn,
-      "${aws_dynamodb_table.conversations.arn}/index/*",
-    ]
+    effect    = "Allow"
+    actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+    resources = [aws_dynamodb_table.conversations.arn]
+  }
+
+  # Reads what the customer did on previous calls. Query only: the rules that decide about
+  # money have no reason to be able to edit the history they are deciding from.
+  statement {
+    effect    = "Allow"
+    actions   = ["dynamodb:Query"]
+    resources = [aws_dynamodb_table.call_history.arn]
   }
 
   statement {
