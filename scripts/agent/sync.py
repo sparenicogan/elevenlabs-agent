@@ -97,6 +97,23 @@ class ElevenLabs:
         created without cleaning up."""
         self._client.request("DELETE", f"{API}/convai/knowledge-base/{document_id}")
 
+    def workspace_webhooks(self) -> list[dict]:
+        return self._call("GET", "/workspace/webhooks").get("webhooks", [])
+
+    def update_webhook(self, webhook_id: str, name: str, retry_enabled: bool) -> None:
+        """
+        Applies the delivery settings this repository declares.
+
+        Never touches is_disabled. A webhook auto-disables after ten consecutive failures, and
+        a deploy that silently switched it back on would hide the thing that disabled it and
+        spend another ten deliveries finding out. Re-enabling stays a deliberate act.
+        """
+        self._call(
+            "PATCH",
+            f"/workspace/webhooks/{webhook_id}",
+            json={"name": name, "retry_enabled": retry_enabled},
+        )
+
     def secret_id(self, name: str) -> str:
         for entry in self._call("GET", "/convai/secrets")["secrets"]:
             if entry["name"] == name:
@@ -236,6 +253,20 @@ def main() -> int:
     )
     for document_id in superseded:
         client.delete_knowledge_document(document_id)
+
+    declared_webhook = agent_config.get("webhook") or {}
+    for hook in client.workspace_webhooks() if declared_webhook else []:
+        if hook.get("name") == declared_webhook.get("name"):
+            client.update_webhook(
+                hook["webhook_id"],
+                declared_webhook["name"],
+                bool(declared_webhook.get("retry_enabled")),
+            )
+            state = "disabled" if hook.get("is_disabled") else "enabled"
+            print(
+                f"webhook {declared_webhook['name']}: retries "
+                f"{'on' if declared_webhook.get('retry_enabled') else 'off'}, currently {state}"
+            )
 
     print(f"synced {len(tool_ids)} tools and a {len(prompt)}-character prompt")
     print(f"knowledge: {len(knowledge)} document(s), {len(superseded)} replaced")

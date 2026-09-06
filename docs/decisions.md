@@ -2088,3 +2088,50 @@ cost in the prompt file. What changed is where it is edited and reviewed, not th
 Retrieval instead of injection needs `rag.enabled`, and for fifteen hundred characters the
 saving is small against a new failure mode: an agent that has to retrieve the holiday list
 before it can answer, and might not.
+
+
+### 12.69 The webhook was refusing every real call, quietly
+
+ElevenLabs auto-disabled the post-call webhook after a week of failures. The cause was one
+level of nesting.
+
+Every delivery arrives as `{"type", "event_timestamp", "data": {...}}` with the conversation
+under `data`. The handler read `conversation_id` from the top level, found nothing, and
+returned 400. Ten consecutive failures disable a webhook, and the last successful delivery was
+never.
+
+**It was silent.** The 400 returned before any logging, so CloudWatch showed six events against
+sixteen invocations and the seven missing ones left no trace at all. An endpoint failing every
+real request looked like an endpoint nobody was calling. That is what made it survive a week:
+the earlier conclusion, recorded in 12.59, that no real call had happened since the webhook was
+created, was drawn from those same empty logs and was wrong. Calls had been arriving throughout
+and being turned away.
+
+**Every test posted the conversation flat**, which is the shape the integration suite sends and
+not the shape ElevenLabs sends, so the suite stayed green while nothing real ever got in. The
+tests now use the wrapped envelope and keep one flat case, so the fix does not trade one blind
+spot for another.
+
+This is what the whole post-call path depends on -- the performance table, call-history for the
+credit rules, metrics, the cross-call summary, language preferences, and the callback backstop
+for a dropped transfer. None of it has run on a real call.
+
+Two changes beyond the unwrap. The rejection logs, because whatever else it does it has to be
+visible. And an event type we do not handle is now accepted and ignored rather than refused: a
+400 counts as a failure, and an audio event must not be able to switch off transcription.
+
+
+### 12.71 Webhook delivery settings are declared, and re-enabling is not
+
+`retry_enabled` was false, so a single dropped delivery was gone for good. It is declared in
+agent.json now and applied by the same deploy that applies the prompt and the retention period.
+
+**Retries would not have saved the webhook.** They cover transient failures -- 5xx, 429,
+timeout. The envelope bug returned 400, which is permanent and never retried, so every delivery
+failed on the first attempt and ten of them switched the webhook off. Retries are worth having
+for a cold start or a 5xx; they are not a substitute for the endpoint being right.
+
+**The sync deliberately does not touch `is_disabled`.** A webhook disables itself after ten
+consecutive failures, which is a useful signal. A deploy that quietly switched it back on would
+hide whatever disabled it and spend ten more deliveries rediscovering the same fault. Turning it
+back on stays a deliberate act by a person who has read the failure.

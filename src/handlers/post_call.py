@@ -58,9 +58,25 @@ def handler(event: dict, _context: Any = None) -> dict:
         )
         return {"statusCode": 401, "body": json.dumps({"status": "REJECTED"})}
 
-    payload = json.loads(body or "{}")
+    envelope = json.loads(body or "{}")
+
+    # ElevenLabs wraps the conversation: {"type", "event_timestamp", "data": {...}}. Reading
+    # conversation_id from the top level found nothing on every real delivery, so every one
+    # returned 400 -- and the 400 logged nothing, so CloudWatch showed a quiet endpoint rather
+    # than a failing one. Ten consecutive failures auto-disabled the webhook. The integration
+    # tests post the conversation directly, which is why they passed throughout.
+    payload = envelope.get("data") or envelope
+
+    event = str(envelope.get("type") or "post_call_transcription")
+    if event != "post_call_transcription":
+        # Accepted and ignored rather than refused. A 400 for an event type we do not handle
+        # counts as a failure and is what disabled this webhook once already.
+        log.info("post_call ignored", event_type=event, status="IGNORED")
+        return {"statusCode": 200, "body": json.dumps({"status": "IGNORED"})}
+
     conversation_id = str(payload.get("conversation_id") or "")
     if not conversation_id:
+        log.error("post_call has no conversation id", event_type=event, status="REJECTED")
         return {"statusCode": 400, "body": json.dumps({"status": "NO_CONVERSATION_ID"})}
 
     if not conversation_state.claim_post_call(conversation_id):

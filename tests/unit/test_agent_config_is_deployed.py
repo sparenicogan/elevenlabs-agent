@@ -162,3 +162,31 @@ class TestTheKnowledgeBaseIsVersioned:
         text = (self.KNOWLEDGE / "company.md").read_text().lower()
         for absent in ("iban", "ch93", "account number", "price list", "per tonne", "per kg"):
             assert absent not in text
+
+
+class TestTheWebhookSettingsAreDeclared:
+    """The post-call webhook auto-disabled after ten consecutive 400s and stayed off. Its
+    delivery settings belong under review like the prompt and the retention period."""
+
+    def test_retries_are_on(self):
+        assert AGENT["webhook"]["retry_enabled"] is True
+
+    def test_the_sync_never_re_enables_a_disabled_webhook(self):
+        """A webhook disables itself after ten consecutive failures. A deploy that switched it
+        back on would hide whatever disabled it and spend ten more deliveries rediscovering
+        it. Re-enabling is a deliberate act, not a side effect of shipping."""
+        import inspect
+
+        from scripts.agent import sync
+
+        body = inspect.getsource(sync.ElevenLabs.update_webhook)
+        assert "is_disabled" not in body.split('"""')[2]
+
+    def test_retries_do_not_cover_the_failure_that_disabled_it(self):
+        """Documented as transient failures only: 5xx, 429, timeout. A 400 is permanent and is
+        never retried, so retries are worth having and would not have saved this one."""
+        import inspect
+
+        from scripts.agent import sync
+
+        assert "400" in inspect.getsource(sync)
