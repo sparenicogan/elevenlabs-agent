@@ -154,13 +154,13 @@ class TestStateExpiresOnItsOwn:
         assert "enabled        = true" in conversations
 
     def test_the_permanent_record_has_no_ttl(self):
-        """The interactions table is what survives; an expiry on it would defeat the split."""
+        """The performance table is what survives; an expiry on it would defeat the split."""
         import pathlib
 
         tf = (
             pathlib.Path(__file__).resolve().parents[2] / "infra/terraform/dynamodb.tf"
         ).read_text()
-        interactions = tf.split('resource "aws_dynamodb_table" "interactions"')[1].split(
+        interactions = tf.split('resource "aws_dynamodb_table" "performance"')[1].split(
             "\nresource "
         )[0]
         assert "ttl {" not in interactions

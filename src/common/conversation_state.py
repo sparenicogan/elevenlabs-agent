@@ -19,7 +19,7 @@ _TABLE = "conversations"
 
 # How long a conversation record survives. Deliberately longer than the 365-day window the
 # credit risk rules look back over, because those rules still read this table. It drops to
-# days once the interactions table serves that history: verification outcomes, lockout
+# days once the performance table serves that history: verification outcomes, lockout
 # counters and fingerprints of what a caller guessed are useful for minutes and a liability
 # for months.
 STATE_RETENTION_DAYS = 400

@@ -20,7 +20,7 @@ data "aws_iam_policy_document" "post_call" {
   statement {
     effect    = "Allow"
     actions   = ["dynamodb:PutItem"]
-    resources = [aws_dynamodb_table.interactions.arn]
+    resources = [aws_dynamodb_table.performance.arn]
   }
 
   statement {
