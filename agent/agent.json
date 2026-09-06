@@ -61,5 +61,11 @@
     "escalation_triggers": "The ten reasons in create_escalation's enum, which mirror FR-018. Four are valid from an unverified conversation because they are statements about the call rather than claims about an account.",
     "languages": "DE, FR, IT and EN. The greeting language comes from the conversation initiation webhook, which resolves it from the calling number and falls back to German. language_detection is enabled on the agent so a caller who opens in another language is followed rather than corrected -- a Swiss caller switching to French mid-sentence is ordinary, not an error.",
     "tts_model": "eleven_turbo_v2, and it must stay that way while the agent's primary language is English: the API refuses anything else with 'English Agents must use turbo or flash v2'. Multilingual is not chosen here. The agent carries de, fr and it as additional languages in language_presets, and ElevenLabs switches those calls to the v2.5 multilingual model itself. Setting a multilingual model globally broke every deploy for twenty minutes."
+  },
+  "knowledge_base": {
+    "documents": [
+      "company.md"
+    ],
+    "usage_mode": "prompt"
   }
 }

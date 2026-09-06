@@ -2014,3 +2014,77 @@ settled in the same run, conditional on not already being PAID so a repeat run w
 Both were invisible to every test layer. The contract tests stub HubSpot, so a 400 from the real
 API had nowhere to appear; the integration tests exercise our endpoints, not a ticket closed by a
 person hours later. Only a human closing a real ticket could have surfaced either.
+
+### 12.68 A knowledge base, and the catalogue left out of it
+
+General facts the agent needs constantly now sit in the prompt: payment terms, how invoices
+arrive and are paid, currency and languages, where the sites are and when they are shut, and
+that product questions belong to sales.
+
+**Holidays are cantonal, not federal.** There is no such thing as a Swiss public holiday. The
+factory and its office are in Fribourg, the head office and billing in Zug, the sales agency in
+Ticino, and the three close on different days -- Fribourg adds 2 January, Ticino adds Epiphany,
+St Joseph, 1 May, Sts Peter and Paul and St Stephen, Zug adds nothing. A single shared list
+would have told a Ticino caller the agency was open on a day it is shut.
+
+The movable feasts are computed from Easter rather than remembered, and a test recomputes them:
+Easter is 5 April 2026 and 28 March 2027, so Good Friday, Easter Monday, Ascension, Whit Monday
+and Corpus Christi all follow. Zug's partial-day observances are left out rather than asserted,
+because half a day off is not something to state as fact from a scrape.
+
+**The price list was proposed and rejected.** Standard prices collide with three rules already
+in the prompt: the agent cannot see line items, must never call a charge wrong or duplicated,
+and must never tell a caller what they are entitled to. Give it a price list and the next
+question is "I was charged ninety-five, isn't it eighty-five" -- which it would answer, from a
+list that may not apply to that customer's contract, discount or surcharges. That is the case
+the credit flow exists to route to a person.
+
+**Bank details are left out too.** The agent points at the payment reference on the invoice.
+Reading an IBAN aloud on an inbound call is a known fraud vector and the invoice is the
+authoritative copy.
+
+The block costs about 1,200 characters a language. The prompt and tool schemas are already
+around 24,700 characters resent on every turn, and input is 99.3% of the token spend, so bulk
+is not free -- a catalogue belongs in the RAG knowledge base ElevenLabs provides for exactly
+that, not here. `rag.enabled` is currently false.
+
+
+### 12.68 A knowledge base, in the knowledge base
+
+General company fact -- payment terms, how invoices arrive and are paid, currency and
+languages, where the three sites are and when each is shut -- now lives in ElevenLabs'
+knowledge base rather than in the prompt.
+
+It was first written into the prompt files and reverted. The prompt is behaviour: what the
+agent must and must not do. Opening hours are not behaviour, and a prompt that grows a
+reference section is a prompt nobody rereads.
+
+**It is still a file in this repository.** `agent/knowledge/company.md`, published by the same
+deploy that publishes the prompt and the tool schemas. Company fact the agent states to callers
+should not be edited in a dashboard, where a change leaves no trace and passes no review. A
+text document cannot be edited in place, so each sync creates a new one and deletes the old
+only after the agent points at the replacement -- the workspace already carries two copies of
+somebody else's file from a sync that created without cleaning up.
+
+**Holidays are cantonal, not federal.** There is no such thing as a Swiss public holiday. The
+factory and its office are in Fribourg, the head office and billing in Zug, the sales agency in
+Ticino, and they close on different days: Fribourg adds 2 January, Ticino adds Epiphany, St
+Joseph, 1 May, Sts Peter and Paul and St Stephen, Zug adds nothing. A single shared list would
+tell a Ticino caller the agency is open on a day it is shut. The movable feasts are computed
+from Easter and a test recomputes them. Zug's partial-day observances are left out rather than
+asserted from a scrape.
+
+**No price list.** It collides with three rules already in the prompt: the agent cannot see line
+items, must never call a charge wrong or duplicated, and must never tell a caller what they are
+entitled to. With standard prices the next question is "I was charged ninety-five, isn't it
+eighty-five" -- and it would answer, from figures that may not match that customer's contract,
+discount or surcharges. That is the case the credit flow exists to route to a person.
+
+**No bank details.** The agent points at the payment reference on the invoice. Reading an IBAN
+aloud on an inbound call is a known fraud vector and the invoice is the authoritative copy.
+
+`usage_mode` is `prompt`, so the document is injected each turn and costs what it would have
+cost in the prompt file. What changed is where it is edited and reviewed, not the token count.
+Retrieval instead of injection needs `rag.enabled`, and for fifteen hundred characters the
+saving is small against a new failure mode: an agent that has to retrieve the holiday list
+before it can answer, and might not.

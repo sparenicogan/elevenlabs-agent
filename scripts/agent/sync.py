@@ -81,11 +81,60 @@ class ElevenLabs:
     def update_agent(self, agent_id: str, payload: dict) -> dict:
         return self._call("PATCH", f"/convai/agents/{agent_id}", json=payload)
 
+    def knowledge_documents(self) -> list[dict]:
+        """Every document in the workspace, so ours can be matched by name."""
+        return self._call("GET", "/convai/knowledge-base").get("documents", [])
+
+    def create_knowledge_document(self, name: str, text: str) -> str:
+        """Uploads one document and returns its id."""
+        return self._call("POST", "/convai/knowledge-base/text", json={"name": name, "text": text})[
+            "id"
+        ]
+
+    def delete_knowledge_document(self, document_id: str) -> None:
+        """Removes a superseded document. Called after the replacement is attached, never
+        before -- the workspace already carries two copies of one file from a sync that
+        created without cleaning up."""
+        self._client.request("DELETE", f"{API}/convai/knowledge-base/{document_id}")
+
     def secret_id(self, name: str) -> str:
         for entry in self._call("GET", "/convai/secrets")["secrets"]:
             if entry["name"] == name:
                 return entry["secret_id"]
         raise SystemExit(f"workspace secret not found: {name}")
+
+
+def publish_knowledge(client: "ElevenLabs", declared: dict) -> tuple[list[dict], list[str]]:
+    """
+    Uploads the knowledge base this repository declares and says what to attach.
+
+    client:   the API client.
+    declared: the knowledge_base block from agent.json -- which files, and how they are used.
+
+    Returns: (attachments for the agent, ids of the documents they replace).
+
+    A text document cannot be edited in place, so each sync creates a new one and the old is
+    deleted only after the agent points at the replacement. Doing it the other way round would
+    leave the agent referring to a document that no longer exists.
+    """
+    superseded = [
+        d["id"]
+        for d in client.knowledge_documents()
+        if d.get("name") in set(declared.get("documents") or [])
+    ]
+
+    attachments = []
+    for filename in declared.get("documents") or []:
+        text = (ROOT / "agent" / "knowledge" / filename).read_text()
+        attachments.append(
+            {
+                "type": "file",
+                "name": filename,
+                "id": client.create_knowledge_document(filename, text),
+                "usage_mode": declared.get("usage_mode", "prompt"),
+            }
+        )
+    return attachments, superseded
 
 
 def merged_platform_settings(declared: dict, live: dict) -> dict:
@@ -156,16 +205,21 @@ def main() -> int:
         print(f"would sync {len(tools)} tools and a {len(prompt)}-character prompt")
         declared = (agent_config.get("platform_settings") or {}).get("privacy", {})
         print(f"  retention_days -> {declared.get('retention_days')}")
+        for filename in (agent_config.get("knowledge_base") or {}).get("documents") or []:
+            size = len((ROOT / "agent" / "knowledge" / filename).read_text())
+            print(f"  knowledge -> {filename} ({size} chars)")
         for tool in tools:
             print(f"  {tool['name']:22} {tool['api_schema']['url']}")
         return 0
 
     existing = client.existing_tools()
     tool_ids = [client.upsert_tool(tool, existing) for tool in tools]
+    knowledge, superseded = publish_knowledge(client, agent_config.get("knowledge_base") or {})
 
     conversation_config = json.loads(json.dumps(agent_config["conversation_config"]))
     conversation_config["agent"]["prompt"]["prompt"] = prompt
     conversation_config["agent"]["prompt"]["tool_ids"] = tool_ids
+    conversation_config["agent"]["prompt"]["knowledge_base"] = knowledge
 
     settings = merged_platform_settings(
         agent_config.get("platform_settings") or {},
@@ -180,7 +234,11 @@ def main() -> int:
             "platform_settings": settings,
         },
     )
+    for document_id in superseded:
+        client.delete_knowledge_document(document_id)
+
     print(f"synced {len(tool_ids)} tools and a {len(prompt)}-character prompt")
+    print(f"knowledge: {len(knowledge)} document(s), {len(superseded)} replaced")
     print(f"retention set to {settings.get('privacy', {}).get('retention_days')} days")
     print(f"agent {args.agent_id} updated")
     return 0
