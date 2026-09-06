@@ -1818,3 +1818,23 @@ they are a customer, and what the second person from one company hears.
 
 Nothing in the backend changed. Both behaviours were already possible and simply never asked
 for.
+
+
+### 12.61 The knowledge is not a permission list
+
+§12.60 replaced "verify by default" with one rule: verification is decided by whether
+answering needs a lookup. The same change then added a section headed "What you can answer
+without looking anything up", listing payment terms, what the agent can do itself, and
+transfers.
+
+That was the enumeration coming straight back in. A list of what may be said unverified has
+the identical failure to the list it replaced: whatever is not on it falls through, and
+somebody gets asked for their date of birth to answer a question that needed nothing. It also
+gave the model two authorities that could disagree -- the rule, and the list.
+
+The section is now facts and nothing else. Payment terms are 30 days from the invoice date,
+stated because the agent did not know it, and it says in as many words that this is knowledge
+rather than permission, with the decision left to the rule above it.
+
+The general lesson is the one the whole prompt keeps relearning: a rule that reasons from what
+the agent must *do* survives cases nobody thought of, and a list of allowed *topics* does not.
