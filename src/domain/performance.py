@@ -201,9 +201,6 @@ def build(payload: dict, customer_id: str) -> dict:
 
     row = {
         "conversation_id": str(payload.get("conversation_id") or ""),
-        # Empty string rather than absent: the GSI needs the attribute, and a call nobody
-        # verified is still a row worth keeping.
-        "customer_id": customer_id or "",
         "started_at": (
             datetime.fromtimestamp(int(started), UTC).isoformat()
             if started
@@ -231,4 +228,9 @@ def build(payload: dict, customer_id: str) -> dict:
         "tools": tool_performance(payload),
         "elevenlabs": {k: v for k, v in payload.items() if k not in _EXCLUDED},
     }
+    # Omitted rather than written empty when nobody verified. DynamoDB rejects an empty
+    # string as an index key, and a call belonging to no customer genuinely does not belong
+    # in an index of customers -- it is still a row, just not one reachable that way.
+    if customer_id:
+        row["customer_id"] = customer_id
     return _decimalise(row)

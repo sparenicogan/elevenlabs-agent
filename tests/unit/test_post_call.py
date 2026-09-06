@@ -322,10 +322,29 @@ class TestThePermanentRecord:
         assert tools["check_factor"]["errors"] == 1
 
     def test_an_unverified_call_is_still_recorded(self, stubs):
-        """A call nobody could verify is a data point, not a gap."""
+        """A call nobody could verify is a data point, not a gap -- but it belongs to no
+        customer, so the index key is left off rather than written empty. DynamoDB rejects an
+        empty string as an index key, which is a write that fails rather than a row that is
+        merely odd."""
         stubs["get"].return_value = {}
         call(stubs, PAYLOAD)
-        assert stubs["put_if_absent"].call_args.args[1]["customer_id"] == ""
+        row = stubs["put_if_absent"].call_args.args[1]
+        assert "customer_id" not in row
+        assert row["conversation_id"] == "conv_1"
+
+    def test_a_verified_call_carries_its_customer(self, stubs):
+        stubs["get"].return_value = {"customer_id": "445909044455"}
+        call(stubs, PAYLOAD)
+        assert stubs["put_if_absent"].call_args.args[1]["customer_id"] == "445909044455"
+
+    def test_no_index_key_is_ever_written_empty(self, stubs):
+        """The same mistake as the seed fixture, which failed the same way: an empty phone
+        lookup on a contact with no phone. Index keys are omitted or they are real."""
+        stubs["get"].return_value = {"customer_id": ""}
+        call(stubs, PAYLOAD)
+        row = stubs["put_if_absent"].call_args.args[1]
+        for key in ("customer_id", "started_at"):
+            assert row.get(key, "nonempty") != ""
 
 
 class TestTestTrafficIsSeparable:
