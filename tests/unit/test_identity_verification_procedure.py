@@ -80,3 +80,65 @@ def test_both_decisions_survive_the_backend_being_down(steps):
 
 def test_the_removed_factor_is_asked_for_nowhere(steps):
     assert "opening year" not in json.dumps(steps).lower()
+
+
+class TestAnUnreadableDateIsNotAMatch:
+    """conv_0901m1veyhwbe7qvxm6rfn22pf71. A caller gave a correct email, a correct phone and
+    "March 12, '74". All three per-detail checks said MATCHED; verify_identity then confirmed
+    two of three and refused him. He was who he said he was.
+
+    check_factor asked whether the answer was *mismatched*, and an unreadable date is
+    deliberately neither confirmed nor mismatched -- that is what stops it discarding the
+    answers a caller got right. Reading that absence as a match meant the one endpoint whose
+    whole job is to catch a misheard detail reported the misheard detail as fine.
+    """
+
+    def test_an_unreadable_date_is_not_confirmed(self):
+        from src.domain.verification import Factor, check_factors
+
+        outcome = check_factors(
+            supplied={Factor.DATE_OF_BIRTH: "sometime in seventy four"},
+            stored={Factor.DATE_OF_BIRTH: "1958-11-30"},
+            required_count=1,
+        )
+        assert outcome.confirmed_count == 0
+        # Still not a mismatch: it tells us nothing about the caller either way.
+        assert not outcome.mismatched_factors
+
+    def test_check_factor_asks_whether_it_was_confirmed(self):
+        """The distinction the bug turned on, held in place."""
+        import inspect
+
+        from src.handlers import check_factor
+
+        source = inspect.getsource(check_factor._compares)
+        assert "confirmed_count == 1" in source
+        assert "not outcome.mismatched_factors" not in source
+
+
+class TestDatesSaidAloud:
+    """Every one of these was said on a real call or is a turn of phrase people use. The
+    model is asked to send yyyy-mm-dd and usually will; this is the backstop for when it
+    does not, because the cost of the model not complying is a real customer refused."""
+
+    def test_the_forms_a_caller_actually_uses_all_parse(self):
+        from src.domain.verification import Factor, normalise
+
+        for spoken in (
+            "1958-11-30",
+            "30.11.1958",
+            "30/11/1958",
+            "30 November 1958",
+            "November 30, 1958",
+            "November 30, '58",
+            "30th of November, 1958",
+        ):
+            assert normalise(Factor.DATE_OF_BIRTH, spoken) == "1958-11-30", spoken
+
+    def test_something_nobody_can_read_stays_unreadable(self):
+        """It must never accidentally resolve to a date, or an unreadable answer becomes a
+        wrong one and a caller is failed for the transcription rather than the answer."""
+        from src.domain.verification import UNPARSEABLE_DATE, Factor, normalise
+
+        for noise in ("sometime in seventy four", "the thirtieth", "uhh November"):
+            assert normalise(Factor.DATE_OF_BIRTH, noise) == UNPARSEABLE_DATE, noise

@@ -41,6 +41,11 @@ DATE_FORMATS = (
     "%b %d %Y",
     "%d %B %y",
     "%d %b %y",
+    # "March 12, '74". Said this way constantly, and unreadable until now: the apostrophe is
+    # stripped before parsing, and %y reads 69-99 as 1969-1999, which is the right century
+    # for anybody old enough to be paying invoices.
+    "%B %d %y",
+    "%b %d %y",
 )
 
 # Words a caller says that a date parser cannot. Ordinals only: "twenty-fifth" is a day,
@@ -211,15 +216,34 @@ def _spoken_to_digits(value: str) -> str:
     return " ".join(text.split())
 
 
+def _cleaned_date(value: str) -> str:
+    """
+    Strips the punctuation a transcript puts round a spoken date.
+
+    value: what the caller said, as transcribed.
+
+    Returns: the same date with commas and apostrophes removed and runs of spaces collapsed.
+             "March 12, '74" becomes "March 12 74", which the two-digit-year formats read.
+             Kept separate from the raw attempt so an already-clean date is never altered.
+    """
+    return re.sub(r"\s{2,}", " ", re.sub(r"[,'\u2019]", " ", value)).strip()
+
+
 def _normalise_date(value: str) -> str:
     """Parses a spoken-then-transcribed date into ISO form, or returns a sentinel that can
     never equal a stored date so an unreadable answer is never mistaken for a matching one."""
-    for candidate in (value.strip(), _spoken_to_digits(value)):
+    for candidate in (value.strip(), _cleaned_date(value), _spoken_to_digits(value)):
         for fmt in DATE_FORMATS:
             try:
-                return datetime.strptime(candidate, fmt).date().isoformat()
+                parsed = datetime.strptime(candidate, fmt).date()
             except ValueError:
                 continue
+            # A two-digit year is read by %y as 2000-2068 for 00-68, so somebody born in 1958
+            # saying "fifty-eight" lands in 2058. Nobody has been born in the future, so the
+            # century is not a guess: it is the only reading that can be true.
+            if parsed > date.today():
+                parsed = parsed.replace(year=parsed.year - 100)
+            return parsed.isoformat()
     return UNPARSEABLE_DATE
 
 
