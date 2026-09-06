@@ -6,8 +6,7 @@ locals {
   lambda_package = "${path.module}/../../dist/lambda.zip"
 
   common_environment = {
-    PROJECT            = var.project
-    TRANSCRIPTS_BUCKET = aws_s3_bucket.transcripts.id
+    PROJECT = var.project
   }
 }
 

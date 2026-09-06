@@ -136,7 +136,8 @@ class TestPostCall:
         assert body["status"] == "OK"
         # Every step ran. A partial list means one of them raised.
         assert set(body["completed"]) == {
-            "transcript",
+            "performance",
+            "history",
             "metrics",
             "summary",
             "preferences",
@@ -163,10 +164,10 @@ class TestPostCall:
         assert _post_call(endpoint, webhook_secret, payload).json()["status"] == "OK"
         assert _post_call(endpoint, webhook_secret, payload).json()["status"] == "DUPLICATE"
 
-    def test_the_transcript_reaches_s3_and_only_its_key_reaches_the_table(
-        self, endpoint, webhook_secret
-    ):
-        """The transcript expires in ninety days; the record of it lives for ten years."""
+    def test_the_transcript_is_not_copied_into_our_stores(self, endpoint, webhook_secret):
+        """It expires at ElevenLabs after ninety days (FR-038a), and everything derived from
+        it lives in the performance table, which does not expire. A copy of the words here
+        would be the one thing outliving the retention it is subject to."""
         conversation_id = f"itest_{uuid.uuid4().hex[:10]}"
         _post_call(
             endpoint,
@@ -192,5 +193,5 @@ class TestPostCall:
             "json",
         )
         item = json.loads(raw)["Item"]
-        assert item["transcript_s3_key"]["S"].endswith(f"{conversation_id}.json")
+        assert "transcript_s3_key" not in item
         assert "hello" not in json.dumps(item)

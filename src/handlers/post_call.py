@@ -17,7 +17,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from src.adapters import dynamo, s3, secrets
+from src.adapters import dynamo, secrets
 from src.adapters.errors import ErrorCategory, ToolError
 from src.common import call_history, conversation_state
 from src.common import logging as log
@@ -70,7 +70,6 @@ def handler(event: dict, _context: Any = None) -> dict:
         return {"statusCode": 200, "body": json.dumps({"status": "DUPLICATE"})}
 
     steps = {
-        "transcript": lambda: _store_transcript(conversation_id, payload),
         "performance": lambda: _store_performance(conversation_id, payload),
         "history": lambda: _record_history(conversation_id, payload),
         "metrics": lambda: _store_metrics(conversation_id, payload),
@@ -124,28 +123,6 @@ def _verify_signature(body: str, header: str) -> None:
     # Constant time, so a wrong signature cannot be improved one character at a time.
     if not hmac.compare_digest(expected, digest):
         raise ToolError(ErrorCategory.NOT_AUTHORIZED, "signature mismatch")
-
-
-def _store_transcript(conversation_id: str, payload: dict) -> None:
-    """
-    Writes the transcript to S3 and records the pointer.
-
-    conversation_id: the call.
-    payload:         the post-call payload.
-
-    Returns: nothing. The conversation record holds the key, never the text — a transcript
-             expires in 90 days and the metadata lives for ten years (FR-038a).
-    """
-    customer_id = str(payload.get("customer_id") or "unidentified")
-    key = s3.transcript_key(customer_id, conversation_id, datetime.now(UTC))
-    s3.put_transcript(key, payload)
-
-    dynamo.upsert(
-        CONVERSATIONS_TABLE,
-        {"conversation_id": conversation_id},
-        UpdateExpression="SET transcript_s3_key = :key",
-        ExpressionAttributeValues={":key": key},
-    )
 
 
 def _store_performance(conversation_id: str, payload: dict) -> None:

@@ -8,7 +8,3 @@ output "api_endpoint" {
   value       = aws_apigatewayv2_stage.default.invoke_url
 }
 
-output "transcripts_bucket" {
-  description = "Where post-call transcripts are written."
-  value       = aws_s3_bucket.transcripts.id
-}

@@ -5,6 +5,7 @@ detail; the identity table must be readable by almost nothing; and a transcript 
 long before the metadata about it does.
 """
 
+import json
 import pathlib
 import re
 
@@ -88,6 +89,13 @@ def _audit_retention_days() -> int:
     return int(re.search(r"retention_in_days\s*=\s*(\d+)", after).group(1))
 
 
+def _transcript_retention_days() -> int:
+    """How long a raw transcript survives. Read from the agent configuration, because
+    transcripts are held by ElevenLabs and that setting is what expires them."""
+    agent = json.loads((ROOT / "agent" / "agent.json").read_text())
+    return int(agent["platform_settings"]["privacy"]["retention_days"])
+
+
 class TestRetentionMatchesWhatWasPromised:
     """FR-038a. A transcript is the only artefact with a short life; everything derived from
     it outlives it by years."""
@@ -96,9 +104,10 @@ class TestRetentionMatchesWhatWasPromised:
         return "\n".join(p.read_text() for p in TERRAFORM.glob("*.tf"))
 
     def test_transcripts_expire(self):
-        text = self._terraform()
-        assert "aws_s3_bucket_lifecycle_configuration" in text
-        assert "transcript_retention_days" in text
+        """Enforced by ElevenLabs' retention setting now rather than an S3 lifecycle rule,
+        because that is where transcripts live. Still the storage lifecycle doing it, which
+        is what FR-038a asks for -- not application code remembering to delete."""
+        assert _transcript_retention_days() > 0
 
     def test_the_audit_log_outlives_them_by_years(self):
         """An audit event is the record that a financial decision was taken. It is the last
@@ -107,9 +116,14 @@ class TestRetentionMatchesWhatWasPromised:
         assert _audit_retention_days() >= 3650
 
     def test_a_transcript_expires_long_before_the_record_of_it(self):
-        variables = (TERRAFORM / "variables.tf").read_text()
-        block = variables.split('variable "transcript_retention_days"')[1].split("}")[0]
-        transcript_days = int(re.search(r"default\s*=\s*(\d+)", block).group(1))
+        """FR-038a: raw transcripts 90 days, everything derived from them ten years. The
+        derived record is the performance table, which has no expiry at all."""
+        assert _transcript_retention_days() < _audit_retention_days()
+        assert _transcript_retention_days() <= 90
 
-        assert transcript_days < _audit_retention_days()
-        assert transcript_days <= 90
+    def test_the_record_derived_from_a_transcript_does_not_expire_with_it(self):
+        text = "\n".join(p.read_text() for p in TERRAFORM.glob("*.tf"))
+        performance = text.split('resource "aws_dynamodb_table" "performance"')[1].split(
+            "\nresource "
+        )[0]
+        assert "ttl {" not in performance

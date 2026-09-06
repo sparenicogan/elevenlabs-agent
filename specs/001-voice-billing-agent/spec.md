@@ -766,11 +766,15 @@ tickets carry a note saying they were applied, and running the applier again wri
 
 ### Memory, audit, and metrics
 
-- **FR-038**: Raw transcripts MUST be stored per customer and conversation and deleted after 90 days.
+- **FR-038**: Raw transcripts MUST be deleted after 90 days. They are held by ElevenLabs rather than
+  copied into our own store, so the agent's retention setting is what enforces this; it is declared
+  in `agent/agent.json` and applied by the deploy pipeline, not set by hand in a dashboard.
 - **FR-038a**: Retention MUST be applied per record class and MUST be configuration: raw transcripts
   90 days; conversation metadata and per-interaction metrics 10 years; the customer summary until 12
   months after account closure; audit events 10 years. Expiry MUST be enforced by the storage
-  lifecycle rather than by application code remembering to delete.
+  lifecycle rather than by application code remembering to delete. The record derived from a
+  transcript — cost, tokens, sentiment, latency, outcome and per-tool timings — is kept in the
+  performance table, which has no expiry, so the transcript outliving nothing is the point.
 - **FR-039**: Exactly one interaction summary MUST exist per customer, covering recent billing
   issues, unresolved disputes, outcomes, language and communication preferences, company commitments,
   prior resolution steps, and permitted risk patterns, with provenance to its source conversations.

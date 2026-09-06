@@ -23,15 +23,14 @@ locals {
     # follow is not a demo you can debug.
     default_language = "en"
 
-    credit_max_per_request    = "100"
-    credit_max_rolling        = "500"
-    credit_window_months      = "12"
-    allocation_authority_max  = "0"
-    tool_timeout_seconds      = "5"
-    read_retry_count          = "1"
-    transcript_retention_days = tostring(var.transcript_retention_days)
-    summary_max_chars         = "2000"
-    resolution_target_hours   = "24"
+    credit_max_per_request   = "100"
+    credit_max_rolling       = "500"
+    credit_window_months     = "12"
+    allocation_authority_max = "0"
+    tool_timeout_seconds     = "5"
+    read_retry_count         = "1"
+    summary_max_chars        = "2000"
+    resolution_target_hours  = "24"
   }
 }
 

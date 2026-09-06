@@ -1763,3 +1763,30 @@ and naming move the odds that a model says a sentence; they cannot guarantee it.
 depend on the model is `_record_callback`, which runs before any transfer is attempted — so
 the caller is owed a call back whether or not the agent remembered to mention it. The promise
 being spoken is a courtesy; the promise being true is a control.
+
+
+### 12.59 Transcripts stay at ElevenLabs, and expire there
+
+The transcript bucket is gone, along with the S3 adapter, the lifecycle rule, the IAM grant and
+the `transcript_s3_key` written onto conversation rows.
+
+**It was never used.** All 36 objects in it were integration-test artefacts: no real
+conversation ever produced one, because the post-call webhook was created on 2026-09-04 at
+18:16 and not one of the 44 conversations on record started after that. The whole post-call
+path -- transcript, summary, metrics, callback backstop -- has still never run on a real call.
+
+**Retention is 90 days, not ten years.** The first instinct was ten, which would have been a
+plain breach of FR-038a: raw transcripts 90 days, everything *derived* from them ten years.
+Deleting the bucket removes the S3 lifecycle rule that used to enforce the 90, so the agent's
+own `privacy.retention_days` is now the only thing expiring them -- which is why it is
+declared in `agent.json` and pushed by CI rather than clicked in a dashboard. The workspace
+default was `-1`, meaning never.
+
+**What is lost.** `s3.transcript_key` partitioned by customer specifically so an erasure
+request was answerable with a prefix delete in our own account. It is now a call to
+ElevenLabs' API instead. For a Swiss B2B agent that is a real reduction in control, taken
+deliberately: the bucket held nothing, and a store that has never been written to is not worth
+the surface it costs.
+
+The ten years still applies where FR-038a puts it -- the performance table, which has no TTL
+and holds cost, tokens, sentiment, latency, outcome and per-tool timings for every call.

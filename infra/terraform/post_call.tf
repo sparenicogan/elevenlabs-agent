@@ -33,12 +33,6 @@ data "aws_iam_policy_document" "post_call" {
 
   statement {
     effect    = "Allow"
-    actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.transcripts.arn}/*"]
-  }
-
-  statement {
-    effect    = "Allow"
     actions   = ["kms:Decrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
     resources = [aws_kms_key.data.arn, aws_kms_key.identity.arn]
   }
