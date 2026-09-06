@@ -100,18 +100,26 @@ class ElevenLabs:
     def workspace_webhooks(self) -> list[dict]:
         return self._call("GET", "/workspace/webhooks").get("webhooks", [])
 
-    def update_webhook(self, webhook_id: str, name: str, retry_enabled: bool) -> None:
+    def update_webhook(
+        self, webhook_id: str, name: str, retry_enabled: bool, is_disabled: bool
+    ) -> None:
         """
         Applies the delivery settings this repository declares.
 
-        Never touches is_disabled. A webhook auto-disables after ten consecutive failures, and
-        a deploy that silently switched it back on would hide the thing that disabled it and
-        spend another ten deliveries finding out. Re-enabling stays a deliberate act.
+        is_disabled is passed back exactly as it was found, never as a decision. The API
+        requires the field -- omitting it answers 422 -- but a webhook auto-disables after ten
+        consecutive failures, and a deploy that silently switched it back on would hide the
+        thing that disabled it and spend another ten deliveries finding out. Re-enabling stays
+        a deliberate act by somebody who has read the failure.
         """
         self._call(
             "PATCH",
             f"/workspace/webhooks/{webhook_id}",
-            json={"name": name, "retry_enabled": retry_enabled},
+            json={
+                "name": name,
+                "retry_enabled": retry_enabled,
+                "is_disabled": is_disabled,
+            },
         )
 
     def secret_id(self, name: str) -> str:
@@ -261,6 +269,7 @@ def main() -> int:
                 hook["webhook_id"],
                 declared_webhook["name"],
                 bool(declared_webhook.get("retry_enabled")),
+                bool(hook.get("is_disabled")),
             )
             state = "disabled" if hook.get("is_disabled") else "enabled"
             print(

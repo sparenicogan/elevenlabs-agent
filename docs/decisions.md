@@ -2135,3 +2135,21 @@ for a cold start or a 5xx; they are not a substitute for the endpoint being righ
 consecutive failures, which is a useful signal. A deploy that quietly switched it back on would
 hide whatever disabled it and spend ten more deliveries rediscovering the same fault. Turning it
 back on stays a deliberate act by a person who has read the failure.
+
+
+### 12.72 The webhook PATCH needs the flag it must not change
+
+The deploy for the webhook fix failed on `PATCH /workspace/webhooks/... -> 422`. `is_disabled`
+and `name` are both required; the call sent only `name`, because leaving `is_disabled` out was
+how the sync avoided re-enabling a webhook that had disabled itself.
+
+The field is sent now, read from the webhook and passed straight back. Required by the API,
+never decided by us: a webhook auto-disables after ten consecutive failures, and a deploy that
+quietly switched it back on would hide the fault and spend ten more deliveries rediscovering
+it.
+
+Verified against the live API before merging this time -- `200 ok`, `retry_enabled` true,
+`is_disabled` unchanged. That check is the one that was missing when the same mistake broke
+three deploys earlier today with `eleven_turbo_v2_5`: a call to somebody else's API, written
+from documentation and shipped without ever being run. Twice in one day is a pattern, and the
+lesson is cheap -- exercise the request once before the pipeline does.
