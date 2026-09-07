@@ -171,16 +171,27 @@ class TestTheWebhookSettingsAreDeclared:
     def test_retries_are_on(self):
         assert AGENT["webhook"]["retry_enabled"] is True
 
-    def test_the_sync_never_re_enables_a_disabled_webhook(self):
-        """A webhook disables itself after ten consecutive failures. A deploy that switched it
-        back on would hide whatever disabled it and spend ten more deliveries rediscovering
-        it. Re-enabling is a deliberate act, not a side effect of shipping."""
-        import inspect
-
+    def test_the_sync_sends_the_disabled_flag_back_unchanged(self, mocker):
+        """The API requires is_disabled -- omitting it answers 422 and broke a deploy. It is
+        echoed, never decided: a webhook disables itself after ten consecutive failures, and a
+        deploy that switched it back on would hide whatever disabled it and spend ten more
+        deliveries rediscovering it."""
         from scripts.agent import sync
 
-        body = inspect.getsource(sync.ElevenLabs.update_webhook)
-        assert "is_disabled" not in body.split('"""')[2]
+        client = sync.ElevenLabs.__new__(sync.ElevenLabs)
+        call = mocker.patch.object(sync.ElevenLabs, "_call")
+        for state in (True, False):
+            sync.ElevenLabs.update_webhook(client, "w1", "hook", True, state)
+            assert call.call_args.kwargs["json"]["is_disabled"] is state
+
+    def test_it_carries_every_field_the_api_requires(self, mocker):
+        """name and is_disabled are both required. The first deploy sent only name."""
+        from scripts.agent import sync
+
+        client = sync.ElevenLabs.__new__(sync.ElevenLabs)
+        call = mocker.patch.object(sync.ElevenLabs, "_call")
+        sync.ElevenLabs.update_webhook(client, "w1", "hook", True, False)
+        assert set(call.call_args.kwargs["json"]) == {"name", "retry_enabled", "is_disabled"}
 
     def test_retries_do_not_cover_the_failure_that_disabled_it(self):
         """Documented as transient failures only: 5xx, 429, timeout. A 400 is permanent and is
