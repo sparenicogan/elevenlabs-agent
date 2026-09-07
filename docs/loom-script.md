@@ -65,7 +65,7 @@ _Point at `get_account_context`, then `match_payment`._
 > record — the agent never reads the stored figures out first, because then the question is
 > worthless.
 
-_Point at `propose_allocation` → `UNDER_REVIEW`, ticket 432112239860._
+_Point at `propose_allocation` → `UNDER_REVIEW`, and at the ticket id it returns._
 
 > Match. And here is the important part: it raises a ticket. It does not allocate the payment.
 
@@ -101,7 +101,7 @@ _Play `conv_3001m1vrgmhaea6vgp6fgj3tkqca`._
 
 _Point at `propose_allocation` → `ALREADY_UNDER_REVIEW`, **the same ticket id**._
 
-> Same ticket. 432112239860. The agent finds the review his colleague already raised and tells
+> Same ticket id as the first call. The agent finds the review his colleague already raised and tells
 > him it is in hand, rather than opening a second one.
 >
 > Two tickets for one problem means two people working it and two different answers reaching
